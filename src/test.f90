@@ -172,7 +172,7 @@ Subroutine test3
     integer :: i
     ! out_p(1:nl(1),1:nl(2),1:nl(3)) = phi(1:nl(1),1:nl(2),1:nl(3))
     ! out_p(1:nl(1),1:nl(2),1:nl(3)) = u(1:nl(1),1:nl(2),1:nl(3))
-    out_p(1:nl(1),1:nl(2),1:nl(3)) = v%values(1:nl(1),1:nl(2),1:nl(3))
+    out_p(1:nl(1),1:nl(2),1:nl(3)) = v(1:nl(1),1:nl(2),1:nl(3))
     do i = 1,4
       if (myid .eq. i-1) then
         print *, myid
@@ -196,20 +196,61 @@ end Subroutine test3
 Subroutine test4
   use ModGlobal
   Implicit None
-  Integer :: nexch(2)
+  ! Integer :: nexch(2)
 
  Call Init(inputfield=.true.)
+ Call InitBound
 
- nexch = nl(1:2)
- Call ExchMPI(nexch,u%values)
+ ! ! Test Dilichelet 
+ ! if all comment, it will use the default Nuemann
+ phi_bc%bound_type(:,:) = 1
+ phi_bc%bound_value(:,:) = 10
+ cx_bc%bound_type(:,:) = 1
+ cx_bc%bound_value(:,:) = 10
+ cy_bc%bound_type(:,:) = 1
+ cy_bc%bound_value(:,:) = 10
+ u_bc%bound_type(:,:) = 1
+ u_bc%bound_value(:,:) = 10
+ v_bc%bound_type(:,:) = 1
+ v_bc%bound_value(:,:) = 10
+
+ ! ! Do this test first, then apply the SetBCS fubction
+ ! nexch = nl(1:2)
+ ! call updthalo(nexch,1,u)
+ ! call updthalo(nexch,2,u)
+
+ ! if(left .eq.MPI_PROC_NULL)  Call u_bc%setBC(1, -1, u)
+ ! if(right .eq.MPI_PROC_NULL) Call u_bc%setBC(1, 1, u)
+ ! if(front .eq.MPI_PROC_NULL) Call u_bc%setBC(2, -1, u)
+ ! if(back .eq.MPI_PROC_NULL)  Call u_bc%setBC(2, 1, u)
+ ! Call u_bc%setBC(3, -1, u)
+ ! Call u_bc%setBC(3, 1, u)
+
+ ! After testing, we should be able to use a simplified Version
+ Call u_bc%setBCS(u)
+ Call v_bc%setBCS(v)
+ Call phi_bc%setBCS(phi)
 
   block
     integer :: j,k
+    If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', phi_bc%lohi(1,1), phi_bc%lohi(1,2)
+    If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', phi_bc%lohi(2,1), phi_bc%lohi(2,2)
+    If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', phi_bc%lohi(3,1), phi_bc%lohi(3,2)
+    ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', u_bc%lohi(1,1), u_bc%lohi(1,2)
+    ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', u_bc%lohi(2,1), u_bc%lohi(2,2)
+    ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', u_bc%lohi(3,1), u_bc%lohi(3,2)
+    ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', v_bc%lohi(1,1), v_bc%lohi(1,2)
+    ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', v_bc%lohi(2,1), v_bc%lohi(2,2)
+    ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', v_bc%lohi(3,1), v_bc%lohi(3,2)
     do k = 1,4
       if (myid .eq. k-1) then
         print *, myid
         do j = 0, nl(2)+1
-          print *, u%values(:,j,1)
+          ! print *, phi(:,j,2)
+          ! print *, phi(:,j,0)
+          ! print *, v(:,j,nl(3))
+          ! print *, phi(:,j,0) - phi(:,j,1)
+          ! print *, phi(:,j,nl(3)+1) - phi(:,j,nl(3))
         end do
       end if
       call MPI_Barrier(MPI_COMM_WORLD, ierr)

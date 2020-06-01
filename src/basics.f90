@@ -69,26 +69,23 @@ Module ModGlobal
   !! Field data
   Type Field
     Character(100) :: name
-    Real(SP), Allocatable :: values(:,:,:)
     Integer :: bound_type(3,2)
     Integer :: bound_value(3,2)
     Integer :: lohi(3,2)
-    Procedure(BCC), Pointer :: SetBC => NULL()
+  Contains
+    procedure :: SetBC
+    procedure :: SetBCS
   End Type Field
-  Interface
-    Subroutine BCC(f,idir,isign)
-      import
-      Implicit None
-      Class(Field) :: f
-      Integer :: idir
-      Integer :: isign
-    End Subroutine BCC
-  end Interface
-  Type(Field) :: phi
-  Type(Field) :: u
-  Type(Field) :: v
-  Type(Field) :: cx
-  Type(Field) :: cy
+  Real(SP), Allocatable :: phi(:,:,:)
+  Type(Field)           :: phi_bc
+  Real(SP), Allocatable :: u(:,:,:)
+  Type(Field)           :: u_bc
+  Real(SP), Allocatable :: v(:,:,:)
+  Type(Field)           :: v_bc
+  Real(SP), Allocatable :: cx(:,:,:)
+  Type(Field)           :: cx_bc
+  Real(SP), Allocatable :: cy(:,:,:)
+  Type(Field)           :: cy_bc
 
 Contains
 
@@ -299,19 +296,19 @@ Contains
     do i = 1, n_vars
       if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), phi%values, data_name)
+        Call HDF5ReadData(h5_input_field(i), phi, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), u%values, data_name)
+        Call HDF5ReadData(h5_input_field(i), u, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), v%values, data_name)
+        Call HDF5ReadData(h5_input_field(i), v, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), cx%values, data_name)
+        Call HDF5ReadData(h5_input_field(i), cx, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), cy%values, data_name)
+        Call HDF5ReadData(h5_input_field(i), cy, data_name)
       endif
     end do
 
@@ -496,41 +493,30 @@ Contains
     Implicit None
 
     ! Allocate variables
-    Allocate(phi%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(u%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(v%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(cx%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(cy%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(  u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(  v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate( cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate( cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
 
-    phi%values = 0.0_sp
-    u%values   = 0.0_sp
-    v%values   = 0.0_sp
-    cx%values  = 0.0_sp
-    cy%values  = 0.0_sp
+    phi = 0.0_sp
+    u   = 0.0_sp
+    v   = 0.0_sp
+    cx  = 0.0_sp
+    cy  = 0.0_sp
 
     End Subroutine InitShape
 
 
-  !======================
-  ! Exchage all inner bounds
-  ! consists of 2 subroutines for each direction
-  !======================
-  Subroutine ExchMPI(n,p)
-    Implicit None
-    integer , dimension(2), intent(in) :: n
-    real(sp), dimension(0:,0:,0:), intent(inout) :: p
-    call updthalo((/n(1),n(2)/),1,p)
-    call updthalo((/n(1),n(2)/),2,p)
-  End Subroutine ExchMPI
 
   !============================
   ! mpi exchange for one direction
   !============================
-  subroutine updthalo(n,idir,p)
+  subroutine updthalo(n,idir,f)
     implicit none
     integer , dimension(2), intent(in) :: n
     integer , intent(in) :: idir
-    real(sp), dimension(0:,0:,0:), intent(inout) :: p
+    Real(sp), Intent(InOut) :: f(0:,0:,0:)
     !integer :: requests(4), statuses(MPI_STATUS_SIZE,4)
     !
     !  this subroutine updates the halos that store info
@@ -538,11 +524,11 @@ Contains
     !
     select case(idir)
     case(1) ! x direction
-      call MPI_SENDRECV(p(1     ,0,0),1,xhalo,left ,0, &
-                        p(n(1)+1,0,0),1,xhalo,right,0, &
+      call MPI_SENDRECV(f(1     ,0,0),1,xhalo,left ,0, &
+                        f(n(1)+1,0,0),1,xhalo,right,0, &
                         comm_cart,status,ierr)
-      call MPI_SENDRECV(p(n(1),0,0),1,xhalo,right,0, &
-                        p(0   ,0,0),1,xhalo,left ,0, &
+      call MPI_SENDRECV(f(n(1),0,0),1,xhalo,right,0, &
+                        f(0   ,0,0),1,xhalo,left ,0, &
                         comm_cart,status,ierr)
          !call MPI_IRECV(p(0     ,0,0),1,xhalo,left ,1, &
          !               comm_cart,requests(2),error)
@@ -554,11 +540,11 @@ Contains
          !               comm_cart,requests(3),error)
          !call MPI_WAITALL(4, requests, statuses, error)
     case(2) ! y direction
-      call MPI_SENDRECV(p(0,1     ,0),1,yhalo,front,0, &
-                        p(0,n(2)+1,0),1,yhalo,back ,0, &
+      call MPI_SENDRECV(f(0,1     ,0),1,yhalo,front,0, &
+                        f(0,n(2)+1,0),1,yhalo,back ,0, &
                         comm_cart,status,ierr)
-      call MPI_SENDRECV(p(0,n(2),0),1,yhalo,back ,0, &
-                        p(0,0   ,0),1,yhalo,front,0, &
+      call MPI_SENDRECV(f(0,n(2),0),1,yhalo,back ,0, &
+                        f(0,0   ,0),1,yhalo,front,0, &
                         comm_cart,status,ierr)
          !call MPI_IRECV(p(0,n(2)+1,0),1,yhalo,back ,0, &
          !               comm_cart,requests(1),error)
@@ -578,67 +564,116 @@ Contains
   Subroutine InitBound
     Implicit None
 
-    phi%name = 'phi'
-    phi%lohi(:,1) = 0
-    phi%lohi(:,2) = nl(:)
-    cx%name = 'cx'
-    cx%lohi(:,1) = 0
-    cx%lohi(:,2) = nl(:)
-    cy%name = 'cy'
-    cy%lohi(:,1) = 0
-    cy%lohi(:,2) = nl(:)
+    phi_bc%name = 'phi'
+    phi_bc%lohi(:,1) = 0
+    phi_bc%lohi(:,2) = nl(:)+1
+    cx_bc%name = 'cx'
+    cx_bc%lohi(:,1) = 0
+    cx_bc%lohi(:,2) = nl(:)+1
+    cy_bc%name = 'cy'
+    cy_bc%lohi(:,1) = 0
+    cy_bc%lohi(:,2) = nl(:)+1
 
-    u%name = 'u'
-    phi%lohi(:,1) = 0
-    phi%lohi(:,2) = nl(:)
-    phi%lohi(1,2) = nl(1) - 1
-    v%name = 'v'
-    v%lohi = 0
-    phi%lohi(:,2) = nl(:)
-    phi%lohi(2,2) = nl(1) - 1
+    u_bc%name = 'u'
+    u_bc%lohi(:,1) = 0
+    u_bc%lohi(:,2) = nl(:)+1
+    u_bc%lohi(1,2) = nl(1)
+    v_bc%name = 'v'
+    v_bc%lohi = 0
+    v_bc%lohi(:,2) = nl(:)+1
+    v_bc%lohi(2,2) = nl(2)
 
     ! At present, the values are not imported from file, but assigned directly here.
-    phi%bound_type = 2
-    phi%bound_value = 0
+    ! For VOF problem, always set to 0 Nuemann
+    phi_bc%bound_type(:,:) = 2
+    phi_bc%bound_value(:,:) = 0
 
-    cx%bound_type = 2
-    cx%bound_value = 0
+    cx_bc%bound_type(:,:) = 2
+    cx_bc%bound_value(:,:) = 0
 
-    cy%bound_type = 2
-    cy%bound_value = 0
+    cy_bc%bound_type(:,:) = 2
+    cy_bc%bound_value(:,:) = 0
 
-    u%bound_type = 2
-    u%bound_value = 0
+    u_bc%bound_type(:,:) = 2
+    u_bc%bound_value(:,:) = 0
 
-    v%bound_type = 2
-    v%bound_value = 0
+    v_bc%bound_type(:,:) = 2
+    v_bc%bound_value(:,:) = 0
 
   End Subroutine InitBound
 
-  ! Subroutine SetBC(f, idir, isign)
-  !   Implicit None
-  !   Class(Field) :: f
-  !   Integer :: idir
-  !   Integer :: isign
-!     Integer, Intent(in) :: idir
-!     Integer, Intent(in) :: isign
-!     Integer :: ind
+  Subroutine SetBCS(self,f)
+    Implicit None
+    Class(Field) :: self
+    Integer :: nexch(2)
+    Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    nexch = nl(1:2)
 
-!     if (isign .eq. -1 ) then
-!       ind = f%lohi(idir,0)
-!     else
-!       ind = f%lohi(idir,1)
-!     end if
+    call updthalo(nexch,1,f)
+    call updthalo(nexch,2,f)
+    if(left .eq.MPI_PROC_NULL)  Call self%setBC(1, -1, f)
+    if(right .eq.MPI_PROC_NULL) Call self%setBC(1, 1, f)
+    if(front .eq.MPI_PROC_NULL) Call self%setBC(2, -1, f)
+    if(back .eq.MPI_PROC_NULL)  Call self%setBC(2, 1, f)
+    Call self%setBC(3, -1, f)
+    Call self%setBC(3, 1, f)
+  End Subroutine SetBCS
 
-!     Select Case(f%bound_type)
-!     Case(1)
-!       Select Case(idir)
-!       Case(0)
-!         f%values
-!       Case(1)
-!       Case(3)
-!       End Select
+  !===============================
+  ! Set bounday values.
+  ! Only fixed Dirichelt and Nuemann is supported
+  ! Need further test if appleid to problems other than VOF
+  !     bound_type:
+  !        1: Dilichlet
+  !        2: Nuemann
+  !===============================
+  Subroutine SetBC(self, idir, isign, f)
+    Implicit None
+    Class(Field) :: self
+    Integer, Intent(in) :: idir
+    Integer, Intent(in) :: isign
+    Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Integer :: ind
+    Integer :: hl
 
-  ! End Subroutine SetBC
+    if (isign .eq. -1 ) then
+      ind = self%lohi(idir,1)
+      hl = 1
+    else  if (isign .eq. 1 ) then
+      ind = self%lohi(idir,2)
+      hl = 2
+    else
+      if (myid .eq. 0) print *,'Wrong bc isign value, should be -1 or 1'
+      Call MPI_FINALIZE(ierr)
+    end if
+
+    Select Case(idir)
+    Case(1)
+      Select Case(self%bound_type(idir,hl))
+      Case(1)
+        f(ind,:,:) = self%bound_value(idir,hl)
+      Case(2)
+        f(ind,:,:) = f(ind-isign,:,:) + &
+            isign * f(ind-isign,:,:) * self%bound_value(idir,hl) / dl(1)
+      End Select
+    Case(2)
+      Select Case(self%bound_type(idir,hl))
+      Case(1)
+        f(:,ind,:) = self%bound_value(idir,hl)
+      Case(2)
+        f(:,ind,:) = f(:,ind-isign,:) + &
+            isign * f(:,ind-isign,:) * self%bound_value(idir,hl) / dl(2)
+      End Select
+    Case(3)
+      Select Case(self%bound_type(idir,hl))
+      Case(1)
+        f(:,:,ind) = self%bound_value(idir,hl)
+      Case(2)
+        f(:,:,ind) = f(:,:,ind-isign) + &
+            isign * f(:,:,ind-isign) * self%bound_value(idir,hl) / dl(3)
+      End Select
+    End Select
+
+  End Subroutine SetBC
 
 End Module ModGlobal

@@ -1,3 +1,5 @@
 *.mod
 *.o
 *genmod.f90
+src/TEST-*
+src/buffer.f90
