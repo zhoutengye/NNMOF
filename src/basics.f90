@@ -19,6 +19,9 @@ Module ModGlobal
   Use hdf5
   Implicit None
   save
+  ! Precisoin controls single or double
+  Integer, Parameter :: sp = setsp
+
   !! -----(1) Global variables------------
   !! MPI variables
   Integer  :: myid
@@ -602,6 +605,9 @@ Contains
 
   End Subroutine InitBound
 
+  !=======================
+  ! Call all MPI and physical boundary condition
+  !=======================
   Subroutine SetBCS(self,f)
     Implicit None
     Class(Field) :: self
@@ -626,6 +632,11 @@ Contains
   !     bound_type:
   !        1: Dilichlet
   !        2: Nuemann
+  !     idir:
+  !        1,2,3: x,y,z
+  !     isign:
+  !        -1: means lower boundary
+  !         1: means upper boundary
   !===============================
   Subroutine SetBC(self, idir, isign, f)
     Implicit None

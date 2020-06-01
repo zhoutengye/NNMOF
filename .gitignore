@@ -3,3 +3,4 @@
 *genmod.f90
 src/TEST-*
 src/buffer.f90
+src/*.h5

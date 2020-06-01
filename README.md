@@ -7,12 +7,7 @@ Nueral Network boosted Moment of Fluid
 
 ## Note:
 
-(1) Only support one ghost cell layer.
-    For MPI exchange, always 0 and n(i+1) as halo nodes.
-    For centered variable, 0 and n(i+1) are boundary nodes.
-    For face variable, 0 and n(i) are boundary nodes.
-
-(2) Execute with command
+(1) Execute with command
 
     mpirun -np (X) (executable) (input)
 
@@ -24,7 +19,19 @@ Nueral Network boosted Moment of Fluid
     for example, for file test3.namelist, the (input) should be test3.
     If no (input) is given, it will search for the default input file input.namelist.
 
-(3) Only HDF5 is supported for input and output field files.
+(2) Only HDF5 is supported for input and output field files.
+
+(3) Only support one ghost cell layer.
+    For MPI exchange, always 0 and n(i+1) as halo nodes.
+    For centered variable, 0 and n(i+1) are boundary nodes.
+    For face variable, 0 and n(i) are boundary nodes.
+
+(4) Now boundary conditoin only support fixed value Dilichilet and Nuemann.
+The `Field` type contains the BC information. `lohi` indicates the index of the boundary in each 
+direction, `bound_type` is the type of boundary conditoin, 1 means Dilichlet, 2 means Nuemann;
+`bound_value` is the value of the boundary conditoin. The shape of `lohi`, `bound_value` and 
+`bound_type` are `(3,2)`. 
+When calling
 
 
 ## GTD

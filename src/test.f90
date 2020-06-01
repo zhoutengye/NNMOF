@@ -246,9 +246,9 @@ Subroutine test4
       if (myid .eq. k-1) then
         print *, myid
         do j = 0, nl(2)+1
-          ! print *, phi(:,j,2)
+          print *, phi(:,j,2)
           ! print *, phi(:,j,0)
-          ! print *, v(:,j,nl(3))
+          ! print *, v(:,j,nl(3)+1)
           ! print *, phi(:,j,0) - phi(:,j,1)
           ! print *, phi(:,j,nl(3)+1) - phi(:,j,nl(3))
         end do
