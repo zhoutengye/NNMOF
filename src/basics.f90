@@ -1,3 +1,17 @@
+!================================
+! Basic module. Includes:
+!     (1) Global variables
+!     (2) Initialization
+!     (3) Read parameters from namelist
+!     (4) HDF5 for field IO
+!     (5) MPI initialization and exchange
+!     (6) Boundary conditions
+!
+!   - Note:
+!   - (2) Calls (3, 4, 5, 6)
+!   -  Seach the above key value to reach the start and end code blocks
+!
+!================================
 # include "param.h"
 
 Module ModGlobal
@@ -5,7 +19,8 @@ Module ModGlobal
   Use hdf5
   Implicit None
   save
-  !! MPI variables 
+  !! -----(1) Global variables------------
+  !! MPI variables
   Integer  :: myid
   Integer  :: left,right,front,back
   Integer, dimension(2) :: coord
@@ -46,21 +61,38 @@ Module ModGlobal
   End Type HDF5Group
   Type(HDF5File)  :: h5_input
   Type(HDF5File)  :: h5_output
-  Integer :: n_inputs
-  Integer :: n_outputs
+  Integer :: n_vars
   Type(HDF5Group), allocatable :: h5_input_field(:)
   Type(HDF5Group), allocatable :: h5_output_field(:)
   Character(80) :: output_name, output_path
 
   !! Field data
-  Real(SP), Allocatable :: phi(:,:,:)
-  Real(SP), Allocatable :: u(:,:,:)
-  Real(SP), Allocatable :: v(:,:,:)
-  Real(SP), Allocatable :: cx(:,:,:)
-  Real(SP), Allocatable :: cy(:,:,:)
+  Type Field
+    Character(100) :: name
+    Real(SP), Allocatable :: values(:,:,:)
+    Integer :: bound_type(3,2)
+    Integer :: bound_value(3,2)
+    Integer :: lohi(3,2)
+    Procedure(BCC), Pointer :: SetBC => NULL()
+  End Type Field
+  Interface
+    Subroutine BCC(f,idir,isign)
+      import
+      Implicit None
+      Class(Field) :: f
+      Integer :: idir
+      Integer :: isign
+    End Subroutine BCC
+  end Interface
+  Type(Field) :: phi
+  Type(Field) :: u
+  Type(Field) :: v
+  Type(Field) :: cx
+  Type(Field) :: cy
 
 Contains
 
+  !! -----(2) Initialization------------
   Subroutine Init(inputfield)
     Implicit None
     Logical, intent(in) :: inputfield
@@ -80,7 +112,9 @@ Contains
     Call H5LoadInit
 
   End Subroutine Init
-
+  !! -----End Initialization------------
+  
+  !! -----(3) Read parameters from namelist------------
   !======================
   ! Initialize parameters
   !======================
@@ -89,8 +123,7 @@ Contains
     Integer  :: nx, ny, nz
     Real(sp) :: dx, dy, dz
     Real(sp) :: px, py
-    Logical  :: i_phi, i_u, i_v, i_cx, i_cy
-    Logical  :: o_phi, o_u, o_v, o_cx, o_cy
+    Logical  :: io_phi, io_u, io_v, io_cx, io_cy
     Integer  :: nn
     Character(80) :: input_name
     Character(80) :: file_name
@@ -99,8 +132,7 @@ Contains
     namelist /gridvar/ nx,ny,nz,dx,dy,dz
     namelist /compvar/ dt, tstart, tend
     namelist /outvar/ output_inteval, startframe
-    namelist /inputfield/ n_inputs, i_phi, i_u, i_v, i_cx, i_cy
-    namelist /outputfield/ output_path, output_name, n_outputs, o_phi, o_u, o_v, o_cx, o_cy
+    namelist /iofield/ n_vars, io_phi, io_u, io_v, io_cx, io_cy, output_path, output_name
 
     Call getarg(1,input_name)
     if (INPUT_NAME .eq. '') Then
@@ -116,8 +148,7 @@ Contains
       Read(10, nml = gridvar)
       Read(10, nml = compvar)
       Read(10, nml = outvar)
-      Read(10, nml = inputfield)
-      Read(10, nml = outputfield)
+      Read(10, nml = iofield)
       dims(1) = px
       dims(2) = py
       n(1) = nx
@@ -151,207 +182,59 @@ Contains
     Call MPI_BCAST(startframe, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
-    Call MPI_BCAST(n_inputs, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(i_phi, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(i_u, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(i_v, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(i_cx, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(i_cy, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-
     Call MPI_BCAST(output_name, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(output_path, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(n_outputs, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(n_vars, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(o_phi, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_phi, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(o_u, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_u, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(o_v, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_v, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(o_cx, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_cx, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(o_cy, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_cy, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     ! Determine input variables for HDF5
-    Allocate(h5_input_field(n_inputs))
+    Allocate(h5_input_field(n_vars))
+    Allocate(h5_output_field(n_vars))
     nn = 1
-    If (i_phi) Then
+    If (io_phi) Then
       h5_input_field(nn)%groupname = 'phi'
-      nn = nn + 1
-    End If
-    If (i_u) Then
-      h5_input_field(nn)%groupname = 'u'
-      nn = nn + 1
-    End If
-    If (i_v) Then
-      h5_input_field(nn)%groupname = 'v'
-      nn = nn + 1
-    End If
-    If (i_cx) Then
-      h5_input_field(nn)%groupname = 'cx'
-      nn = nn + 1
-    End If
-    If (i_cy) Then
-      h5_input_field(nn)%groupname = 'cy'
-      nn = nn + 1
-    End If
-
-    Allocate(h5_output_field(n_inputs))
-    nn = 1
-    If (o_phi) Then
       h5_output_field(nn)%groupname = 'phi'
       nn = nn + 1
     End If
-    If (o_u) Then
+    If (io_u) Then
+      h5_input_field(nn)%groupname = 'u'
       h5_output_field(nn)%groupname = 'u'
       nn = nn + 1
     End If
-    If (o_v) Then
+    If (io_v) Then
+      h5_input_field(nn)%groupname = 'v'
       h5_output_field(nn)%groupname = 'v'
       nn = nn + 1
     End If
-    If (o_cx) Then
+    If (io_cx) Then
+      h5_input_field(nn)%groupname = 'cx'
       h5_output_field(nn)%groupname = 'cx'
       nn = nn + 1
     End If
-    If (o_cy) Then
+    If (io_cy) Then
+      h5_input_field(nn)%groupname = 'cy'
       h5_output_field(nn)%groupname = 'cy'
       nn = nn + 1
     End If
 
+
   End Subroutine Init_param
-
-  !======================
-  ! Initialize mpi with 2D pencil like blocks
-  ! Adopted from CaNS
-  !======================
-  Subroutine Initmpi(n)
-    implicit none
-    integer, intent(in), dimension(3) :: n
-    integer :: ntx,nty,ntz
-    logical, dimension(3) :: periods
-    logical :: reorder = .true.
-    !
-    periods(:) = .false.
-    call MPI_CART_CREATE( MPI_COMM_WORLD, 2, dims, &
-        periods, reorder, comm_cart, ierr)
-    call MPI_CART_COORDS( comm_cart, myid, 2, coord, ierr)
-    !
-    call MPI_CART_SHIFT(comm_cart,0,1,left,right,ierr)
-    call MPI_CART_SHIFT(comm_cart,1,1,front,back,ierr)
-    !
-    nl(1) = n(1) / dims(1)
-    nl(2) = n(2) / dims(2)
-    nl(3) = n(3)
-    ntx = nl(1)+2
-    nty = nl(2)+2
-    ntz = nl(3)+2
-    !
-    ! Definitions of datatypes for velocity and pressure b.c.'s
-    ! Note: array(i,j,k) is basically a 1-dim array;
-    !       k is the outer and i is the inner loop counter =>
-    !         * for fixed i, (j1+1)*(k1+1) blocks of 1 element,
-    !           with (i1+1) elements between start and end
-    !         * for fixed j, (k1+1) blocks of (i1+1) elements,
-    !           with (i1+1)*(j1+1) elements between start and end
-    !
-    call MPI_TYPE_VECTOR(nty*ntz,1  ,ntx    ,MPI_REAL_SP,xhalo,ierr)
-    call MPI_TYPE_VECTOR(ntz    ,ntx,ntx*nty,MPI_REAL_SP,yhalo,ierr)
-    call MPI_TYPE_COMMIT(xhalo,ierr)
-    call MPI_TYPE_COMMIT(yhalo,ierr)
-    return
-  End Subroutine Initmpi
+  !! -----End Read parameters from namelist------------
 
 
-  Subroutine InitShape
-    Implicit None
-
-    ! Allocate variables
-    Allocate(phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-    Allocate(cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
-
-    phi = 0.0_sp
-    u   = 0.0_sp
-    v   = 0.0_sp
-    cx  = 0.0_sp
-    cy  = 0.0_sp
-
-    End Subroutine InitShape
-
-  !======================
-  ! Exchage all inner bounds
-  ! consists of 2 subroutines for each direction
-  !======================
-  Subroutine ExchMPI(n,p)
-    Implicit None
-    integer , dimension(2), intent(in) :: n
-    real(sp), dimension(0:,0:,0:), intent(inout) :: p
-    call updthalo((/n(1),n(2)/),1,p)
-    call updthalo((/n(1),n(2)/),2,p)
-  End Subroutine ExchMPI
-
-  !============================
-  ! mpi exchange for one direction
-  !============================
-  subroutine updthalo(n,idir,p)
-    implicit none
-    integer , dimension(2), intent(in) :: n
-    integer , intent(in) :: idir
-    real(sp), dimension(0:,0:,0:), intent(inout) :: p
-    !integer :: requests(4), statuses(MPI_STATUS_SIZE,4)
-    !
-    !  this subroutine updates the halos that store info
-    !  from the neighboring computational sub-domain
-    !
-    select case(idir)
-    case(1) ! x direction
-      call MPI_SENDRECV(p(1     ,0,0),1,xhalo,left ,0, &
-                        p(n(1)+1,0,0),1,xhalo,right,0, &
-                        comm_cart,status,ierr)
-      call MPI_SENDRECV(p(n(1),0,0),1,xhalo,right,0, &
-                        p(0   ,0,0),1,xhalo,left ,0, &
-                        comm_cart,status,ierr)
-         !call MPI_IRECV(p(0     ,0,0),1,xhalo,left ,1, &
-         !               comm_cart,requests(2),error)
-         !call MPI_IRECV(p(n(1)+1,0,0),1,xhalo,right,0, &
-         !               comm_cart,requests(1),error)
-         !call MPI_ISSEND(p(n(1),0,0),1,xhalo,right,1, &
-         !               comm_cart,requests(4),error)
-         !call MPI_ISSEND(p(1   ,0,0),1,xhalo,left ,0, &
-         !               comm_cart,requests(3),error)
-         !call MPI_WAITALL(4, requests, statuses, error)
-    case(2) ! y direction
-      call MPI_SENDRECV(p(0,1     ,0),1,yhalo,front,0, &
-                        p(0,n(2)+1,0),1,yhalo,back ,0, &
-                        comm_cart,status,ierr)
-      call MPI_SENDRECV(p(0,n(2),0),1,yhalo,back ,0, &
-                        p(0,0   ,0),1,yhalo,front,0, &
-                        comm_cart,status,ierr)
-         !call MPI_IRECV(p(0,n(2)+1,0),1,yhalo,back ,0, &
-         !               comm_cart,requests(1),error)
-         !call MPI_IRECV(p(0,0     ,0),1,yhalo,front,1, &
-         !               comm_cart,requests(2),error)
-         !call MPI_ISSEND(p(0,1   ,0),1,yhalo,front,0, &
-         !               comm_cart,requests(3),error)
-         !call MPI_ISSEND(p(0,n(2),0),1,yhalo,back ,1, &
-         !               comm_cart,requests(4),error)
-         !call MPI_WAITALL(4, requests, statuses, error)
-    end select
-    return
-  end subroutine updthalo
-
+  !! -----(4) HDF5 for field IO------------
   !================
   ! Initialization of HDF5 files, includes
   !   1. Read initial condition from input file
@@ -413,22 +296,22 @@ Contains
     Integer :: i
     Character(80) :: data_name
     data_name = 'init'
-    do i = 1, n_inputs
+    do i = 1, n_vars
       if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), phi, data_name)
+        Call HDF5ReadData(h5_input_field(i), phi%values, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), u, data_name)
+        Call HDF5ReadData(h5_input_field(i), u%values, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), v, data_name)
+        Call HDF5ReadData(h5_input_field(i), v%values, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), cx, data_name)
+        Call HDF5ReadData(h5_input_field(i), cx%values, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), cy, data_name)
+        Call HDF5ReadData(h5_input_field(i), cy%values, data_name)
       endif
     end do
 
@@ -564,7 +447,198 @@ Contains
 
 
   end SUBROUTINE HDF5ReadData
+  !! -----End HDF5 for field IO------------
+
+  !!------(5) MPI initialization and exchange------
+  !======================
+  ! Initialize mpi with 2D pencil like blocks
+  ! Adopted from CaNS
+  !======================
+  Subroutine Initmpi(n)
+    implicit none
+    integer, intent(in), dimension(3) :: n
+    integer :: ntx,nty,ntz
+    logical, dimension(3) :: periods
+    logical :: reorder = .true.
+    !
+    periods(:) = .false.
+    call MPI_CART_CREATE( MPI_COMM_WORLD, 2, dims, &
+        periods, reorder, comm_cart, ierr)
+    call MPI_CART_COORDS( comm_cart, myid, 2, coord, ierr)
+    !
+    call MPI_CART_SHIFT(comm_cart,0,1,left,right,ierr)
+    call MPI_CART_SHIFT(comm_cart,1,1,front,back,ierr)
+    !
+    nl(1) = n(1) / dims(1)
+    nl(2) = n(2) / dims(2)
+    nl(3) = n(3)
+    ntx = nl(1)+2
+    nty = nl(2)+2
+    ntz = nl(3)+2
+    !
+    ! Definitions of datatypes for velocity and pressure b.c.'s
+    ! Note: array(i,j,k) is basically a 1-dim array;
+    !       k is the outer and i is the inner loop counter =>
+    !         * for fixed i, (j1+1)*(k1+1) blocks of 1 element,
+    !           with (i1+1) elements between start and end
+    !         * for fixed j, (k1+1) blocks of (i1+1) elements,
+    !           with (i1+1)*(j1+1) elements between start and end
+    !
+    call MPI_TYPE_VECTOR(nty*ntz,1  ,ntx    ,MPI_REAL_SP,xhalo,ierr)
+    call MPI_TYPE_VECTOR(ntz    ,ntx,ntx*nty,MPI_REAL_SP,yhalo,ierr)
+    call MPI_TYPE_COMMIT(xhalo,ierr)
+    call MPI_TYPE_COMMIT(yhalo,ierr)
+    return
+  End Subroutine Initmpi
 
 
+  Subroutine InitShape
+    Implicit None
+
+    ! Allocate variables
+    Allocate(phi%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(u%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(v%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(cx%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(cy%values(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+
+    phi%values = 0.0_sp
+    u%values   = 0.0_sp
+    v%values   = 0.0_sp
+    cx%values  = 0.0_sp
+    cy%values  = 0.0_sp
+
+    End Subroutine InitShape
+
+
+  !======================
+  ! Exchage all inner bounds
+  ! consists of 2 subroutines for each direction
+  !======================
+  Subroutine ExchMPI(n,p)
+    Implicit None
+    integer , dimension(2), intent(in) :: n
+    real(sp), dimension(0:,0:,0:), intent(inout) :: p
+    call updthalo((/n(1),n(2)/),1,p)
+    call updthalo((/n(1),n(2)/),2,p)
+  End Subroutine ExchMPI
+
+  !============================
+  ! mpi exchange for one direction
+  !============================
+  subroutine updthalo(n,idir,p)
+    implicit none
+    integer , dimension(2), intent(in) :: n
+    integer , intent(in) :: idir
+    real(sp), dimension(0:,0:,0:), intent(inout) :: p
+    !integer :: requests(4), statuses(MPI_STATUS_SIZE,4)
+    !
+    !  this subroutine updates the halos that store info
+    !  from the neighboring computational sub-domain
+    !
+    select case(idir)
+    case(1) ! x direction
+      call MPI_SENDRECV(p(1     ,0,0),1,xhalo,left ,0, &
+                        p(n(1)+1,0,0),1,xhalo,right,0, &
+                        comm_cart,status,ierr)
+      call MPI_SENDRECV(p(n(1),0,0),1,xhalo,right,0, &
+                        p(0   ,0,0),1,xhalo,left ,0, &
+                        comm_cart,status,ierr)
+         !call MPI_IRECV(p(0     ,0,0),1,xhalo,left ,1, &
+         !               comm_cart,requests(2),error)
+         !call MPI_IRECV(p(n(1)+1,0,0),1,xhalo,right,0, &
+         !               comm_cart,requests(1),error)
+         !call MPI_ISSEND(p(n(1),0,0),1,xhalo,right,1, &
+         !               comm_cart,requests(4),error)
+         !call MPI_ISSEND(p(1   ,0,0),1,xhalo,left ,0, &
+         !               comm_cart,requests(3),error)
+         !call MPI_WAITALL(4, requests, statuses, error)
+    case(2) ! y direction
+      call MPI_SENDRECV(p(0,1     ,0),1,yhalo,front,0, &
+                        p(0,n(2)+1,0),1,yhalo,back ,0, &
+                        comm_cart,status,ierr)
+      call MPI_SENDRECV(p(0,n(2),0),1,yhalo,back ,0, &
+                        p(0,0   ,0),1,yhalo,front,0, &
+                        comm_cart,status,ierr)
+         !call MPI_IRECV(p(0,n(2)+1,0),1,yhalo,back ,0, &
+         !               comm_cart,requests(1),error)
+         !call MPI_IRECV(p(0,0     ,0),1,yhalo,front,1, &
+         !               comm_cart,requests(2),error)
+         !call MPI_ISSEND(p(0,1   ,0),1,yhalo,front,0, &
+         !               comm_cart,requests(3),error)
+         !call MPI_ISSEND(p(0,n(2),0),1,yhalo,back ,1, &
+         !               comm_cart,requests(4),error)
+         !call MPI_WAITALL(4, requests, statuses, error)
+    end select
+    return
+  end subroutine updthalo
+  !!------End MPI initialization and exchange------
+
+  !!------Boundary conditions---------
+  Subroutine InitBound
+    Implicit None
+
+    phi%name = 'phi'
+    phi%lohi(:,1) = 0
+    phi%lohi(:,2) = nl(:)
+    cx%name = 'cx'
+    cx%lohi(:,1) = 0
+    cx%lohi(:,2) = nl(:)
+    cy%name = 'cy'
+    cy%lohi(:,1) = 0
+    cy%lohi(:,2) = nl(:)
+
+    u%name = 'u'
+    phi%lohi(:,1) = 0
+    phi%lohi(:,2) = nl(:)
+    phi%lohi(1,2) = nl(1) - 1
+    v%name = 'v'
+    v%lohi = 0
+    phi%lohi(:,2) = nl(:)
+    phi%lohi(2,2) = nl(1) - 1
+
+    ! At present, the values are not imported from file, but assigned directly here.
+    phi%bound_type = 2
+    phi%bound_value = 0
+
+    cx%bound_type = 2
+    cx%bound_value = 0
+
+    cy%bound_type = 2
+    cy%bound_value = 0
+
+    u%bound_type = 2
+    u%bound_value = 0
+
+    v%bound_type = 2
+    v%bound_value = 0
+
+  End Subroutine InitBound
+
+  ! Subroutine SetBC(f, idir, isign)
+  !   Implicit None
+  !   Class(Field) :: f
+  !   Integer :: idir
+  !   Integer :: isign
+!     Integer, Intent(in) :: idir
+!     Integer, Intent(in) :: isign
+!     Integer :: ind
+
+!     if (isign .eq. -1 ) then
+!       ind = f%lohi(idir,0)
+!     else
+!       ind = f%lohi(idir,1)
+!     end if
+
+!     Select Case(f%bound_type)
+!     Case(1)
+!       Select Case(idir)
+!       Case(0)
+!         f%values
+!       Case(1)
+!       Case(3)
+!       End Select
+
+  ! End Subroutine SetBC
 
 End Module ModGlobal

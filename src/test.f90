@@ -5,6 +5,8 @@
 # define test_case test2
 # elif defined TEST3
 # define test_case test3
+# elif defined TEST4
+# define test_case test4
 # endif
 program test
   use ModGlobal
@@ -31,12 +33,12 @@ Subroutine test1
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,nproc,ierr)
 
-  ! case 1
-  ! n = (/4,8,2/)
-  ! dims = (/2,2/)
-  ! ! case 2
+  ! ! case 1
   n = (/4,8,2/)
-  dims = (/4,1/)
+  dims = (/2,2/)
+  ! ! case 2
+  ! n = (/4,8,2/)
+  ! dims = (/4,1/)
   ! ! case 3
   ! n = (/4,8,1/)
   ! dims = (/1,1/)
@@ -170,7 +172,7 @@ Subroutine test3
     integer :: i
     ! out_p(1:nl(1),1:nl(2),1:nl(3)) = phi(1:nl(1),1:nl(2),1:nl(3))
     ! out_p(1:nl(1),1:nl(2),1:nl(3)) = u(1:nl(1),1:nl(2),1:nl(3))
-    out_p(1:nl(1),1:nl(2),1:nl(3)) = v(1:nl(1),1:nl(2),1:nl(3))
+    out_p(1:nl(1),1:nl(2),1:nl(3)) = v%values(1:nl(1),1:nl(2),1:nl(3))
     do i = 1,4
       if (myid .eq. i-1) then
         print *, myid
@@ -183,3 +185,37 @@ Subroutine test3
   Call MPI_FINALIZE(ierr)
 
 end Subroutine test3
+
+
+!===============
+! test4: boundary conditions
+! Object:
+!     (1) MPI inner boundary
+!     (2) outer boundary
+!===============
+Subroutine test4
+  use ModGlobal
+  Implicit None
+  Integer :: nexch(2)
+
+ Call Init(inputfield=.true.)
+
+ nexch = nl(1:2)
+ Call ExchMPI(nexch,u%values)
+
+  block
+    integer :: j,k
+    do k = 1,4
+      if (myid .eq. k-1) then
+        print *, myid
+        do j = 0, nl(2)+1
+          print *, u%values(:,j,1)
+        end do
+      end if
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+    end do
+  end block
+
+  Call MPI_FINALIZE(ierr)
+
+end Subroutine test4
