@@ -1,0 +1,44 @@
+&mpivar
+px = 2
+py = 2
+/
+
+&gridvar
+nx = 4
+ny = 8
+nz = 2
+dx = 1.0
+dy = 1.0
+dz = 1.0
+/
+
+&compvar
+tstart = 0.0
+tend  = 10.0
+dt = 0.1
+/
+
+&outvar
+output_inteval = 1.0
+startframe = 0
+/
+
+&inputfield
+n_inputs = 5
+i_phi = .true.
+i_cx  = .true.
+i_cy  = .true.
+i_u   = .true.
+i_v   = .true.
+/
+
+&outputfield
+output_path = ''
+output_name = ''
+n_outputs = 5
+o_phi = .true.
+o_cx  = .true.
+o_cy  = .true.
+o_u   = .true.
+o_v   = .true.
+/
