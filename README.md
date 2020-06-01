@@ -8,9 +8,9 @@ Nueral Network boosted Moment of Fluid
 ## GTD
 
 
-### Basic VOF<code>[0/4]</code>
+### Basic VOF<code>[1/4]</code>
 
--   [ ] Basic MPI from CaNS
+-   [X] Basic MPI from CaNS
 -   [ ] VOF-PLIC, APPLIC, THINC, THINCSW
 -   [ ] Advection of centroid
 -   [ ] MOF

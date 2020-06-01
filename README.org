@@ -1,0 +1,29 @@
+#+options: toc:nil
+* NNMOF
+  
+Nueral Network boosted Moment of Fluid
+
+** GTD
+   
+*** Basic VOF[1/4]
+- [X] Basic MPI from CaNS
+- [ ] VOF-PLIC, APPLIC, THINC, THINCSW
+- [ ] Advection of centroid
+- [ ] MOF
+
+*** MOF [0/3]
+- [ ] Fkeas
+- [ ] MOF forward data generation
+- [ ] Parameters optimization
+
+*** Numerical tests[0/1]
+- [ ] Analytic slope
+- [ ] Resoncnstruction
+- [ ] Zalesak
+- [ ] Single vortex
+
+*** Write paper[0/3]
+- [ ] Abstract and introduction
+- [ ] Describe method
+- [ ] Numerical tests
+
