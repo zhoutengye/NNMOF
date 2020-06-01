@@ -4,7 +4,8 @@ TEST = true
 TEST_NUM = 3
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
-HDF5_DIR = $(HOME)/hdf5/intel
+# HDF5_DIR = $(HOME)/hdf5/intel
+HDF5_DIR = $(HOME)/HPC/intel/hdf5
 
 
 SRC_LIST = basics.f90 

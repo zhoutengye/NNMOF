@@ -23,22 +23,14 @@ output_inteval = 1.0
 startframe = 0
 /
 
-&inputfield
-n_inputs = 5
-i_phi = .true.
-i_cx  = .true.
-i_cy  = .true.
-i_u   = .true.
-i_v   = .true.
-/
-
-&outputfield
+&iofield
+n_vars = 3
 output_path = ''
 output_name = ''
-n_outputs = 5
-o_phi = .true.
-o_cx  = .true.
-o_cy  = .true.
-o_u   = .true.
-o_v   = .true.
+io_phi = .true.
+io_u   = .true.
+io_v   = .true.
+io_cx  = .false.
+io_cy  = .false.
 /
+
