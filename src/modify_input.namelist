@@ -28,8 +28,10 @@ n_vars = 3
 io_phi = .true.
 io_u   = .true.
 io_v   = .true.
+io_w   = .false.
 io_cx  = .false.
 io_cy  = .false.
+io_cz  = .false.
 output_path = ''
 output_name = ''
 /

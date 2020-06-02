@@ -4,16 +4,15 @@ TEST = true
 TEST_NUM = 4
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
-HDF5_DIR = $(HOME)/HDF5/intel
-# HDF5_DIR = $(HOME)/HPC/intel/hdf5
+HDF5_DIR = $(HOME)/HDF5/gfortran
 
 
-SRC_LIST = basics.f90 
+SRC_LIST = modify_basics.f90 
 CPP = -cpp -D$(DIMENSION) -D$(PRECISION)
 ifeq ($(TEST), true)
         FC_OPT = -O0 -g #-traceback -check all -fp-stack-check -warn
         EXEC:= TEST-$(TEST_NUM)
-	SRCS = $(SRC_LIST) test.f90
+	SRCS = $(SRC_LIST) modify_test.f90
 	CPP:= $(CPP) -DTEST$(TEST_NUM)
 else
         EXEC:= $(EXEC)_$(DIMENSION)
@@ -22,6 +21,7 @@ else
 endif
 
 LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a -lz -ldl -lm
+#LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a -ldl -lm
 INCS = -I$(HDF5_DIR)/include
 
 # rule for *.f90 to *.o
