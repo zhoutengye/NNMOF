@@ -85,10 +85,14 @@ Module ModGlobal
   Type(Field)           :: u_bc
   Real(SP), Allocatable :: v(:,:,:)
   Type(Field)           :: v_bc
+  Real(SP), Allocatable :: w(:,:,:)
+  Type(Field)           :: w_bc
   Real(SP), Allocatable :: cx(:,:,:)
   Type(Field)           :: cx_bc
   Real(SP), Allocatable :: cy(:,:,:)
   Type(Field)           :: cy_bc
+  Real(SP), Allocatable :: cz(:,:,:)
+  Type(Field)           :: cz_bc
 
 Contains
 
@@ -123,7 +127,7 @@ Contains
     Integer  :: nx, ny, nz
     Real(sp) :: dx, dy, dz
     Real(sp) :: px, py
-    Logical  :: io_phi, io_u, io_v, io_cx, io_cy
+    Logical  :: io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz
     Integer  :: nn
     Character(80) :: input_name
     Character(80) :: file_name
@@ -132,7 +136,7 @@ Contains
     namelist /gridvar/ nx,ny,nz,dx,dy,dz
     namelist /compvar/ dt, tstart, tend
     namelist /outvar/ output_inteval, startframe
-    namelist /iofield/ n_vars, io_phi, io_u, io_v, io_cx, io_cy, output_path, output_name
+    namelist /iofield/ n_vars, io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
 
     Call getarg(1,input_name)
     if (INPUT_NAME .eq. '') Then
@@ -179,8 +183,8 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(startframe, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(startframe, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    !Call MPI_BCAST(startframe, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+    !Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     Call MPI_BCAST(output_name, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
@@ -194,9 +198,13 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(io_v, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_w, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(io_cx, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(io_cy, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_cz, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     ! Determine input variables for HDF5
@@ -218,6 +226,11 @@ Contains
       h5_output_field(nn)%groupname = 'v'
       nn = nn + 1
     End If
+    If (io_w) Then
+      h5_input_field(nn)%groupname = 'w'
+      h5_output_field(nn)%groupname = 'w'
+      nn = nn + 1
+    End If
     If (io_cx) Then
       h5_input_field(nn)%groupname = 'cx'
       h5_output_field(nn)%groupname = 'cx'
@@ -226,6 +239,11 @@ Contains
     If (io_cy) Then
       h5_input_field(nn)%groupname = 'cy'
       h5_output_field(nn)%groupname = 'cy'
+      nn = nn + 1
+    End If
+    If (io_cz) Then
+      h5_input_field(nn)%groupname = 'cz'
+      h5_output_field(nn)%groupname = 'cz'
       nn = nn + 1
     End If
 
@@ -306,12 +324,18 @@ Contains
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5ReadData(h5_input_field(i), v, data_name)
+      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
+        Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5ReadData(h5_input_field(i), w, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5ReadData(h5_input_field(i), cx, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5ReadData(h5_input_field(i), cy, data_name)
+      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
+        Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5ReadData(h5_input_field(i), cz, data_name)
       endif
     end do
 
@@ -490,20 +514,32 @@ Contains
     call MPI_TYPE_COMMIT(yhalo,ierr)
     return
   End Subroutine Initmpi
+
+
   Subroutine InitShape
     Implicit None
+
     ! Allocate variables
     Allocate(phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate(  u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate(  v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(  w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate( cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate( cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate( cz(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+
     phi = 0.0_sp
     u   = 0.0_sp
     v   = 0.0_sp
+    w   = 0.0_sp
     cx  = 0.0_sp
     cy  = 0.0_sp
+    cz  = 0.0_sp
+
     End Subroutine InitShape
+
+
+
   !============================
   ! mpi exchange for one direction
   !============================
@@ -554,9 +590,11 @@ Contains
     return
   end subroutine updthalo
   !!------End MPI initialization and exchange------
+
   !!------Boundary conditions---------
   Subroutine InitBound
     Implicit None
+
     phi_bc%name = 'phi'
     phi_bc%lohi(:,1) = 0
     phi_bc%lohi(:,2) = nl(:)+1
@@ -566,6 +604,10 @@ Contains
     cy_bc%name = 'cy'
     cy_bc%lohi(:,1) = 0
     cy_bc%lohi(:,2) = nl(:)+1
+    cz_bc%name = 'cz'
+    cz_bc%lohi(:,1) = 0
+    cz_bc%lohi(:,2) = nl(:)+1
+
     u_bc%name = 'u'
     u_bc%lohi(:,1) = 0
     u_bc%lohi(:,2) = nl(:)+1
@@ -574,19 +616,36 @@ Contains
     v_bc%lohi = 0
     v_bc%lohi(:,2) = nl(:)+1
     v_bc%lohi(2,2) = nl(2)
+    w_bc%name = 'w'
+    w_bc%lohi = 0
+    w_bc%lohi(:,2) = nl(:)+1
+    w_bc%lohi(3,2) = nl(3)
+
     ! At present, the values are not imported from file, but assigned directly here.
     ! For VOF problem, always set to 0 Nuemann
     phi_bc%bound_type(:,:) = 2
     phi_bc%bound_value(:,:) = 0
+
     cx_bc%bound_type(:,:) = 2
     cx_bc%bound_value(:,:) = 0
+
     cy_bc%bound_type(:,:) = 2
     cy_bc%bound_value(:,:) = 0
+
+    cz_bc%bound_type(:,:) = 2
+    cz_bc%bound_value(:,:) = 0
+
     u_bc%bound_type(:,:) = 2
     u_bc%bound_value(:,:) = 0
+
     v_bc%bound_type(:,:) = 2
     v_bc%bound_value(:,:) = 0
+
+    w_bc%bound_type(:,:) = 2
+    w_bc%bound_value(:,:) = 0
+
   End Subroutine InitBound
+
   !=======================
   ! Call all MPI and physical boundary condition
   !=======================
@@ -596,6 +655,7 @@ Contains
     Integer :: nexch(2)
     Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     nexch = nl(1:2)
+
     call updthalo(nexch,1,f)
     call updthalo(nexch,2,f)
     if(left .eq.MPI_PROC_NULL)  Call self%setBC(1, -1, f)
@@ -605,6 +665,7 @@ Contains
     Call self%setBC(3, -1, f)
     Call self%setBC(3, 1, f)
   End Subroutine SetBCS
+
   !===============================
   ! Set bounday values.
   ! Only fixed Dirichelt and Nuemann is supported
@@ -626,6 +687,7 @@ Contains
     Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: ind
     Integer :: hl
+
     if (isign .eq. -1 ) then
       ind = self%lohi(idir,1)
       hl = 1
@@ -636,6 +698,7 @@ Contains
       if (myid .eq. 0) print *,'Wrong bc isign value, should be -1 or 1'
       Call MPI_FINALIZE(ierr)
     end if
+
     Select Case(idir)
     Case(1)
       Select Case(self%bound_type(idir,hl))
@@ -662,5 +725,7 @@ Contains
             isign * f(:,:,ind-isign) * self%bound_value(idir,hl) / dl(3)
       End Select
     End Select
+
   End Subroutine SetBC
+
 End Module ModGlobal
