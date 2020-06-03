@@ -28,7 +28,6 @@ Subroutine test1
   Implicit None
   real(SP),allocatable :: p(:,:,:)
   Character(80) :: data_name
-  Character(80) :: input_name = 'modify_input'
 
   Call MPI_INIT(ierr)
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
@@ -87,7 +86,6 @@ Subroutine test2
   Implicit None
   real(SP),allocatable :: p(:,:,:)
   Character(80) :: data_name
-  Character(80) :: input_name = 'modify_input'
 
   Call MPI_INIT(ierr)
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
@@ -166,7 +164,6 @@ End Subroutine test2
 Subroutine test3
   use ModGlobal
   Implicit None
-  Character(80) :: input_name = 'modify_input'
 
   Call Init(inputfield=.true.)
 
@@ -200,10 +197,11 @@ Subroutine test4
   use ModGlobal
   Implicit None
   ! Integer :: nexch(2)
-  Character(80) :: input_name = 'modify_input'
 
  Call Init(inputfield=.true.)
- Call InitBound
+
+ ! After testing, this line is added to Init
+ ! Call InitBound
 
  ! ! Test Dilichelet 
  ! if all comment, it will use the default Nuemann
@@ -213,7 +211,7 @@ Subroutine test4
  cx_bc%bound_value(:,:) = 10
  cy_bc%bound_type(:,:) = 1
  cy_bc%bound_value(:,:) = 10
- cz_bc%bound_type(:,:) = 1
+ cy_bc%bound_type(:,:) = 1
  cz_bc%bound_value(:,:) = 10
  u_bc%bound_type(:,:) = 1
  u_bc%bound_value(:,:) = 10
@@ -240,52 +238,69 @@ Subroutine test4
  Call w_bc%setBCS(w)
  Call phi_bc%setBCS(phi)
 
-  !block
-  !  integer :: j,k
-  !  If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', phi_bc%lohi(1,1), phi_bc%lohi(1,2)
-  !  If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', phi_bc%lohi(2,1), phi_bc%lohi(2,2)
-  !  If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', phi_bc%lohi(3,1), phi_bc%lohi(3,2)
-    ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', u_bc%lohi(1,1), u_bc%lohi(1,2)
-    ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', u_bc%lohi(2,1), u_bc%lohi(2,2)
-    ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', u_bc%lohi(3,1), u_bc%lohi(3,2)
-    ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', v_bc%lohi(1,1), v_bc%lohi(1,2)
-    ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', v_bc%lohi(2,1), v_bc%lohi(2,2)
-    ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', v_bc%lohi(3,1), v_bc%lohi(3,2)
-  !  do k = 1,4
-  !    if (myid .eq. k-1) then
-  !      print *, myid
-  !      do j = 0, nl(2)+1
-          !print *, phi(:,j,2)
-          ! print *, phi(:,j,0)
-          ! print *, v(:,j,nl(3)+1)
-          ! print *, phi(:,j,0) - phi(:,j,1)
-          ! print *, phi(:,j,nl(3)+1) - phi(:,j,nl(3))
-  !      end do
-  !    end if
-  !    call MPI_Barrier(MPI_COMM_WORLD, ierr)
-  !  end do
-  !end block
-
   block
-    integer :: j,k,num
-    If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', phi_bc%lohi(1,1), phi_bc%lohi(1,2)
-    If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', phi_bc%lohi(2,1), phi_bc%lohi(2,2)
-    If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', phi_bc%lohi(3,1), phi_bc%lohi(3,2)
+    integer :: j,k
+    ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', phi_bc%lohi(1,1), phi_bc%lohi(1,2)
+    ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', phi_bc%lohi(2,1), phi_bc%lohi(2,2)
+    ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', phi_bc%lohi(3,1), phi_bc%lohi(3,2)
+    ! do k = 1,4
+    !   if (myid .eq. k-1) then
+    !     print *, myid
+    !     do j = 0, nl(2)+1
+    !       print *, phi(:,j,2)
+    !       print *, phi(:,j,0)
+    !       print *, phi(:,j,nl(3)+1)
+    !       print *, phi(:,j,0) - phi(:,j,1)
+    !       print *, phi(:,j,nl(3)+1) - phi(:,j,nl(3))
+    !     end do
+    !   end if
+    ! call MPI_Barrier(MPI_COMM_WORLD, ierr)
+    ! end do
     ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', u_bc%lohi(1,1), u_bc%lohi(1,2)
     ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', u_bc%lohi(2,1), u_bc%lohi(2,2)
     ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', u_bc%lohi(3,1), u_bc%lohi(3,2)
+    ! do k = 1,4
+    !   if (myid .eq. k-1) then
+    !     print *, myid
+    !     do j = 0, nl(2)+1
+    !       print *, u(:,j,2)
+    !       print *, u(:,j,0)
+    !       print *, u(:,j,nl(3)+1)
+    !       print *, u(:,j,0) - u(:,j,1)
+    !       print *, u(:,j,nl(3)+1) - u(:,j,nl(3))
+    !     end do
+    !   end if
+    !   call MPI_Barrier(MPI_COMM_WORLD, ierr)
+    ! end do
     ! If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', v_bc%lohi(1,1), v_bc%lohi(1,2)
     ! If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', v_bc%lohi(2,1), v_bc%lohi(2,2)
     ! If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', v_bc%lohi(3,1), v_bc%lohi(3,2)
-    do num = 1,4
-      if (myid .eq. num-1) then
+    ! do k = 1,4
+    !   if (myid .eq. k-1) then
+    !     print *, myid
+    !     do j = 0, nl(2)+1
+    !       print *, v(:,j,2)
+    !       print *, v(:,j,0)
+    !       print *, v(:,j,nl(3)+1)
+    !       print *, v(:,j,0) - v(:,j,1)
+    !       print *, v(:,j,nl(3)+1) - v(:,j,nl(3))
+    !     end do
+    !   end if
+    !   call MPI_Barrier(MPI_COMM_WORLD, ierr)
+    ! end do
+    If (myid .eq. 0) Print *, 'Dir 1: bc_node: ', w_bc%lohi(1,1), w_bc%lohi(1,2)
+    If (myid .eq. 0) Print *, 'Dir 2: bc_node: ', w_bc%lohi(2,1), w_bc%lohi(2,2)
+    If (myid .eq. 0) Print *, 'Dir 3: bc_node: ', w_bc%lohi(3,1), w_bc%lohi(3,2)
+    do k = 1,4
+      if (myid .eq. k-1) then
         print *, myid
         do j = 0, nl(2)+1
-          !print *, phi(:,j,2+1)
-          ! print *, phi(:,j,0)
-           print *, w(:,j,nl(3))
-          ! print *, phi(:,j,0) - phi(:,j,1)
-          ! print *, phi(:,j,nl(3)+1) - phi(:,j,nl(3))
+          print *, w(:,j,2)
+          print *, w(:,j,0)
+          print *, w(:,j,nl(3))
+          print *, w(:,j,nl(3)+1)
+          print *, w(:,j,0) - w(:,j,1)
+          print *, w(:,j,nl(3)+1) - w(:,j,nl(3))
         end do
       end if
       call MPI_Barrier(MPI_COMM_WORLD, ierr)

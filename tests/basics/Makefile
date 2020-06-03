@@ -1,28 +1,20 @@
-EXEC = VOF
+TEST_NUM = 4
+SRC_DIR = ../../src
+EXEC:= TEST-$(TEST_NUM)
 FC = mpif90
 TEST = true
-TEST_NUM = 4
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
 HDF5_DIR = $(HOME)/hdf5/intel
 # HDF5_DIR = $(HOME)/HPC/intel/hdf5
 
 
-SRC_LIST = basics.f90 
-CPP = -cpp -D$(DIMENSION) -D$(PRECISION)
-ifeq ($(TEST), true)
-        FC_OPT = -O0 -g #-traceback -check all -fp-stack-check -warn
-        EXEC:= TEST-$(TEST_NUM)
-	SRCS = $(SRC_LIST) test.f90
-	CPP:= $(CPP) -DTEST$(TEST_NUM)
-else
-        EXEC:= $(EXEC)_$(DIMENSION)
-        FC_OPT = -O2 -g
-	SRCS = $(SRC_LIST) main.f90
-endif
+SRCS = $(SRC_DIR)/basics.f90 test.f90
+CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM)
+FC_OPT = -O0 -g -traceback -check all -fp-stack-check -warn
 
 LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a -lz -ldl -lm
-INCS = -I$(HDF5_DIR)/include
+INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR)
 
 # rule for *.f90 to *.o
 .SUFFIXES: .o .f90
@@ -33,9 +25,9 @@ OBJS_TESTS = $(SRCS_TESTS:.f90=.o)
 
 # after all .o is gathered, link and generate the executable
 $(EXEC): $(OBJS)
-	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  $(OBJS) $(LIBS)
+	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  *.o $(LIBS)
 
 clean:
 	rm -f *.o
 	rm -f *.mod
-	rm -f $(EXEC)
+	rm -f *genmod.f90
