@@ -4,8 +4,8 @@ DEBUG = true
 TEST_NUM = 2
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
-# HDF5_DIR = $(HOME)/hdf5/intel
-HDF5_DIR = $(HOME)/HPC/intel/hdf5
+HDF5_DIR = $(HOME)/hdf5/intel
+# HDF5_DIR = $(HOME)/HPC/intel/hdf5
 
 
 SRCS = basics.f90 tools.f90 vof_norm.f90 vof_flood.f90 vof_adv.f90 vof.f90 test.f90
