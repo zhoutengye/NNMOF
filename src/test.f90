@@ -17,10 +17,10 @@ program test
 end program test
 
 !===============
-! test1: Primary test
+! test1: IO Primary test
 !    (1) Read data set correctly
 !    (2) Write data set correctly (see jupyter)
-!    (3) cube advection
+!    (3) Quick visualization test
 ! setup:
 !     20 30 16 grids
 !     u=v=w=1.0
@@ -38,6 +38,7 @@ Subroutine test1
   Implicit None
   Character(80) :: data_name
 
+  ! (1)
   Call Init(inputfield=.true.)
 
   ! Check if phi is loaded correctly
@@ -50,37 +51,53 @@ Subroutine test1
     print *, tend
   endif
 
-  Call Visual3D(phi)
+  ! Call Visual3DFieldOne(phi)
 
-  ! VOF advection
-  Do While (time < tend)
-    ! call AdvSZ(u, phi, nl, dl, dt, 1)
-    ! call AdvSZ(v, phi, nl, dl, dt, 2)
-    ! call AdvSZ(w, phi, nl, dl, dt, 3)
-    Call APPLIC(Phi, u, v, w, nl, dl, dt)
-    time =  time + dt
-    print *, time
-  End Do
+  ! ! VOF advection
+  ! Do While (time < tend)
+  !   ! call AdvSZ(u, phi, nl, dl, dt, 1)
+  !   ! call AdvSZ(v, phi, nl, dl, dt, 2)
+  !   ! call AdvSZ(w, phi, nl, dl, dt, 3)
+  !   Call APPLIC(Phi, u, v, w, nl, dl, dt)
+  !   time =  time + dt
+  !   print *, time
+  ! End Do
 
-  block
-    integer :: j
-    Real(sp) :: data_out(nl(1),nl(2),nl(3))
-    data_out(:,:,:) = u(1:nl(1),1:nl(2),1:nl(3))
-  if (myid .eq. 0) then
-      do j = 5, 10
-        ! print *, data_out(:,j,1)
-        print *, u(5:10,j,7)
-      end do
-  end if
-  end block
+  ! block
+  !   integer :: j
+  !   Real(sp) :: data_out(nl(1),nl(2),nl(3))
+  !   data_out(:,:,:) = u(1:nl(1),1:nl(2),1:nl(3))
+  ! if (myid .eq. 0) then
+  !     do j = 5, 10
+  !       ! print *, data_out(:,j,1)
+  !       print *, u(5:10,j,7)
+  !     end do
+  ! end if
+  ! end block
 
 
+  ! (2)
   data_name = 'final'
   Call HDF5WriteData(h5_output_field(1), phi, data_name)
   Call HDF5WriteData(h5_output_field(2),   u, data_name)
   Call HDF5WriteData(h5_output_field(3),   v, data_name)
   Call HDF5WriteData(h5_output_field(4),   w, data_name)
 
+  ! (3)
+  ! Call Visual3DContour(f1=phi)
+  ! w = 0
+  ! w(15:18,15:18,15:18) = 1.0_sp
+  ! Call Visual3DContour(f1=phi, f2=w)
+  phi = 0
+  phi(10,:,:) = 1.0_sp
+  Call Visual3DContour(f1=phi)
+  phi = 0
+  phi(:,10,:) = 1.0_sp
+  Call Visual3DContour(f1=phi)
+  phi = 0
+  phi(:,:,10) = 1.0_sp
+  Call Visual3DContour(f1=phi)
+  
   Call MPI_FINALIZE(ierr)
 
 end Subroutine test1
