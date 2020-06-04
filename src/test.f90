@@ -87,7 +87,8 @@ end Subroutine test1
 
 !===============
 ! VOF-PLIC test
-!     simple cube advection
+!     (1) simple cube advection
+!     (2) Different slope and flooing method, controled by Makefile
 !-------------
 ! setup:
 !     20 30 16 grids
@@ -116,7 +117,7 @@ Subroutine test2
   w(1:nl(1),1:nl(2),1:nl(3)) = 1.0
 
   block
-    integer :: j
+    ! integer :: j
     if (myid .eq. 0) then
       ! do j = 1, nl(2)+1
       ! print *, data_out(:,j,1)
@@ -149,7 +150,7 @@ Subroutine test2
   f_beg = phi
 
   block
-    integer :: j
+    ! integer :: j
   if (myid .eq. 0) then
       ! do j = 1, nl(2)+1
         ! print *, data_out(:,j,1)

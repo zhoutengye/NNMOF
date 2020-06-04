@@ -1,3 +1,17 @@
+# if defined NORM_PY
+# define NormCalc NormParkerYoungs
+# elif defined NORM_APPLIC
+# define NormCalc NormAPPLIC
+# endif
+
+# if defined FLOOD_SZ
+# define FloodForward FloodSZ_Forward
+# define FloodBackward FloodSZ_Backward
+# elif defined NORM_APPLIC
+# define FloodForward FloodAPPLIC_Forward
+# define FloodBackward FloodAPPLIC_Backward
+# endif
+
 !=======================================================
 ! Advection algorithm of SZ PLIC
 !=======================================================
@@ -17,7 +31,7 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof2,vof3
   Real(sp) :: norm(3), abs_norm(3)
   Real(sp) :: c_block(3,3,3)
-  Real(sp) :: FloodAPPLIC_Backward, FloodAPPLIC_Forward
+  Real(sp) :: FloodBackward, FloodForward
   Integer :: nexch(2)
   nexch = nl(1:2)
 
@@ -72,14 +86,13 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
 
           !*(1)* normal vector
           c_block = c(i-1:i+1,j-1:j+1,k-1:k+1)
-          Call NormParkerYoungs(c_block, norm)
-          ! Call NormAPPLIC(c_block, norm)
+          Call NormCalc(c_block, norm)
 
           !*(2) mx,my,mz>0. and mx+my+mz = 1.;
           Call Normalization1(norm, abs_norm)
 
           !*(3) get alpha;
-          alpha = FloodAPPLIC_Backward(abs_norm(1),abs_norm(2),abs_norm(3),c(i,j,k))
+          alpha = FloodBackward(abs_norm(1),abs_norm(2),abs_norm(3),c(i,j,k))
 
           !*(4) back to original plane;
           alpha = alpha + DMIN1(0.0_sp,norm(1)) + DMIN1(0.0_sp,norm(2)) + &
@@ -92,9 +105,9 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
           !*(6) get fluxes
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
           alpha = alpha + norm(dir)*a1
-          if (a1 .LT. 0.0_sp) vof1(i,j,k) = FloodAPPLIC_Forward(norm(ic1),norm(ic2),norm(ic3),alpha,a1  ,-a1)
-          if (a2 .GT. 0.0_sp) vof3(i,j,k) = FloodAPPLIC_Forward(norm(ic1),norm(ic2),norm(ic3),alpha,1.0_sp,a2)
-          vof2(i,j,k) = FloodAPPLIC_Forward(norm(ic1),norm(ic2),norm(ic3),alpha,mm1,mm2)
+          if (a1 .LT. 0.0_sp) vof1(i,j,k) = FloodForward(norm(ic1),norm(ic2),norm(ic3),alpha,a1  ,-a1)
+          if (a2 .GT. 0.0_sp) vof3(i,j,k) = FloodForward(norm(ic1),norm(ic2),norm(ic3),alpha,1.0_sp,a2)
+          vof2(i,j,k) = FloodForward(norm(ic1),norm(ic2),norm(ic3),alpha,mm1,mm2)
         endif
       enddo
     enddo

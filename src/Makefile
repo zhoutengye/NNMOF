@@ -7,9 +7,16 @@ PRECISION = DOUBLE_PRECISION
 HDF5_DIR = $(HOME)/hdf5/intel
 # HDF5_DIR = $(HOME)/HPC/intel/hdf5
 
+# Choose VOF METHOD
+NORM = NORM_PY
+# NORM = NORM_APPLIC
+
+FLOOD = FLOOD_SZ 
+# FLOOD = FLOOD_APPLIC
+
 
 SRCS = basics.f90 tools.f90 vof_norm.f90 vof_flood.f90 vof_adv.f90 vof.f90 test.f90
-CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM)
+CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM) -D$(NORM) -D$(FLOOD)
 ifeq ($(DEBUG), true)
         FC_OPT = -O0 -g -traceback -check all -fp-stack-check -warn
         EXEC:= TEST-$(TEST_NUM)
