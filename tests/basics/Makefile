@@ -1,12 +1,12 @@
-TEST_NUM = 4
+TEST_NUM = 1
 SRC_DIR = ../../src
 EXEC:= TEST-$(TEST_NUM)
 FC = mpif90
 TEST = true
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
-HDF5_DIR = $(HOME)/hdf5/intel
-# HDF5_DIR = $(HOME)/HPC/intel/hdf5
+# HDF5_DIR = $(HOME)/hdf5/intel
+HDF5_DIR = $(HOME)/HPC/intel/hdf5
 
 
 SRCS = $(SRC_DIR)/basics.f90 test.f90

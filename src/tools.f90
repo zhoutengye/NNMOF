@@ -14,7 +14,6 @@ Contains
     Character(80) :: data_name
 
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
-    logical :: inputfield
     Integer :: h5error
 
     !    Remove the h5 file if existts

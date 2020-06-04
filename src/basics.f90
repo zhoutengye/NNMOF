@@ -550,6 +550,7 @@ Contains
     integer , dimension(2), intent(in) :: n
     integer , intent(in) :: idir
     Real(sp), Intent(InOut) :: f(0:,0:,0:)
+    ! Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     !integer :: requests(4), statuses(MPI_STATUS_SIZE,4)
     !
     !  this subroutine updates the halos that store info
