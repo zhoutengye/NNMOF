@@ -1,4 +1,5 @@
-Module VOF
+Module ModVOF
+  Use ModGlobal, only : sp
   Implicit None
 Contains
   !=================
@@ -15,8 +16,18 @@ Contains
   ! Reconstruction: APPLIC
   ! Advection: APPLIC
   !=================
-  Subroutine APPLIC
+  Subroutine APPLIC(Phi, U, v, w, nl, dl, dt)
     Implicit None
+    Real(sp) :: dt
+    Integer,Intent(In)     :: nl(3)
+    Real(sp),Intent(In)    :: dl(3)
+    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    call AdvSZ(u, phi, nl, dl, dt, 1)
+    call AdvSZ(v, phi, nl, dl, dt, 2)
+    call AdvSZ(w, phi, nl, dl, dt, 3)
   End Subroutine APPLIC
 
   !=================
@@ -24,11 +35,18 @@ Contains
   ! Reconstruction: PLIC
   ! Advection: SZ
   !=================
-  Subroutine SZPLIC(Phi, u, v, w)
+  Subroutine SZPLIC(Phi, u, v, w, nl, dl, dt)
     Implicit None
+    Real(sp) :: dt
+    Integer,Intent(In)     :: nl(3)
+    Real(sp),Intent(In)    :: dl(3)
+    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
       call AdvSZ(u, phi, nl, dl, dt, 1)
       call AdvSZ(v, phi, nl, dl, dt, 2)
-      ! call AdvSZ(w, phi, nl, dl, dt, 3)
+      call AdvSZ(w, phi, nl, dl, dt, 3)
   End Subroutine SZPLIC
 
   !=================
@@ -49,4 +67,4 @@ Contains
     Implicit None
   End Subroutine NNMOF
 
-End Module VOF
+End Module MODVOF

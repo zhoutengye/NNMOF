@@ -41,6 +41,7 @@ Module ModGlobal
   Real(sp) :: scale = 1
   Real(sp) :: dt
   Real(sp) :: tstart
+  Real(sp) :: time
   Real(sp) :: tend
   Real(sp) :: cfl
 
@@ -316,25 +317,32 @@ Contains
     do i = 1, n_vars
       if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
         Call HDF5ReadData(h5_input_field(i), phi, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
         Call HDF5ReadData(h5_input_field(i), u, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
         Call HDF5ReadData(h5_input_field(i), v, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), v, data_name)
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        Call HDF5ReadData(h5_input_field(i), w, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
         Call HDF5ReadData(h5_input_field(i), cx, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
         Call HDF5ReadData(h5_input_field(i), cy, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
         Call HDF5OpenGroup(h5_input, h5_input_field(i))
-        Call HDF5ReadData(h5_input_field(i), cy, data_name)
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        Call HDF5ReadData(h5_input_field(i), cz, data_name)
       endif
     end do
 
@@ -364,7 +372,7 @@ Contains
     IMPLICIT NONE
 
     Type(hdf5group) :: h5group
-    Real(sp), Intent(In) :: data(:,:,:)
+    Real(sp), Intent(In) :: data(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp) :: data_out(nl(1),nl(2),nl(3))
     Character(80) :: data_name
 
@@ -399,6 +407,7 @@ Contains
     CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, h5error)
 
     data_out(:,:,:) = data(1:nl(1),1:nl(2),1:nl(3))
+
     CALL h5dwrite_f(dset_id, HDF5_REAL_SP, data_out, h5_total_dims ,h5error, &
         file_space_id = filespace, mem_space_id = memspace, xfer_prp=plist_id)
 

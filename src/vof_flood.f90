@@ -3,7 +3,7 @@
 ! find alpha in
 !    m1 x1 + m2 x2 + m3 x3 = alpha
 !=======================================================
-Real(sp) Function FloodAPPLIC_Back(b1,b2,b3,cc) 
+Real(sp) Function FloodAPPLIC_Backward(b1,b2,b3,cc) 
   Use ModGlobal, only : sp
   Real(sp) :: m1,m2,m3,cc,b1,b2,b3,tmp,pr,ch,mm,m12
   Real(sp) :: p,p12,q,teta,cs
@@ -53,21 +53,21 @@ Real(sp) Function FloodAPPLIC_Back(b1,b2,b3,cc)
   !*(3)*
   ch = DMIN1(cc,1.d0-cc)
 
-  !*(4)*      
-  ! Aoki APPLIC method 
+  !*(4)*
+  ! Aoki APPLIC method
   vma = ABS(b1)
   vmb = ABS(b2)
   vmc = ABS(b3)
-  
+
   w = min(cc, 1.0D0 - cc)
   xi = (PB - vma) * (PB - vmb) * (PB - vmc) - PA
   invp = (xi + PC0) / ((PC2 * xi + PC1) * xi + PC0)
   alpha = 0.5d0 * exp(log(w + w) * invp) 
   if (cc > 0.5d0) alpha = 1d0 - alpha 
-  FloodAPPLIC_back = alpha
+  FloodAPPLIC_backward = alpha
   !
   return
-end FUNCTION FloodAPPLIC_back
+end FUNCTION FloodAPPLIC_Backward
 
 !=======================================================
 ! Forward flooding algorithm of APPLIC.
