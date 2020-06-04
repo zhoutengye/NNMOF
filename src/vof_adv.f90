@@ -3,6 +3,7 @@
 !=======================================================
 SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
   Use ModGlobal, only : sp
+  Use ModGlobal, only : updthalo
   Implicit None
   Integer :: dir
   Real(sp) :: dt
@@ -17,6 +18,8 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
   Real(sp) :: norm(3)
   Real(sp) :: c_block(3,3,3)
   Real(sp) :: FloodAPPLIC_Backward, FloodAPPLIC_Forward
+  Integer :: nexch(2)
+  nexch = nl(1:2)
 
   vof1 = 0.0d0
   vof2 = 0.0d0
@@ -27,11 +30,11 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
       do i=1,nl(1)
         a1 = us(i,j,k) *dt/dl(1)
         if (dir.eq.1) then
-          a2 = us(i+1,j,k) *dt/dl(2)
+          a2 = us(i+1,j,k) *dt/dl(1)
         elseif (dir.eq.2) then
-          a2 = us(i,j+1,k) *dt/dl(3)
+          a2 = us(i,j+1,k) *dt/dl(2)
         elseif (dir.eq.3) then
-          a2 = us(i,j,k+1) *dt/dl(4)
+          a2 = us(i,j,k+1) *dt/dl(3)
         endif
 
         !***
@@ -52,29 +55,30 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
           !*(1)*
           c_block = c(i-1:i+1,j-1:j+1,k-1:k+1)
           ! Call NormParkerYoungs(c, norm)
-                  mm1 = c(i-1,j-1,k-1)+c(i-1,j-1,k+1)+c(i-1,j+1,k-1) & 
-                      +c(i-1,j+1,k+1)+2.0d0*(c(i-1,j-1,k)+c(i-1,j+1,k)&
-                      +c(i-1,j,k-1)+c(i-1,j,k+1))+4.0d0*c(i-1,j,k)
-                  mm2 = c(i+1,j-1,k-1)+c(i+1,j-1,k+1)+c(i+1,j+1,k-1) &
-                      +c(i+1,j+1,k+1)+2.0d0*(c(i+1,j-1,k)+c(i+1,j+1,k) &
-                      +c(i+1,j,k-1)+c(i+1,j,k+1))+4.0d0*c(i+1,j,k)
-                  mx = mm1 - mm2
+          Call NormAPPLIC(c, norm)
+                  ! mm1 = c(i-1,j-1,k-1)+c(i-1,j-1,k+1)+c(i-1,j+1,k-1) & 
+                  !     +c(i-1,j+1,k+1)+2.0d0*(c(i-1,j-1,k)+c(i-1,j+1,k)&
+                  !     +c(i-1,j,k-1)+c(i-1,j,k+1))+4.0d0*c(i-1,j,k)
+                  ! mm2 = c(i+1,j-1,k-1)+c(i+1,j-1,k+1)+c(i+1,j+1,k-1) &
+                  !     +c(i+1,j+1,k+1)+2.0d0*(c(i+1,j-1,k)+c(i+1,j+1,k) &
+                  !     +c(i+1,j,k-1)+c(i+1,j,k+1))+4.0d0*c(i+1,j,k)
+                  ! mx = mm1 - mm2
                   
-                  mm1 = c(i-1,j-1,k-1)+c(i-1,j-1,k+1)+c(i+1,j-1,k-1) &
-                      +c(i+1,j-1,k+1)+2.0d0*(c(i-1,j-1,k)+c(i+1,j-1,k) &
-                      +c(i,j-1,k-1)+c(i,j-1,k+1))+4.0d0*c(i,j-1,k)
-                  mm2 = c(i-1,j+1,k-1)+c(i-1,j+1,k+1)+c(i+1,j+1,k-1) &
-                      +c(i+1,j+1,k+1)+2.0d0*(c(i-1,j+1,k)+c(i+1,j+1,k) &
-                      +c(i,j+1,k-1)+c(i,j+1,k+1))+4.0d0*c(i,j+1,k)
-                  my = mm1 - mm2
+                  ! mm1 = c(i-1,j-1,k-1)+c(i-1,j-1,k+1)+c(i+1,j-1,k-1) &
+                  !     +c(i+1,j-1,k+1)+2.0d0*(c(i-1,j-1,k)+c(i+1,j-1,k) &
+                  !     +c(i,j-1,k-1)+c(i,j-1,k+1))+4.0d0*c(i,j-1,k)
+                  ! mm2 = c(i-1,j+1,k-1)+c(i-1,j+1,k+1)+c(i+1,j+1,k-1) &
+                  !     +c(i+1,j+1,k+1)+2.0d0*(c(i-1,j+1,k)+c(i+1,j+1,k) &
+                  !     +c(i,j+1,k-1)+c(i,j+1,k+1))+4.0d0*c(i,j+1,k)
+                  ! my = mm1 - mm2
                   
-                  mm1 = c(i-1,j-1,k-1)+c(i-1,j+1,k-1)+c(i+1,j-1,k-1) &
-                      +c(i+1,j+1,k-1)+2.0d0*(c(i-1,j,k-1)+c(i+1,j,k-1) &
-                      +c(i,j-1,k-1)+c(i,j+1,k-1))+4.0d0*c(i,j,k-1)
-                  mm2 = c(i-1,j-1,k+1)+c(i-1,j+1,k+1)+c(i+1,j-1,k+1) &
-                      +c(i+1,j+1,k+1)+2.0d0*(c(i-1,j,k+1)+c(i+1,j,k+1) &
-                      +c(i,j-1,k+1)+c(i,j+1,k+1))+4.0d0*c(i,j,k+1)
-                  mz = mm1 - mm2
+                  ! mm1 = c(i-1,j-1,k-1)+c(i-1,j+1,k-1)+c(i+1,j-1,k-1) &
+                  !     +c(i+1,j+1,k-1)+2.0d0*(c(i-1,j,k-1)+c(i+1,j,k-1) &
+                  !     +c(i,j-1,k-1)+c(i,j+1,k-1))+4.0d0*c(i,j,k-1)
+                  ! mm2 = c(i-1,j-1,k+1)+c(i-1,j+1,k+1)+c(i+1,j-1,k+1) &
+                  !     +c(i+1,j+1,k+1)+2.0d0*(c(i-1,j,k+1)+c(i+1,j,k+1) &
+                  !     +c(i,j-1,k+1)+c(i,j+1,k+1))+4.0d0*c(i,j,k+1)
+                  ! mz = mm1 - mm2
           ! mx = norm(1)
           ! my = norm(2)
           ! mz = norm(3)
@@ -137,6 +141,12 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
       enddo
     enddo
   enddo
+  call updthalo(nexch,1,vof1)
+  call updthalo(nexch,2,vof1)
+  call updthalo(nexch,1,vof2)
+  call updthalo(nexch,2,vof2)
+  call updthalo(nexch,1,vof3)
+  call updthalo(nexch,2,vof3)
   !***
   !     (1) apply proper boundary conditions to fluxes
   !     (2) new values of c and  clip it: 0. <= c <= 1.
@@ -160,6 +170,8 @@ SUBROUTINE AdvSZ(us, c, nl, dl, dt, dir)
   enddo
   !*(3)*
   ! call bc_c(c,nx,ny,nz)
+  call updthalo(nexch,1,c)
+  call updthalo(nexch,2,c)
   !***
   return
 End Subroutine AdvSZ

@@ -17,6 +17,7 @@ Contains
   ! Advection: APPLIC
   !=================
   Subroutine APPLIC(Phi, U, v, w, nl, dl, dt)
+    Use ModGlobal, only : updthalo
     Implicit None
     Real(sp) :: dt
     Integer,Intent(In)     :: nl(3)
@@ -25,6 +26,8 @@ Contains
     Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Integer :: nexch(2)
+    nexch = nl(1:2)
     call AdvSZ(u, phi, nl, dl, dt, 1)
     call AdvSZ(v, phi, nl, dl, dt, 2)
     call AdvSZ(w, phi, nl, dl, dt, 3)

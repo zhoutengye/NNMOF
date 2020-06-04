@@ -1,7 +1,7 @@
 EXEC = VOF
 FC = mpif90
 DEBUG = true
-TEST_NUM = 1
+TEST_NUM = 2
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
 # HDF5_DIR = $(HOME)/hdf5/intel
@@ -11,7 +11,7 @@ HDF5_DIR = $(HOME)/HPC/intel/hdf5
 SRCS = basics.f90 tools.f90 vof_norm.f90 vof_flood.f90 vof_adv.f90 vof.f90 test.f90
 CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM)
 ifeq ($(DEBUG), true)
-        FC_OPT = -O0 -g #-traceback -check all -fp-stack-check -warn
+        FC_OPT = -O0 -g -traceback -check all -fp-stack-check -warn
         EXEC:= TEST-$(TEST_NUM)
 else
         EXEC:= $(EXEC)_$(DIMENSION)

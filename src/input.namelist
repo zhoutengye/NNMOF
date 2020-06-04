@@ -1,6 +1,6 @@
 &mpivar
-px = 1
-py = 1
+px = 2
+py = 2
 /
 
 &gridvar
@@ -14,7 +14,7 @@ dz = 1.0
 
 &compvar
 tstart = 0.0
-tend  = 2.0
+tend  = 5.0
 dt = 0.2
 /
 
