@@ -11,12 +11,25 @@ Contains
     Implicit None
   End Subroutine THINCSW
 
+  ! Subroutine VOFAdv(Phi, U, v, w, nl, dl, dt)
+  !   Integer,Intent(In)           :: nl(3)
+  !   Real(sp),Intent(In)          :: dl(3)
+  !   Real(sp),Intent(InOut)       :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp),Intent(In)          :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp),Intent(In)          :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp),Intent(In)          :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp),Intent(In),optional :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp),Intent(In),optional :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp),Intent(In),optional :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  !   Real(sp) :: dt
+  ! End Subroutine VOFAdv
+
   !=================
   ! Norm: Parker & Youngs
   ! Reconstruction: APPLIC
   ! Advection: APPLIC
   !=================
-  Subroutine APPLIC(Phi, U, v, w, nl, dl, dt)
+  Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt)
     Use ModGlobal, only : updthalo
     Implicit None
     Real(sp) :: dt
@@ -26,19 +39,13 @@ Contains
     Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Integer :: nexch(2)
-    nexch = nl(1:2)
-    call AdvSZ(u, phi, nl, dl, dt, 1)
-    call AdvSZ(v, phi, nl, dl, dt, 2)
-    call AdvSZ(w, phi, nl, dl, dt, 3)
-  End Subroutine APPLIC
+    call AdvCIAM(u, phi, nl, dl, dt, 1)
+    call AdvCIAM(v, phi, nl, dl, dt, 2)
+    call AdvCIAM(w, phi, nl, dl, dt, 3)
+  End Subroutine VOFCIAM
 
-  !=================
-  ! Norm: Parker & Youngs
-  ! Reconstruction: PLIC
-  ! Advection: SZ
-  !=================
-  Subroutine SZPLIC(Phi, u, v, w, nl, dl, dt)
+  Subroutine VOFWY(Phi, u, v, w, nl, dl, dt)
+    Use ModGlobal, only : updthalo
     Implicit None
     Real(sp) :: dt
     Integer,Intent(In)     :: nl(3)
@@ -47,10 +54,11 @@ Contains
     Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-      call AdvSZ(u, phi, nl, dl, dt, 1)
-      call AdvSZ(v, phi, nl, dl, dt, 2)
-      call AdvSZ(w, phi, nl, dl, dt, 3)
-  End Subroutine SZPLIC
+    call AdvWY(u, phi, nl, dl, dt, 1)
+    call AdvWY(v, phi, nl, dl, dt, 2)
+    call AdvWY(w, phi, nl, dl, dt, 3)
+  End Subroutine VOFWY
+
 
   !=================
   ! Norm: MOF

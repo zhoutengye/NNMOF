@@ -129,7 +129,7 @@ Contains
     Implicit None
     Integer  :: nx, ny, nz
     Real(sp) :: dx, dy, dz
-    Real(sp) :: px, py
+    Integer  :: px, py
     Logical  :: io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz
     Integer  :: nn
     Character(80) :: input_name
