@@ -164,11 +164,18 @@ Subroutine test2
 
   ! VOF advection
   Do While (time < tend)
-    Call APPLIC(Phi, u, v, w, nl, dl, dt)
+    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
+    Call VOFWY(Phi, u, v, w, nl, dl, dt)
     time =  time + dt
   End Do
 
   f_end = phi
+
+  if (myid .eq.0) then
+  print *, sum(f_beg(1:nl(1),1:nl(2),1:nl(3))) 
+  print *, sum(f_end(1:nl(1),1:nl(2),1:nl(3))) 
+  endif
+
 
   Call Visual3DContour(f1=f_beg, f2=f_end)
   Call MPI_FINALIZE(ierr)

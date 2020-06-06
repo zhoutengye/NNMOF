@@ -10,3 +10,4 @@
 #  define ToFloat      dble
 #endif
 
+# define NOTZERO  1.0e-10

@@ -5,20 +5,18 @@ TEST_NUM = 2
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
 # HDF5_DIR = $(HOME)/hdf5/intel
-HDF5_DIR = $(HOME)/HPC/intel/hdf5
+HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 # Choose VOF METHOD
-NORM = NORM_PY
+# NORM = NORM_PY
 # NORM = NORM_CS
-
-FLOOD = FLOOD_SZ 
-# FLOOD = FLOOD_APPLIC
+NORM = NORM_MYCS
 
 SRC_DIR = ../../src
 SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_norm.f90 $(SRC_DIR)/vof_flood.f90 $(SRC_DIR)/vof_adv.f90 $(SRC_DIR)/vof.f90 test.f90
-CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM) -D$(NORM) -D$(FLOOD)
+CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM) -D$(NORM)
 ifeq ($(DEBUG), true)
-        FC_OPT = -O0 -g -traceback -check all -fp-stack-check #-warn
+        FC_OPT = -O0 -g -Wall -fstack-check
         EXEC:= TEST-$(TEST_NUM)
 else
         EXEC:= $(EXEC)_$(DIMENSION)
