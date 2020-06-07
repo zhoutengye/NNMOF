@@ -155,10 +155,11 @@ end FUNCTION FloodSZ_forward
 ! also
 !   the centroid x,y,z
 !=======================================================
-SUBROUTINE FloodSZ_forwardC(nr,alpha,x0,dx,xc0)
+SUBROUTINE FloodSZ_forwardC(nr,alpha,x0,dx,f,xc0)
 
   IMPLICIT NONE
   REAL(8), INTENT(IN) :: nr(3),x0(3),dx(3),alpha
+  REAL(8), INTENT(OUT) :: f
   REAL(8), INTENT(OUT) :: xc0(3)
   REAL(8) :: ctd0(3)
   REAL(8) :: al,almax,alh,alr,np1,np2,np3,m1,m2,m3,m12,mm,denom
@@ -186,10 +187,10 @@ SUBROUTINE FloodSZ_forwardC(nr,alpha,x0,dx,xc0)
   np2 = np2*dx(2)/almax;
   np3 = np3*dx(3)/almax;
 ! coefficients in ascending order
-  if (np1 <= np2) then                             
+  if (np1 <= np2) then
     m1 = np1
     m3 = np2
-    ind(1) = 1                                            
+    ind(1) = 1
     ind(3) = 2
   else
     m1 = np2
@@ -288,4 +289,11 @@ SUBROUTINE FloodSZ_forwardC(nr,alpha,x0,dx,xc0)
   xc0(2) = x0(2) + xc0(2)*dx(2) 
   xc0(3) = x0(3) + xc0(3)*dx(3) 
 
-END SUBROUTINE FLOODSZ_FORWARDC
+  if (al <= 0.5d0) then
+    f = frac * dx(1)*dx(2)*dx(3)
+  else
+    f = (1.d0-frac) * dx(1)*dx(2)*dx(3)
+  endif
+
+End Subroutine FloodSZ_forwardC
+

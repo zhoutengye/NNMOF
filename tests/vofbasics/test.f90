@@ -25,7 +25,7 @@ end program test
 Subroutine test1
   Use ModGlobal
   Use ModTools
-  Use ModVOF
+  Use Mod_VOF
   Implicit None
   Character(80) :: data_name
 
@@ -101,11 +101,13 @@ end Subroutine test1
 !===============
 Subroutine test2
   Use ModGlobal
-  Use ModVOF
+  Use Mod_VOF
   Use Modtools
   Implicit None
   Real(sp), allocatable, Dimension(:,:,:) :: f_beg
   Real(sp), allocatable, Dimension(:,:,:) :: f_end
+  Real(sp) :: v1, v2
+  Real(sp) :: v11, v12
   Integer :: nexch(2)
 
   call init(inputfield=.true.)
@@ -165,17 +167,23 @@ Subroutine test2
   ! VOF advection
   Do While (time < tend)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
-    Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     time =  time + dt
   End Do
 
   f_end = phi
 
-  if (myid .eq.0) then
-  print *, sum(f_beg(1:nl(1),1:nl(2),1:nl(3))) 
-  print *, sum(f_end(1:nl(1),1:nl(2),1:nl(3))) 
-  endif
+  v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3))) 
+  v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3))) 
 
+  Call MPI_Reduce(v1, v11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
+  Call MPI_Reduce(v1, v12, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
+  if (myid .eq.0) then
+    print *, v11
+    print *, v12
+  endif
 
   Call Visual3DContour(f1=f_beg, f2=f_end)
   Call MPI_FINALIZE(ierr)

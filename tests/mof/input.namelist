@@ -1,6 +1,6 @@
 &mpivar
-px = 2
-py = 2
+px = 1
+py = 1
 /
 
 &gridvar
@@ -24,14 +24,14 @@ startframe = 0
 /
 
 &iofield
-n_vars = 4
+n_vars = 7
 io_phi = .true.
 io_u   = .true.
 io_v   = .true.
 io_w   = .true.
-io_cx  = .false.
-io_cy  = .false.
-io_cz  = .false.
+io_cx  = .true.
+io_cy  = .true.
+io_cz  = .true.
 output_path = ''
 output_name = ''
 /

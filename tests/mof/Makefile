@@ -13,7 +13,8 @@ HDF5_DIR = $(HOME)/hdf5/gnu
 NORM = NORM_MYCS
 
 SRC_DIR = ../../src
-SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_norm.f90 $(SRC_DIR)/vof_flood.f90 $(SRC_DIR)/vof_adv.f90  test.f90
+MOF_DIR = ../../src/sussman_mof
+SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/mof.f90 $(SRC_DIR)/vof_norm.f90 $(SRC_DIR)/vof_flood.f90 $(SRC_DIR)/vof_adv.f90   test.f90
 CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM) -D$(NORM)
 ifeq ($(DEBUG), true)
         FC_OPT = -O0 -g -Wall -fstack-check
@@ -21,11 +22,11 @@ ifeq ($(DEBUG), true)
         EXEC:= TEST-$(TEST_NUM)
 else
         EXEC:= $(EXEC)_$(DIMENSION)
-        FC_OPT = -O2
+        FC_OPT = -O3
 endif
 
-LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a -lz -ldl -lm
-INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR)
+LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a $(MOF_DIR)/libmof.a -lz -ldl -lm 
+INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) -I$(MOF_DIR)
 
 # rule for *.f90 to *.o
 .SUFFIXES: .o .f90
@@ -41,5 +42,5 @@ $(EXEC): $(OBJS)
 clean:
 	rm -f *.o
 	rm -f *.mod
-	rm -f *.mod.f90
+	rm -f *mod.f90
 	rm -f $(EXEC)
