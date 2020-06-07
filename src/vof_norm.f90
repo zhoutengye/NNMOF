@@ -336,9 +336,17 @@ End Subroutine NormELVIRA
 
 !===============================================================
 ! Normal vector MOF
+! f: vof function
+! c: centroid
 !===============================================================
-Subroutine NormMOF
+Subroutine NormMOF(f,c,norm,abs_norm)
   Use ModGlobal, only : sp
+  Use ModMOF
   Implicit None
+  Real(8), Intent(In) :: f
+  Real(8), Intent(In) :: c(3)
+  Real(8), Intent(Out) :: norm(3), abs_norm(3)
+  Call NormSussmanMOF(f,c,norm)
+  Call Normalization1(norm, abs_norm)
 End Subroutine NormMOF
 

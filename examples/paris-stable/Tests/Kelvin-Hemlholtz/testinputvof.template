@@ -1,0 +1,22 @@
+&VOFPARAMETERS
+
+VOFBDRY_COND = 'periodic' 'wet' 'periodic' 'periodic' 'dry' 'periodic' 
+                   ! Type of VOF boundary condition in x,y,z direction: 'wet', '90deg','periodic'
+                   !x- y- z- [x+ y+ z+]
+
+TEST_TYPE = 'KHI2D'
+VOF_ADVECT =  'Dick_Yue'
+DoMOMCONS = F
+IniWaveAmp = IWATEMP
+Nwavenumber = NWAVENUMBER
+staggeredmom = T
+Cylinder_dir=3
+Use_Vofi = T
+!=================================================================================================
+
+&end
+! end of the namelist
+
+
+  
+
