@@ -296,4 +296,3 @@ SUBROUTINE FloodSZ_forwardC(nr,alpha,x0,dx,f,xc0)
   endif
 
 End Subroutine FloodSZ_forwardC
-
