@@ -1,0 +1,45 @@
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, shapes.geometric, calc, shadows}
+\tikzstyle{square} = [regular polygon,regular polygon sides=4]
+
+\begin{document}
+\section{Advection of Volume function}
+Use a simple 3 stencil 1D grid as an example:
+
+\begin{tikzpicture}
+\pgfmathsetmacro{\xo}{0}
+\pgfmathsetmacro{\yo}{0}
+\draw[step=1, gray, very thin, xshift = \xo cm, yshift= \yo cm] (0,0) grid (3,1);
+\end{tikzpicture}
+
+
+\subsection{Weymouth-Yue}
+Original volume plus the boundary flux (Eulerian).
+\begin{equation}
+  \label{eq:wy}
+  \tilde{f_{c}} = f_{c} + VOF^{1}_{c} - VOF^{3}_{c} - VOF^{1}_{r} + VOF^{3}_{l}
+\end{equation}
+
+\subsection{CIAM}
+Backward lagrangian of the grid face and find the intersection between
+two faces (Lagrangian).
+
+\begin{itemize}
+  \item 
+\end{itemize}
+
+\begin{equation}
+  \label{eq:CIAM}
+  \tilde{f_{c}} = VOF^{2}_{c} + VOF^{1}_{r} + VOF^{3}_{l}
+\end{equation}
+
+Compared with W-Y advection, we obtain
+
+\begin{equation}
+  \label{eq:CIAM}
+  VOF2_{c} = f_{c} - 2 VOF^{1}_{r} - VOF^{1}_{c} - VOF^{3}_{c}
+\end{equation}
+
+
+\end{document}

@@ -58,12 +58,54 @@ Subroutine test1
 
 end Subroutine test1
 
+!===============
+! test1: Centroid flooding
+!===============
+Subroutine test2
+  Use ModGlobal
+  Use ModTools
+  Use ModMOF
+  Use Mod_VOF
+  Implicit None
+  Real(sp) :: f
+  Real(sp) :: alpha, x0(3), deltax(3)
+  Real(sp) :: c(3)
+  Real(sp) :: norm(3)
+
+  Call Init(inputfield=.true.)
+
+  ! Test whether centroid calculates correctly
+  norm(1) = 1.0_sp / 3.0_sp
+  norm(2) = 1.0_sp / 3.0_sp
+  norm(3) = 1.0_sp / 3.0_sp
+  f = 1.0_sp
+  alpha = 1.0_sp / 3.0_sp
+  x0 = 0.0_sp
+  ! x0(1) = 0.5_sp
+  x0(2) = 0.5_sp
+  deltax = 1.0_sp
+  Call FloodSZ_forwardC(norm, alpha, x0, deltax, f,c)
+  if (myid .eq. 0) Print *, f, c
+
+  ! Test whether centroid advection working
+  ! Call Centroid_Lagrangian_Adv(c, 0.1_sp, 0.1_sp, 0.0_sp, 1.0_sp, 1)
+  ! Call Centroid_Eulerian_Adv(c, 0.1_sp, 0.1_sp, 0.0_sp, 1.0_sp, 1)
+  Call Centroid_Lagrangian_Adv(c, 0.1_sp, 0.2_sp, 0.0_sp, 1.0_sp, 1)
+  if (myid .eq. 0) Print *, f, c
+  Call Centroid_Eulerian_Adv(c, 0.1_sp, 0.2_sp, 0.0_sp, 1.0_sp, 2)
+  if (myid .eq. 0) Print *, f, c
+
+  Call MPI_FINALIZE(ierr)
+
+
+end Subroutine test2
+
 
 !===============
 ! test1: MOF reconstruction
 ! Given centroid and volume and obtains the normal vecor
 !===============
-Subroutine test2
+Subroutine test3
   Use ModGlobal
   Use ModTools
   Use ModMOF
@@ -74,6 +116,7 @@ Subroutine test2
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
   Integer :: nexch(2)
+  Integer:: nn = 0
 
   Call Init(inputfield=.true.)
 
@@ -97,22 +140,30 @@ Subroutine test2
   Allocate(f_end(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
   f_beg = phi
 
-  block
-    integer :: j
-  if (myid .eq. 0) then
-      do j = 5, 10
-        ! print *, data_out(:,j,1)
-        print *, u(5:10,j,7)
-      end do
-  end if
-  end block
-  
+
 
   ! VOF advection
   ! Do While (time < tend)
+    nn = nn + 1
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
+    ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    ! Call VOFHybrid(Phi, u, v, w, nl, dl, dt,nn)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    Call Visual3DContour(f1=phi)
+    ! call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    ! Call Visual3DContour(f1=phi)
+    call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    Call Visual3DContour(f1=phi)
+    ! call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    ! Call Visual3DContour(f1=phi)
+    ! call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    ! Call Visual3DContour(f1=phi)
+    ! call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    ! Call Visual3DContour(f1=phi)
+    ! call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    ! Call Visual3DContour(f1=phi)
     time =  time + dt
   ! End Do
 
@@ -128,12 +179,12 @@ Subroutine test2
     print *, v12
   endif
 
-  Call Visual3DContour(f1=f_end)
+  ! Call Visual3DContour(f1=f_end)
   ! Call Visual3DContour(f1=f_beg, f2=f_end)
 
 
   Call MPI_FINALIZE(ierr)
 
 
-end Subroutine test2
+end Subroutine test3
 
