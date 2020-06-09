@@ -2,13 +2,16 @@ Module ModTools
   Use ModGlobal
   Implicit None
 Contains
-  Subroutine Visual3DContour(f1, f2, f3, f4, f5)
+  Subroutine Visual3DContour(f1, f2, f3, f4, f5, slice_dir, slice_coord)
     Implicit None
     Real(sp), Intent(In) :: f1(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp), Intent(In), optional :: f2(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp), Intent(In), optional :: f3(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp), Intent(In), optional :: f4(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp), Intent(In), optional :: f5(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Character,  Intent(In), optional :: slice_dir
+    Integer,  Intent(In), optional :: slice_coord
+    Character(5) :: slice_num
     Type(HDF5File)  :: h5_visual_file
     Type(HDF5Group) :: h5_visual_group
     Character(80) :: data_name
@@ -52,6 +55,9 @@ Contains
     Call h5gclose_f(h5_visual_group%group_id, h5error)
     Call h5fclose_f(h5_visual_file%file_id, h5error)
 
+    write(slice_num , '(i5)') slice_coord
+    print *, slice_num
+
     If ( myid .eq. 0 ) Then
       open(10,file='vis.py',status='unknown')
       Write(10,'(a)') "import numpy as np"
@@ -63,11 +69,15 @@ Contains
       Write(10,'(a)') "    mlab.contour3d(vis,contours=8,opacity=.2 )"
       Write(10,'(a)') "nx, ny, nz = vis.shape"
       Write(10,'(a)') "f.close()"
+      if(present(slice_dir))then
+        Write(10,'(a)') "mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(vis),plane_orientation='"&
+            //slice_dir//"_axes',slice_index="//slice_num//")"
+      endif
       Write(10,'(a)') "mlab.outline(extent=[0,nx,0,ny,0,nz])"
       Write(10,'(a)') "mlab.show()"
       close(10)
       Call system('python vis.py')
-      Call system('rm vis.py')
+      ! Call system('rm vis.py')
     End If
 
   End Subroutine Visual3DContour
