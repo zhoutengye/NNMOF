@@ -1,6 +1,4 @@
-EXEC = MOF.ex
 FC = gfortran
-FCOPT = -O3
 DIM = 3
 
 OPTFLAG = -g -O3 -fimplicit-none

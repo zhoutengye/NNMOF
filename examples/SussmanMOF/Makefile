@@ -19,6 +19,8 @@ $(EXEC): libmof
 libmof: $(OBJS)
 	ar rcs libmof.a $(OBJS)
 
+$dt: $(OBJS)
+
 .F90.o:
 	$(FC) -c -cpp $(CPPFLAG) $(OPTFLAG) -I. $*.F90
 

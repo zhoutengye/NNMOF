@@ -29,28 +29,55 @@ Subroutine test1
   Real(sp) :: f
   Real(sp) :: c(3)
   Real(sp) :: norm(3)
+  Real(sp) :: abs_norm(3)
 
   Call Init(inputfield=.true.)
 
   Call MOF_Init
 
-  f = 1.0_sp/3.0_sp
-  c(1) = 1.0/4.0
-  c(2) = 1.0/4.0
-  c(3) = 1.0/4.0
+  ! f = 1.0_sp/3.0_sp
+  ! c(1) = 1.0/4.0
+  ! c(2) = 1.0/4.0
+  ! c(3) = 1.0/4.0
 
-  f = 0.8_sp
-  c(1) = 0.1
-  c(2) = 0.0
-  c(3) = 0.0
+  ! f = 2.0_sp/3.0_sp
+  ! c(1) = 33.0/48.0
+  ! c(2) = 33.0/48.0
+  ! c(3) = 33.0/48.0
 
-  f = 0.8_sp
-  c(1) = 0.0
-  c(2) = 0.1
-  c(3) = 0.0
+  f = 2.0_sp/3.0_sp
+  c(1) = 33.0/48.0
+  c(2) = 33.0/48.0
+  c(3) = 33.0/48.0
 
-  Call NormSussmanMOF(f,c,norm)
+  ! f = 0.8_sp
+  ! c(1) = 0.5_sp
+  ! c(2) = 0.4_sp
+  ! c(3) = 0.5_sp
 
+  ! f = 0.25_sp
+  ! c(1) = 1.0_sp/3.0_sp
+  ! c(2) = 1.0_sp/3.0_sp
+  ! c(3) = 1.0_sp/2.0_sp
+
+  ! f = 1.0_sp/24.0_sp
+  ! c(1) = 1.0_sp/8.0_sp
+  ! c(2) = 1.0_sp/8.0_sp
+  ! c(3) = 1.0_sp/8.0_sp
+
+  ! f = 0.5_sp
+  ! c(1) = 0.2_sp
+  ! c(2) = 0.49_sp
+  ! c(3) = 0.49_sp
+
+  ! f = 0.6_sp
+  ! c(1) = 0.3
+  ! c(2) = 0.5
+  ! c(3) = 0.5
+
+  ! Call NormMOF(f,c,norm,abs_norm)
+  Call NormMOF(f,c,norm,abs_norm)
+  
   if (myid .eq. 0) Print *,norm
 
   Call MPI_FINALIZE(ierr)
@@ -115,8 +142,10 @@ Subroutine test3
   Real(sp), allocatable, Dimension(:,:,:) :: f_end
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
-  Integer :: nexch(2)
-  Integer:: nn = 0
+  Integer  :: nexch(2)
+  Integer  :: nn = 0
+  Character(80) :: data_name
+  Integer :: i, j, k
 
   Call Init(inputfield=.true.)
 
@@ -150,10 +179,10 @@ Subroutine test3
     ! Call VOFHybrid(Phi, u, v, w, nl, dl, dt,nn)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-    Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
-    call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-    Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
+    ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
+    ! call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
     ! Call Visual3DContour(f1=phi)
     ! call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
     ! Call Visual3DContour(f1=phi)
@@ -163,15 +192,38 @@ Subroutine test3
     ! Call Visual3DContour(f1=phi)
     ! call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
     ! Call Visual3DContour(f1=phi)
-    ! call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    ! Call Visual3DContour(f1=phi)
+    ! call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
     ! Call Visual3DContour(f1=phi)
     time =  time + dt
   ! End Do
 
+    data_name = 'test'
+  do nn = 1, n_vars
+      Select Case(Trim(h5_output_field(nn)%groupname))
+      Case('phi')
+        Call HDF5WriteData(h5_output_field(nn), phi,data_name)
+      Case('u')
+        Call HDF5WriteData(h5_output_field(nn), u,data_name)
+      Case('v')
+        Call HDF5WriteData(h5_output_field(nn), v,data_name)
+      Case('w')
+        Call HDF5WriteData(h5_output_field(nn), w,data_name)
+      Case('cx')
+        Call HDF5WriteData(h5_output_field(nn), cx,data_name)
+      Case('cy')
+        Call HDF5WriteData(h5_output_field(nn), cy,data_name)
+      Case('cz')
+        Call HDF5WriteData(h5_output_field(nn), cz,data_name)
+      End Select
+  end do
+
+
   f_end = phi
 
-  v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3))) 
-  v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3))) 
+  v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3)))
+  v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3)))
 
   Call MPI_Reduce(v1, v11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
   Call MPI_Reduce(v1, v12, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
@@ -181,7 +233,7 @@ Subroutine test3
   endif
 
   ! Call Visual3DContour(f1=f_end)
-  ! Call Visual3DContour(f1=f_beg, f2=f_end)
+  Call Visual3DContour(f1=f_beg, f2=f_end)
 
 
   Call MPI_FINALIZE(ierr)

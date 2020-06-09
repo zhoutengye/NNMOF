@@ -7,6 +7,5 @@ for key in f['visual']:
     mlab.contour3d(vis,contours=8,opacity=.2 )
 nx, ny, nz = vis.shape
 f.close()
-mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(vis),plane_orientation='x_axes',slice_index=    8)
 mlab.outline(extent=[0,nx,0,ny,0,nz])
 mlab.show()

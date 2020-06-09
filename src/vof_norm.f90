@@ -92,7 +92,6 @@ Subroutine NormCS(c,norm,abs_norm)
   Real(8) norm(3), abs_norm(3)
   Real(8) m1,m2,m(0:3,0:2),t0,t1,t2
   Integer cn
-  Real(8), parameter  :: NOT_ZERO=1.e-30
 
   ! write the plane as: sgn(mx) X =  my Y +  mz Z + alpha 
   !                           m00 X = m01 Y + m02 Z + alpha 
@@ -210,8 +209,6 @@ Subroutine NormMYCS(c,norm,abs_norm)
   Real(8) m1,m2,m(0:3,0:2),t0,t1,t2
   Real(8) mm(3), abs_mm(3)
   Integer cn
-  Real(8), parameter  :: NOT_ZERO=1.e-30
-
   ! write the plane as: sgn(mx) X =  my Y +  mz Z + alpha 
   !                           m00 X = m01 Y + m02 Z + alpha 
 
@@ -319,28 +316,11 @@ Subroutine NormMYCS(c,norm,abs_norm)
 End Subroutine NormMYCS
 
 !===============================================================
-! Normal vector MYCS
-!===============================================================
-Subroutine NormLVIRA
-  Use ModGlobal, only : sp
-  Implicit None
-End Subroutine NormLVIRA
-
-!===============================================================
-! Normal vector LIVERA
-!===============================================================
-Subroutine NormELVIRA
-  Use ModGlobal, only : sp
-  Implicit None
-End Subroutine NormELVIRA
-
-!===============================================================
 ! Normal vector MOF
 ! f: vof function
 ! c: centroid
 !===============================================================
 Subroutine NormMOF(f,c,norm,abs_norm)
-  Use ModGlobal, only : sp
   Use ModMOF
   Implicit None
   Real(8), Intent(In) :: f

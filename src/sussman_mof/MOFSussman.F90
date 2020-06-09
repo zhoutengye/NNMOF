@@ -42,7 +42,7 @@ Module SussmanMOF
     Integer :: MOF_TURN_OFF_LS_in 
     Integer :: nmax_in
 
-    Real(8), Allocatable :: LS_stencil(:,:,:) 
+    Real(8), Allocatable :: LS_stencil(:,:,:,:) 
 
     Real(8), Allocatable :: xtetlist_vof(:,:,:)
     Real(8), Allocatable :: xtetlist_cen(:,:,:)
@@ -59,16 +59,12 @@ Contains
 
         Implicit None
 
-
-        ! Open(1, file='parameters.namelist')
-        ! Read(1, nml = Inputs_1)
-        ! Read(1, nml = MOFINITIAL)
         caller_id      = 0
         bfact          = 1
         nhalf0         = 3
         use_ls_data    = 1          ! LS_stencil -> not used if use_ls_data=0
         nmax           = 1000       ! sufficient large
-        mof_verbose    = 0          ! 0 or 1
+        mof_verbose    = 1          ! 0 or 1
         sdim           = 3          ! Number of imensions
         nmat           = 2          ! Numver of materials
         ngeom_recon    = 0
@@ -76,18 +72,17 @@ Contains
         levelrz        = 0
 
         order_algorithm_in = 1      ! all components equal to nmat+1
-        MOFITERMAX_in      = 10     ! MOFITERMAX_in=10 is a reasonable choice
+        MOFITERMAX_in      = 200     ! MOFITERMAX_in=10 is a reasonable choice
         MOF_DEBUG_RECON_in = 10     ! Integer 
         nthreads           = 1      ! nthreads=1
         MOF_TURN_OFF_LS_in = 0      ! MOF_TURN_OFF_LS_in=1 is a reasonable choice
-        nmax_in            = 500    ! nmax=500 is a reasonable choice.
+        nmax_in            = 5000    ! nmax=500 is a reasonable choice.
 
         ngeom_recon = 2 * sdim + 3
         num_materials = nmat
         nmax_in = nmax
-        
 
-        Allocate(LS_stencil(-1:1,-1:1,nmat))
+        Allocate(LS_stencil(-1:1,-1:1,-1:1,nmat))
         Allocate(xtetlist_vof(sdim+1,sdim,nmax))
         Allocate(xtetlist_cen(sdim+1,sdim,nmax)) 
         Allocate(xsten0(-nhalf0:nhalf0,sdim))
