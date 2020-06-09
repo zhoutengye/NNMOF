@@ -335,8 +335,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
   Real(sp) :: norm(3), abs_norm(3)
   Real(sp) :: c3(3)
-  Real(sp) :: f_block(3,3,3)
-  Real(sp) :: FloodBackward!, FloodForward
+  Real(sp) :: FloodBackward
   Real(sp) :: EPSC = 1.0e-12
   Integer :: nexch(2)
   nexch = nl(1:2)
@@ -378,9 +377,9 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c1xyz = 0.5_sp
           c2xyz = 0.5_sp
           c3xyz = 0.5_sp
-          c1xyz(dir) = DMAX1(-a1/2.0_sp,0.0_sp)
-          c2xyz(dir) = 0.5_sp - DMAX1(-a1/2.0_sp,0.0_sp) + DMIN1(a2/2.0_sp,0.0_sp)
-          c3xyz(dir) = 1.0_sp - DMAX1(a2/2.0_sp,0.0_sp)
+          c1xyz(dir) = - DMAX1(-a1/2.0_sp,0.0_sp)
+          c2xyz(dir) = 0.5_sp + DMAX1(a1/2.0_sp,0.0_sp) - DMIN1(a2/2.0_sp,0.0_sp)
+          c3xyz(dir) = 1.0_sp + DMAX1(a2/2.0_sp,0.0_sp)
 
         ! 0 < f < 1
         else if (f(i,j,k) .GT. 0.0_sp) then
@@ -388,9 +387,13 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1) = cx(i,j,k)
           c3(2) = cy(i,j,k)
           c3(3) = cz(i,j,k)
-          Call NormMOF(f, c3, norm, abs_norm)
-          ! f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
-          ! Call NormCalc(f_block, norm, abs_norm)
+          Call NormMOF(f(i,j,k), c3, norm, abs_norm)
+          if (i == 6 .and. j == 8 .and. k==8) Then
+            print * , f(i,j,k), c3, norm
+          end if
+          if (i == 11 .and. j == 8 .and. k==8) Then
+            print * , f(i,j,k), c3, norm
+          end if
           !*(2) get alpha;
           alpha = FloodBackward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
@@ -411,17 +414,21 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           deltax(dir) = 1.0_sp - x0(dir) + DMIN1(0.0_sp,a2)
           Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
-        ! if (i == 6 .and. j == 6 .and. k==6) Then
-        !   print * , c1xyz(1)
-        !   print * , c2xyz(1)
-        !   print * , c3xyz(1)
-        ! end if
         ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! If (vof1(i,j,k) .gt. epsc) Then
+        !   Call Centroid_Lagrangian_Adv(c1xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
+        ! EndIf
+        ! If (vof2(i,j,k) .gt. epsc) Then
+        !   Call Centroid_Lagrangian_Adv(c2xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
+        ! EndIf
+        ! If (vof3(i,j,k) .gt. epsc) Then
+        !   Call Centroid_Lagrangian_Adv(c3xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
+        ! EndIf
+        c1xyz(dir) = c1xyz(dir) + 1.0_sp
+        c3xyz(dir) = c3xyz(dir) - 1.0_sp
+
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
         c1z(i,j,k) = c1xyz(3)
@@ -431,14 +438,15 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2x(i,j,k) = c2xyz(1)
         c2y(i,j,k) = c2xyz(2)
         c2z(i,j,k) = c2xyz(3)
+
       enddo
     enddo
   enddo
 
-  print * , cx(6,8,8), cx(10,8,8)
-  print * , c1x(6,8,8), c1x(10,8,8)
-  print * , c2x(6,8,8), c2x(10,8,8)
-  print * , c3x(6,8,8), c3x(10,8,8)
+  ! print * , cx(6,8,8), cx(10,8,8)
+  ! print * , c1x(6,8,8), c1x(10,8,8)
+  ! print * , c2x(6,8,8), c2x(10,8,8)
+  ! print * , c3x(6,8,8), c3x(10,8,8)
 
   ! apply proper boundary conditions to vof1, vof2, vof3
   call phi_bc%setBCS(vof1)
@@ -457,15 +465,19 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        mx = vof3(i-ii,j-jj,k-kk) * (c3x(i-ii,j-jj,k-kk)-1.0_sp) + &
+        mx = vof3(i-ii,j-jj,k-kk) * c3x(i-ii,j-jj,k-kk) + &
             vof2(i,j,k) * c2x(i,j,k) + &
-            vof1(i+ii,j+jj,k+kk) * (1.0_sp+c1x(i+ii,j+jj,k+kk))
-        my = vof3(i-ii,j-jj,k-kk) * (c3y(i-ii,j-jj,k-kk)-1.0_sp) +&
+            vof1(i+ii,j+jj,k+kk) * c1x(i+ii,j+jj,k+kk)
+        my = vof3(i-ii,j-jj,k-kk) * c3y(i-ii,j-jj,k-kk) +&
             vof2(i,j,k) * c2y(i,j,k) + &
-            vof1(i+ii,j+jj,k+kk) * (1.0_sp+c1y(i+ii,j+jj,k+kk))
-        mz = vof3(i-ii,j-jj,k-kk) * (c3z(i-ii,j-j,k-kk)-1.0_sp) +&
+            vof1(i+ii,j+jj,k+kk) * c1y(i+ii,j+jj,k+kk)
+        ! mz = vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-j,k-kk) +&
+        !     vof2(i,j,k) * c2z(i,j,k) + &
+        !     vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk)
+        mz = vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-jj,k-kk) +&
             vof2(i,j,k) * c2z(i,j,k) + &
-            vof1(i+ii,j+jj,k+kk) * (1.0_sp+c1z(i+ii,j+jj,k+kk))
+            vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk)
+
         f(i,j,k) = vof3(i-ii,j-jj,k-kk) + &
             vof2(i,j,k) + &
             vof1(i+ii,j+jj,k+kk)
@@ -483,19 +495,49 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           cy(i,j,k) = 0.5_sp
           cz(i,j,k) = 0.5_sp
         endif
+        if (cx(i,j,k) < 0.0_sp) then
+          cx(i,j,k) = 0.0_sp
+          print *, 'cx<1', i,j,k
+        elseif (cx(i,j,k) >  (1.0_sp )) then
+          cx(i,j,k) = 1.0_sp
+          print *, 'cx>1', i,j,k
+        endif
+        if (cy(i,j,k) < 0.0_sp) then
+          cy(i,j,k) = 0.0_sp
+          print *, 'cy<1', i,j,k
+        elseif (cy(i,j,k) >  (1.0_sp )) then
+          cy(i,j,k) = 1.0_sp
+          print *, 'cy>1', i,j,k
+        endif
+        if (cz(i,j,k) < 0.0_sp) then
+          cz(i,j,k) = 0.0_sp
+          print *, 'cz<0', i,j,k
+        elseif (cz(i,j,k) >  (1.0_sp )) then
+          cz(i,j,k) = 1.0_sp
+          print *, 'cz>1', i,j,k
+        endif
       enddo
     enddo
   enddo
-  print *, vof3(5,8,8), c3x(5,8,8), vof3(5,8,8) * c3x(5,8,8)
-  print *, vof2(6,8,8), c2x(6,8,8), vof2(6,8,8) * c2x(6,8,8)
-  print *, vof1(6,8,8), c1x(6,8,8), vof1(6,8,8) * c1x(6,8,8)
-  print *,  
-  print *, vof2(6,8,8)
-  print *, c2x(6,8,8)
-  print * , f(6,8,8), cx(6,8,8)
-  print * , f(11,8,8), cx(11,8,8)
+
+  print * , f(6,8,8), cx(6,8,8), cy(6,8,8), cz(6,8,8)
+  print * , f(11,8,8), cx(11,8,8), cy(11,8,8), cz(11,8,8)
+  print * , c1x(10,8,8), c1y(10,8,8), c1z(10,8,8)
+  print * , c2x(10,8,8), c2y(10,8,8), c2z(10,8,8)
+  print * , c3x(10,8,8), c3y(10,8,8), c3z(10,8,8)
+
+  ! print *, vof3(5,8,8), c3x(5,8,8), vof3(5,8,8) * c3x(5,8,8)
+  ! print *, vof2(6,8,8), c2x(6,8,8), vof2(6,8,8) * c2x(6,8,8)
+  ! print *, vof1(7,8,8), c1x(7,8,8), vof1(7,8,8) * c1x(7,8,8)
+  ! print *, vof2(6,8,8)
+  ! print *, c2x(6,8,8)
+  ! print * , f(6,8,8), cx(6,8,8)
+  ! print * , f(11,8,8), cx(11,8,8)
   ! apply proper boundary conditions to c
   call phi_bc%setBCS(f)
+  call phi_bc%setBCS(cx)
+  call phi_bc%setBCS(cy)
+  call phi_bc%setBCS(cz)
   !***
   return
 End Subroutine AdvCIAM_MOF
@@ -569,7 +611,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1)  = cx(i,j,k)
           c3(2)  = cy(i,j,k)
           c3(3)  = cz(i,j,k)
-          Call NormMOF(f(i,j,k), norm, abs_norm)
+          Call NormMOF(f(i,j,k), c3, norm, abs_norm)
           !*(2) get alpha;
           alpha = FloodBackward(norm,f(i,j,k))
           !*(3) get fluxes
@@ -585,13 +627,15 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           end if
         endif
         c2xyz(1) = cx(i,j,k); c2xyz(2) = cy(i,j,k); c2xyz(3) = cz(i,j,k);
-        ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Visual3DContour(f1=cz)
+        c1xyz(dir)  = c1xyz(dir) + 1.0_sp
+        c3xyz(dir)  = c3xyz(dir) - 1.0_sp
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
         c1z(i,j,k) = c1xyz(3)
@@ -601,9 +645,6 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2x(i,j,k) = c2xyz(1)
         c2y(i,j,k) = c2xyz(2)
         c2z(i,j,k) = c2xyz(3)
-        ! c2x(i,j,k) = cx(i,j,k)
-        ! c2y(i,j,k) = cy(i,j,k)
-        ! c2z(i,j,k) = cz(i,j,k)
       enddo
     enddo
   enddo
@@ -628,18 +669,18 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         mx = f(i,j,k) * c2x(i,j,k) &
             - vof1(i,j,k) * c1x(i,j,k) &
             - vof3(i,j,k) * c3x(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * (c1x(i+ii,j+jj,k+kk)+1.0_sp*dble(ii)) &
-            + vof3(i-ii,j-jj,k-kk) * (c3x(i-ii,j-jj,k-kk)-1.0_sp*dble(ii))
+            + vof1(i+ii,j+jj,k+kk) * c1x(i+ii,j+jj,k+kk) &
+            + vof3(i-ii,j-jj,k-kk) * c3x(i-ii,j-jj,k-kk)
         my = f(i,j,k) * c2y(i,j,k) &
             - vof1(i,j,k) * c1y(i,j,k) &
-            - vof3(i,j,k) * c3y(i,j,k) - &
-            + vof1(i+ii,j+jj,k+kk) * (c1y(i+ii,j+jj,k+kk)+1.0_sp*dble(jj)) &
-            + vof3(i-ii,j-jj,k-kk) * (c3y(i-ii,j-jj,k-kk)-1.0_sp*dble(jj))
+            - vof3(i,j,k) * c3y(i,j,k) &
+            + vof1(i+ii,j+jj,k+kk) * c1y(i+ii,j+jj,k+kk) &
+            + vof3(i-ii,j-jj,k-kk) * c3y(i-ii,j-jj,k-kk)
         mz = f(i,j,k) * c2z(i,j,k) &
             - vof1(i,j,k) * c1z(i,j,k) &
             - vof3(i,j,k) * c3z(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * (c1z(i+ii,j+jj,k+kk)+1.0_sp*dble(kk)) &
-            + vof3(i-ii,j-jj,k-kk) * (c3z(i-ii,j-jj,k-kk)-1.0_sp*dble(kk))
+            + vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk) &
+            + vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-jj,k-kk)
         f(i,j,k) = f(i,j,k) &
             - vof1(i,j,k) &
             - vof3(i,j,k) &
@@ -683,6 +724,10 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
       enddo
     enddo
   enddo
+
+  ! Call Visual3DContour(f1=cx)
+  ! Call Visual3DContour(f1=cy)
+  ! Call Visual3DContour(f1=cz)
 
   print * , f(6,8,8), cx(6,8,8), cy(6,8,8), cz(6,8,8)
   print * , f(11,8,8), cx(11,8,8), cy(11,8,8), cz(11,8,8)

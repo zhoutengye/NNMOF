@@ -18,9 +18,9 @@ Contains
 
     mofdata = 0.0_sp
     mofdata(1) = f
-    mofdata(2) = c(1) - 0.5
-    mofdata(3) = c(2) - 0.5
-    mofdata(4) = c(3) - 0.5
+    mofdata(2) = c(1) - 0.5_sp
+    mofdata(3) = c(2) - 0.5_sp
+    mofdata(4) = c(3) - 0.5_sp
     mofdata(5) = 1.0_sp
 
     mofdata(10)  = 1.0-f
