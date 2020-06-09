@@ -13,6 +13,7 @@ Module Mod_VOF
   Use ModGlobal, only : sp
   Use ModGlobal, only : updthalo
   Use ModGlobal, only : setBCS, phi_bc
+  Use ModTools
 
 Contains
   Subroutine VOFHybrid(Phi, u, v, w, nl, dl, dt,nvof)
@@ -590,18 +591,19 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Visual3DContour(f1=cz)
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
         c1z(i,j,k) = c1xyz(3)
         c3x(i,j,k) = c3xyz(1)
         c3y(i,j,k) = c3xyz(2)
         c3z(i,j,k) = c3xyz(3)
-        ! c2x(i,j,k) = c2xyz(1)
-        ! c2y(i,j,k) = c2xyz(2)
-        ! c2z(i,j,k) = c2xyz(3)
-        c2x(i,j,k) = cx(i,j,k)
-        c2y(i,j,k) = cy(i,j,k)
-        c2z(i,j,k) = cz(i,j,k)
+        c2x(i,j,k) = c2xyz(1)
+        c2y(i,j,k) = c2xyz(2)
+        c2z(i,j,k) = c2xyz(3)
+        ! c2x(i,j,k) = cx(i,j,k)
+        ! c2y(i,j,k) = cy(i,j,k)
+        ! c2z(i,j,k) = cz(i,j,k)
       enddo
     enddo
   enddo
@@ -626,18 +628,18 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         mx = f(i,j,k) * c2x(i,j,k) &
             - vof1(i,j,k) * c1x(i,j,k) &
             - vof3(i,j,k) * c3x(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * (c1x(i+ii,j+jj,k+kk)+1.0_sp*ii) &
-            + vof3(i-ii,j-jj,k-kk) * (c3x(i-ii,j-jj,k-kk)-1.0_sp*ii)
+            + vof1(i+ii,j+jj,k+kk) * (c1x(i+ii,j+jj,k+kk)+1.0_sp*dble(ii)) &
+            + vof3(i-ii,j-jj,k-kk) * (c3x(i-ii,j-jj,k-kk)-1.0_sp*dble(ii))
         my = f(i,j,k) * c2y(i,j,k) &
             - vof1(i,j,k) * c1y(i,j,k) &
             - vof3(i,j,k) * c3y(i,j,k) - &
-            + vof1(i+ii,j+jj,k+kk) * (c1y(i+ii,j+jj,k+kk)+1.0_sp*jj) &
-            + vof3(i-ii,j-jj,k-kk) * (c3y(i-ii,j-jj,k-kk)-1.0_sp*jj)
+            + vof1(i+ii,j+jj,k+kk) * (c1y(i+ii,j+jj,k+kk)+1.0_sp*dble(jj)) &
+            + vof3(i-ii,j-jj,k-kk) * (c3y(i-ii,j-jj,k-kk)-1.0_sp*dble(jj))
         mz = f(i,j,k) * c2z(i,j,k) &
             - vof1(i,j,k) * c1z(i,j,k) &
             - vof3(i,j,k) * c3z(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * (c1z(i+ii,j+jj,k+kk)+1.0_sp*kk) &
-            + vof3(i-ii,j-jj,k-kk) * (c3z(i-ii,j-jj,k-kk)-1.0_sp*kk)
+            + vof1(i+ii,j+jj,k+kk) * (c1z(i+ii,j+jj,k+kk)+1.0_sp*dble(kk)) &
+            + vof3(i-ii,j-jj,k-kk) * (c3z(i-ii,j-jj,k-kk)-1.0_sp*dble(kk))
         f(i,j,k) = f(i,j,k) &
             - vof1(i,j,k) &
             - vof3(i,j,k) &
@@ -656,6 +658,27 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           cx(i,j,k) = 0.5_sp
           cy(i,j,k) = 0.5_sp
           cz(i,j,k) = 0.5_sp
+        endif
+        if (cx(i,j,k) < 0.0_sp) then
+          cx(i,j,k) = 0.0_sp
+          print *, 'cx<1', i,j,k
+        elseif (cx(i,j,k) >  (1.0_sp )) then
+          cx(i,j,k) = 1.0_sp
+          print *, 'cx>1', i,j,k
+        endif
+        if (cy(i,j,k) < 0.0_sp) then
+          cy(i,j,k) = 0.0_sp
+          print *, 'cy<1', i,j,k
+        elseif (cy(i,j,k) >  (1.0_sp )) then
+          cy(i,j,k) = 1.0_sp
+          print *, 'cy>1', i,j,k
+        endif
+        if (cz(i,j,k) < 0.0_sp) then
+          cz(i,j,k) = 0.0_sp
+          print *, 'cz<0', i,j,k
+        elseif (cz(i,j,k) >  (1.0_sp )) then
+          cz(i,j,k) = 1.0_sp
+          print *, 'cz>1', i,j,k
         endif
       enddo
     enddo
