@@ -8,6 +8,9 @@ Program main
     Implicit None
 
     Real(8) :: time1, time2, time3
+    Real(8) :: f
+    Real(8) :: c(3)
+    Real(8) :: norm(3)
     Integer :: i
 
     Call Initialize_Data
@@ -20,6 +23,28 @@ Program main
        nthreads, &
        nmax_in)
 
+    ! f = 1.0/4.0
+    ! c(1) = 33.0/48.0
+    ! c(2) = 33.0/48.0
+    ! c(3) = 33.0/48.0
+
+    ! f = 1.0_sp/24.0_sp
+    ! c(1) = 1.0/8.0
+    ! c(2) = 0.0/4.0
+    ! c(3) = 0.0/4.0
+
+    mofdata(1) = 1.0/0.4d0
+    mofdata(2) = 1.0/8.0-0.5
+    mofdata(3) = -0.5
+    mofdata(4) = 
+    mofdata(5) = 1.0
+    Call cpu_time(time1)
+    Do i = 1, 100000
+      f = f + 1e-6
+      Call MOFZY(f,c,norm)
+    End Do
+    Call cpu_time(time2)
+    print *, time2-time1
 
 
 !        mofdata(1) = 0.4d0
@@ -139,7 +164,7 @@ Program main
     ! mofdata(9) = ( 0.5d0 - 1.d0 * mofdata(1) * (mofdata(2)+0.5d0) ) / mofdata(8) - 0.5d0
     ! mofdata(10) = ( 0.5d0 - 1.d0 * mofdata(1) * (mofdata(3)+0.5d0) ) / mofdata(8) - 0.5d0
     
-    Call Read_Decision_Tree
+    ! Call Read_Decision_Tree
 
     ! Call multimaterial_MOF( &
     !     bfact,dx,xsten0,nhalf0, &
@@ -162,7 +187,7 @@ Program main
 
     ! write(*,*) mofdata(5:7)
 
-    Call Compare_DT_MOF
+    ! Call Compare_DT_MOF
 
     Return
 
