@@ -33,7 +33,7 @@ Subroutine test1
 
   Call Init(inputfield=.true.)
 
-  Call MOF_Init
+  ! Call MOF_Init
 
   ! f = 1.0_sp/3.0_sp
   ! c(1) = 1.0/4.0
@@ -76,8 +76,13 @@ Subroutine test1
   ! c(3) = 0.5
 
   ! Call NormMOF(f,c,norm,abs_norm)
-  Call NormMOF(f,c,norm,abs_norm)
-  
+  ! Call NormMOF(f,c,norm,abs_norm)
+
+  c = c - 0.5_sp
+
+  Call MOFZY(f,c,norm)
+
+  print *, ''
   if (myid .eq. 0) Print *,norm
 
   Call MPI_FINALIZE(ierr)
