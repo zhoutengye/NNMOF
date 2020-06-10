@@ -315,6 +315,16 @@ Subroutine NormMYCS(c,norm,abs_norm)
   return
 End Subroutine NormMYCS
 
+Subroutine NormELVIRA(c, norm, abs_norm)
+  Implicit None
+  Real(8) c(3,3,3)
+  Real(8) norm(3), abs_norm(3)
+  Real(8) m1,m2,m(0:3,0:2),t0,t1,t2
+  Real(8) mm(3), abs_mm(3)
+  Integer cn
+
+End Subroutine NormELVIRA
+
 !===============================================================
 ! Normal vector MOF
 ! f: vof function
@@ -329,4 +339,5 @@ Subroutine NormMOF(f,c,norm,abs_norm)
   Call NormSussmanMOF(f,c,norm)
   Call Normalization1(norm, abs_norm)
 End Subroutine NormMOF
+
 

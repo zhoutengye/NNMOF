@@ -6,3 +6,5 @@
 src/TEST-*
 src/buffer.f90
 src/*.h5
+docs/ltximg/
+
