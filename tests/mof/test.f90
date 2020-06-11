@@ -17,73 +17,99 @@ program test
 end program test
 
 !===============
-! test1: MOF reconstruction
-! Given centroid and volume and obtains the normal vecor
+! test1: MISC:
+!    (1) Norm2Angle and Angle2Norm
+!    (2) Flood_BackwardC
+!    (3) FindCentroid
+!    (4) MOFZY
 !===============
 Subroutine test1
   Use ModGlobal
   Use ModTools
-  Use ModMOF
-  Use Mod_VOF
+  Use ModVOF
   Implicit None
   Real(sp) :: f
   Real(sp) :: c(3)
   Real(sp) :: norm(3)
-  Real(sp) :: abs_norm(3)
+  Real(sp) :: init_norm(3)
+  Real(sp) :: angle(2)
 
   Call Init(inputfield=.true.)
 
-  ! Call MOF_Init
+  ! ! ==================Test norm2angle and angle2norm
+  ! f = 1.0/6.0_sp
+  ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! norm = (/ -1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! norm = (/ 1.0/3.0_sp, -1.0/3.0_sp, 1.0/3.0_sp /)
+  ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, -1.0/3.0_sp /)
+  ! norm = (/ 1.0_sp, 0.0/3.0_sp, 0.0/3.0_sp /)
+  ! norm = (/ 0.0_sp, 1.0/1.0_sp, 0.0/3.0_sp /)
+  ! norm = (/ 0.0_sp, 0.0/3.0_sp, 1.0/1.0_sp /)
+  ! ! norm = (/ 0.0_sp, 1.0/3.0_sp, 2.0/3.0_sp /)
+  ! ! norm = (/ 0.5_sp, 0.0/1.0_sp, 1.0/2.0_sp /)
+  ! norm = (/ -0.1_sp, 0.9/1.0_sp, 1.0/1.0_sp /)
+  ! Call Normalization2(norm)
+  ! if (myid .eq. 0) Print *, norm
+  ! Call norm2angle(angle, norm)
+  ! if (myid .eq. 0) Print *, angle
+  ! Call angle2norm(angle, norm)
+  ! if (myid .eq. 0) Print *, norm
 
-  ! f = 1.0_sp/3.0_sp
-  ! c(1) = 1.0/4.0
-  ! c(2) = 1.0/4.0
-  ! c(3) = 1.0/4.0
+  !  ! ==================Test backward flood algorithm for centroid
+  ! f = 1.0/6.0_sp
+  ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! norm = (/ -1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
+  ! norm = (/ 1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
+  ! norm = (/ -1.0/3.0_sp, 1.0/3.0_sp, -1.0/3.0_sp /)
+  ! norm = (/ 0.0/1.0_sp, 1.0/1.0_sp, -0.0/3.0_sp /)
+  ! norm = (/ 1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
+  ! f = 1.0/2.0_sp
+  ! norm = (/ 1.0/2.0_sp, 1.0/2.0_sp, -0.0/3.0_sp /)
+  ! norm = (/ -1.0/2.0_sp, -1.0/2.0_sp, -0.0/3.0_sp /)
 
-  ! f = 2.0_sp/3.0_sp
-  ! c(1) = 33.0/48.0
-  ! c(2) = 33.0/48.0
-  ! c(3) = 33.0/48.0
+  ! f = 2.0/3.0_sp
+  ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! ! norm = (/ 1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
+  ! ! norm = (/ -1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
 
-  f = 2.0_sp/3.0_sp
-  c(1) = 33.0/48.0
-  c(2) = 33.0/48.0
-  c(3) = 33.0/48.0
+  ! Call FloodSZ_BackwardC(norm, f, c)
+  ! print *, c
 
-  ! f = 0.8_sp
-  ! c(1) = 0.5_sp
-  ! c(2) = 0.4_sp
-  ! c(3) = 0.5_sp
+  ! ! ==========Test FindCentroid subroutine
+  ! f = 1.0/6.0_sp
+  ! ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! norm = (/ 1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
+  ! Call Normalization2(norm)
+  ! Call Norm2Angle(angle, norm)
+  ! Call Angle2Norm(angle, norm)
+  ! Call FindCentroid(angle, f, c)
+  ! print *, c
 
-  ! f = 0.25_sp
-  ! c(1) = 1.0_sp/3.0_sp
-  ! c(2) = 1.0_sp/3.0_sp
-  ! c(3) = 1.0_sp/2.0_sp
+  ! ===============Test MOF reconstruction
+  f = 1.0/6.0_sp
+  f = 4.0/5.0_sp
+  ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! c = (/ 3.0/4.0_sp, 3.0/4.0_sp, 3.0/4.0_sp /)
+  c = (/ 2.0/4.0_sp, 2.0/4.0_sp, 3.0/5.0_sp /)
+  ! norm = (/ 1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
+  ! norm = (/ -1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
+  c = c-0.5_sp
 
-  ! f = 1.0_sp/24.0_sp
-  ! c(1) = 1.0_sp/8.0_sp
-  ! c(2) = 1.0_sp/8.0_sp
-  ! c(3) = 1.0_sp/8.0_sp
+  f = 1.0/6.0_sp
 
-  ! f = 0.5_sp
-  ! c(1) = 0.2_sp
-  ! c(2) = 0.49_sp
-  ! c(3) = 0.49_sp
-
-  ! f = 0.6_sp
-  ! c(1) = 0.3
-  ! c(2) = 0.5
-  ! c(3) = 0.5
-
-  ! Call NormMOF(f,c,norm,abs_norm)
-  ! Call NormMOF(f,c,norm,abs_norm)
-
+  !  --------------Different initial guess
+  init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  ! init_norm = (/ -1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
+  Call Normalization2(init_norm)
+  Call MOFZY(f,c,norm)
+  ! Call MOFZY(f,c,norm,init_norm)
   c = c - 0.5_sp
 
-  Call MOFZY(f,c,norm)
+  ! Call MOFZY(f,c,norm)
 
-  print *, ''
-  if (myid .eq. 0) Print *,norm
+  Call Normalization2(norm)
+
+  ! if (myid .eq. 0) Print *,norm
 
   Call MPI_FINALIZE(ierr)
 
@@ -91,57 +117,13 @@ Subroutine test1
 end Subroutine test1
 
 !===============
-! test1: Centroid flooding
+! test1: MOF reconstruction
+! Given centroid and volume and obtains the normal vecor
 !===============
 Subroutine test2
   Use ModGlobal
   Use ModTools
-  Use ModMOF
-  Use Mod_VOF
-  Implicit None
-  Real(sp) :: f
-  Real(sp) :: alpha, x0(3), deltax(3)
-  Real(sp) :: c(3)
-  Real(sp) :: norm(3)
-
-  Call Init(inputfield=.true.)
-
-  ! Test whether centroid calculates correctly
-  norm(1) = 1.0_sp / 3.0_sp
-  norm(2) = 1.0_sp / 3.0_sp
-  norm(3) = 1.0_sp / 3.0_sp
-  f = 1.0_sp
-  alpha = 1.0_sp / 3.0_sp
-  x0 = 0.0_sp
-  ! x0(1) = 0.5_sp
-  x0(2) = 0.5_sp
-  deltax = 1.0_sp
-  Call FloodSZ_forwardC(norm, alpha, x0, deltax, f,c)
-  if (myid .eq. 0) Print *, f, c
-
-  ! Test whether centroid advection working
-  ! Call Centroid_Lagrangian_Adv(c, 0.1_sp, 0.1_sp, 0.0_sp, 1.0_sp, 1)
-  ! Call Centroid_Eulerian_Adv(c, 0.1_sp, 0.1_sp, 0.0_sp, 1.0_sp, 1)
-  Call Centroid_Lagrangian_Adv(c, 0.1_sp, 0.2_sp, 0.0_sp, 1.0_sp, 1)
-  if (myid .eq. 0) Print *, f, c
-  Call Centroid_Eulerian_Adv(c, 0.1_sp, 0.2_sp, 0.0_sp, 1.0_sp, 2)
-  if (myid .eq. 0) Print *, f, c
-
-  Call MPI_FINALIZE(ierr)
-
-
-end Subroutine test2
-
-
-!===============
-! test1: MOF reconstruction
-! Given centroid and volume and obtains the normal vecor
-!===============
-Subroutine test3
-  Use ModGlobal
-  Use ModTools
-  Use ModMOF
-  Use Mod_VOF
+  Use ModVOF
   Implicit None
   Real(sp), allocatable, Dimension(:,:,:) :: f_beg
   Real(sp), allocatable, Dimension(:,:,:) :: f_end
@@ -154,7 +136,6 @@ Subroutine test3
 
   Call Init(inputfield=.true.)
 
-  Call MOF_Init
   u = 0.0
   v = 0.0
   w = 0.0
@@ -177,11 +158,10 @@ Subroutine test3
 
 
   ! VOF advection
-  ! Do While (time < tend)
+  Do While (time < tend)
     nn = nn + 1
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
-    ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
-    ! Call VOFHybrid(Phi, u, v, w, nl, dl, dt,nn)
+    Call VOFWY(Phi, u, v, w, nl, dl, dt)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
@@ -197,12 +177,12 @@ Subroutine test3
     ! Call Visual3DContour(f1=phi)
     ! call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
     ! Call Visual3DContour(f1=phi)
-    call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    ! call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     ! Call Visual3DContour(f1=phi)
     ! call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
     ! Call Visual3DContour(f1=phi)
     time =  time + dt
-  ! End Do
+  End Do
 
     data_name = 'test'
   do nn = 1, n_vars
@@ -244,5 +224,5 @@ Subroutine test3
   Call MPI_FINALIZE(ierr)
 
 
-end Subroutine test3
+end Subroutine test2
 
