@@ -127,12 +127,15 @@ Subroutine test2
   Implicit None
   Real(sp), allocatable, Dimension(:,:,:) :: f_beg
   Real(sp), allocatable, Dimension(:,:,:) :: f_end
+  Real(sp), allocatable, Dimension(:,:,:) :: f_exact
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
   Integer  :: nexch(2)
   Integer  :: nn = 0
   Character(80) :: data_name
   Integer :: i, j, k
+  Real(sp) :: err
+  Integer :: rank
 
   Call Init(inputfield=.true.)
 
@@ -153,16 +156,21 @@ Subroutine test2
   Call phi_bc%SetBCS(cz)
   Allocate(f_beg(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
   Allocate(f_end(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+  Allocate(f_exact(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
   f_beg = phi
 
-
+  f_exact = 0.0_sp
+  ! f_exact(11:15,6:10,6:10) = 1.0_sp
+  f_exact(11:15,11:15,11:15) = 1.0_sp
 
   ! VOF advection
   Do While (time < tend)
     nn = nn + 1
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
-    Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    rank = mod(nn+1,3)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
     ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
@@ -183,6 +191,7 @@ Subroutine test2
     ! Call Visual3DContour(f1=phi)
     time =  time + dt
   End Do
+  print *, nn
 
     data_name = 'test'
   do nn = 1, n_vars
@@ -204,8 +213,17 @@ Subroutine test2
       End Select
   end do
 
-
   f_end = phi
+
+  err = 0.0_sp
+  Do k = 1, nl(3)
+    Do j = 1, nl(2)
+      Do i = 1, nl(1)
+        err = err + abs(f_end(i,j,k)-f_exact(i,j,k))
+      End Do
+    End Do
+  End Do
+
 
   v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3)))
   v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3)))
@@ -213,8 +231,8 @@ Subroutine test2
   Call MPI_Reduce(v1, v11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
   Call MPI_Reduce(v1, v12, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
   if (myid .eq.0) then
-    print *, v11
-    print *, v12
+    print *, v11, v12
+    print *, err
   endif
 
   ! Call Visual3DContour(f1=f_end)

@@ -330,14 +330,20 @@ Contains
   ! Input: c (centroid, x,y,z)
   ! Output: norm (normal vector, nx, ny, nz)
   !===============================================================
-  Subroutine NormMOF(f,c,norm)
+  Subroutine NormMOF(f,c,norm, init_norm)
     Implicit None
     Real(8), Intent(In) :: f
     Real(8), Intent(In) :: c(3)
     Real(8), Intent(Out) :: norm(3)
+    Real(8), Intent(In), optional :: init_norm(3)
     Real(8) :: c_mof(3)
     c_mof = c - 0.5_sp
-    Call MOFZY(f, c_mof, norm)
+    If (present(init_norm)) Then
+      Call MOFZY(f, c_mof, norm, init_norm)
+    Else
+      Call MOFZY(f, c_mof, norm)
+    EndIf
+
   End Subroutine NormMOF
 
   !=======================================================
@@ -881,7 +887,6 @@ Contains
         Norm_2 = 1.0/3.0_sp
       EndIf
     EndIf
-    print *, norm_2
     Call Norm2Angle(angle_init,norm_2)
     ! Initialize other data
     do dir=1,2
