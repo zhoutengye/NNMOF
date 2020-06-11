@@ -1,3 +1,38 @@
+!=================
+! Includes:
+!     (1) Mu
+!       (1.1) Norm calculation Parker and Youngs
+!       (1.2) Norm calculation Central difference
+!       (1.3) Norm calculation Mixed Central difference and Youngs (MYC)
+!       (1.4) Norm calculation MOF interface
+!     (2) Directional split
+!       (2.1) Flooding algorithm backward finding alpha
+!       (2.2) Flooding algorithm backward finding centroid
+!       (2.3) Flooing algorithm forward finding vof
+!       (2.4) Flooding algorithm forward finding vof and centroid
+!     (3) MOF Reconstruction
+!       (3.1) MOF iteration using Gauss-Newton
+!       (3.2) Find centroid for given norm and volume function
+!     (4) Misc
+!       (4.1) Normalization vector 1 (nx+ny+nz=1)
+!       (4.2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
+!       (4.3) Cartesian norm to Spherical angle
+!       (4.4) Spherical angle to Cartesian norm
+!       (4.5) Anvance of angle
+!-----------------
+! Note:
+!    The origin and cell size for each function/subtourines are
+!         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
+!         |                   | Origin           |  cell size        |
+!         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
+!         | Backward flooidng | 0,0,0            | 1,1,1             |
+!         | Forward flooidng  | x0(1),x0(2),x0(3)| dx(1),dx(2),dx(3) |
+!         | MOF               ! -0.5,-0.5,-0.5   | 1,1,1             |
+!         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
+!    In MOF interface (1.4) shifts the origin.
+!
+!    While calling those functions, be carefully about the grid origin and size
+!=================
 Module ModVOF
   Use ModGlobal, only : sp
   Use ModGlobal, only : updthalo
@@ -53,6 +88,34 @@ Contains
     call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
     call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
   End Subroutine MOFCIAM
+
+  Subroutine MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+    Implicit None
+    Real(sp) :: dt
+    Integer,Intent(In)     :: nl(3)
+    Real(sp),Intent(In)    :: dl(3)
+    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(InOut)    :: cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(InOut)    :: cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(InOut)    :: cz(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Integer :: rank
+    if (rank == 1) Then
+      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    else  if (rank == 2) Then
+      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    else  if (rank == 0) Then
+      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    end if
+  End Subroutine MOFCIAM2
 
   Subroutine MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     Implicit None
@@ -303,6 +366,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1x, c1y, c1z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c2x, c2y, c2z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
+  Real(sp) :: f_block(3,3,3), init_norm(3)
   Real(sp) :: norm(3)
   Real(sp) :: c3(3)
   ! Real(sp) :: FloodSZ_Backward
@@ -357,13 +421,10 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1) = cx(i,j,k)
           c3(2) = cy(i,j,k)
           c3(3) = cz(i,j,k)
+          f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
+          Call NormMYCS(f_block, init_norm)
+          ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
           Call NormMOF(f(i,j,k), c3, norm)
-          if (i == 6 .and. j == 8 .and. k==8) Then
-            print * , f(i,j,k), c3, norm
-          end if
-          if (i == 11 .and. j == 8 .and. k==8) Then
-            print * , f(i,j,k), c3, norm
-          end if
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
@@ -412,11 +473,6 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
       enddo
     enddo
   enddo
-
-  ! print * , cx(6,8,8), cx(10,8,8)
-  ! print * , c1x(6,8,8), c1x(10,8,8)
-  ! print * , c2x(6,8,8), c2x(10,8,8)
-  ! print * , c3x(6,8,8), c3x(10,8,8)
 
   ! apply proper boundary conditions to vof1, vof2, vof3
   call phi_bc%setBCS(vof1)
@@ -490,19 +546,6 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
     enddo
   enddo
 
-  print * , f(6,8,8), cx(6,8,8), cy(6,8,8), cz(6,8,8)
-  print * , f(11,8,8), cx(11,8,8), cy(11,8,8), cz(11,8,8)
-  print * , c1x(10,8,8), c1y(10,8,8), c1z(10,8,8)
-  print * , c2x(10,8,8), c2y(10,8,8), c2z(10,8,8)
-  print * , c3x(10,8,8), c3y(10,8,8), c3z(10,8,8)
-
-  ! print *, vof3(5,8,8), c3x(5,8,8), vof3(5,8,8) * c3x(5,8,8)
-  ! print *, vof2(6,8,8), c2x(6,8,8), vof2(6,8,8) * c2x(6,8,8)
-  ! print *, vof1(7,8,8), c1x(7,8,8), vof1(7,8,8) * c1x(7,8,8)
-  ! print *, vof2(6,8,8)
-  ! print *, c2x(6,8,8)
-  ! print * , f(6,8,8), cx(6,8,8)
-  ! print * , f(11,8,8), cx(11,8,8)
   ! apply proper boundary conditions to c
   call phi_bc%setBCS(f)
   call phi_bc%setBCS(cx)
@@ -582,6 +625,8 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(2)  = cy(i,j,k)
           c3(3)  = cz(i,j,k)
           Call NormMOF(f(i,j,k), c3, norm)
+          ! f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
+          ! Call NormMYCS(f_block, norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           !*(3) get fluxes

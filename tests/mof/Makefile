@@ -5,8 +5,8 @@ VERBOSE = false
 TEST_NUM = 2
 DIMENSION = TWO_DIMENSIONAL
 PRECISION = DOUBLE_PRECISION
-# HDF5_DIR = $(HOME)/hdf5/gnu
-HDF5_DIR = $(HOME)/HPC/gnu/hdf5
+HDF5_DIR = $(HOME)/hdf5/gnu
+# HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 SRC_DIR = ../../src
 SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
