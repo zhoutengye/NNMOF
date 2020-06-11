@@ -1,45 +1,14 @@
-# if defined NORM_PY
-# define NormCalc NormParkerYoungs
-# elif defined NORM_CS
-# define NormCalc NormCS
-# elif defined NORM_MYCS
-# define NormCalc NormMYCS
-# endif
-
-# define FloodForward FloodSZ_Forward
-# define FloodBackward FloodSZ_Backward
-
-Module Mod_VOF
+Module ModVOF
   Use ModGlobal, only : sp
   Use ModGlobal, only : updthalo
   Use ModGlobal, only : setBCS, phi_bc
+  Use ModVOFFunc
+#if defined(VISUALIZE)
   Use ModTools
+#endif
 
 Contains
-  Subroutine VOFHybrid(Phi, u, v, w, nl, dl, dt,nvof)
-    Implicit None
-    Real(sp) :: dt
-    Integer,Intent(In)     :: nl(3)
-    Real(sp),Intent(In)    :: dl(3)
-    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Integer :: nvof
-    If (mod(nvof,3) .eq. 0) then
-      call AdvCIAM(u, phi, nl, dl, dt, 1)
-      call AdvCIAM(v, phi, nl, dl, dt, 2)
-      call AdvCIAM(w, phi, nl, dl, dt, 3)
-    Else if (mod(nvof,3) .eq. 1) then
-      call AdvCIAM(v, phi, nl, dl, dt, 2)
-      call AdvCIAM(w, phi, nl, dl, dt, 3)
-      call AdvCIAM(u, phi, nl, dl, dt, 1)
-    Else
-      call AdvCIAM(w, phi, nl, dl, dt, 3)
-      call AdvCIAM(u, phi, nl, dl, dt, 1)
-      call AdvCIAM(v, phi, nl, dl, dt, 2)
-    EndIf
-  End Subroutine VOFHybrid
+
   Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt)
     Implicit None
     Real(sp) :: dt
@@ -108,6 +77,7 @@ Contains
 ! Advection algorithm of CIAM PLIC
 !=======================================================
 Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
+  ! Use ModVOFFunc
   Implicit None
   Integer :: dir
   Real(sp) :: dt
@@ -119,9 +89,9 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
   Real(sp) :: a1,a2,alpha
   Real(sp) :: x0(3), deltax(3)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof2,vof3
-  Real(sp) :: norm(3), abs_norm(3)
+  Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
-  Real(sp) :: FloodBackward, FloodForward
+  ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
   Real(sp) :: EPSC = 1.0e-12
   Integer :: nexch(2)
   nexch = nl(1:2)
@@ -153,7 +123,7 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
         a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
 
         ! f = 1
-        if (f(i,j,k) .EQ. 1.0_sp) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
@@ -162,9 +132,9 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
         else if (f(i,j,k) .GT. 0.0_sp) then
           !*(1)* normal vector
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
-          Call NormCalc(f_block, norm, abs_norm)
+          Call NormMYCS(f_block, norm)
           !*(2) get alpha;
-          alpha = FloodBackward(norm,f(i,j,k))
+          alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
           alpha = alpha + norm(dir)*a1
           !*(3) get fluxes
@@ -172,16 +142,16 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
           if (a1 .LT. 0.0_sp) then
             x0(dir)=a1;
             deltax(dir)=-a1
-            vof1(i,j,k) = FloodForward(norm,alpha,x0,deltax)
+            vof1(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
           end if
           if (a2 .GT. 0.0_sp) then
             x0(dir)=1.0_sp;
             deltax(dir)=a2
-            vof3(i,j,k) = FloodForward(norm,alpha,x0,deltax)
+            vof3(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
           end if
           x0(dir) = DMAX1(a1,0.0_sp)
           deltax(dir) = 1.0_sp - x0(dir) + DMIN1(0.0_sp,a2)
-          vof2(i,j,k) = FloodForward(norm,alpha,x0,deltax)
+          vof2(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
         endif
       enddo
     enddo
@@ -225,9 +195,9 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
   Real(sp) :: a1,a2,alpha
   Real(sp) :: x0(3), deltax(3)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof3
-  Real(sp) :: norm(3), abs_norm(3)
+  Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
-  Real(sp) :: FloodBackward, FloodForward
+  ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
   Real(sp) :: EPSC = 1.0e-12
   Integer :: nexch(2)
   nexch = nl(1:2)
@@ -258,7 +228,7 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
         a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
 
         ! f = 1
-        if (f(i,j,k) .EQ. 1.0_sp) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
 
@@ -266,19 +236,19 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
         else if (f(i,j,k) .GT. 0.0_sp) then
           !*(1)* normal vector
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
-          Call NormCalc(f_block, norm, abs_norm)
+          Call NormMYCS(f_block, norm)
           !*(2) get alpha;
-          alpha = FloodBackward(norm,f(i,j,k))
+          alpha = FloodSZ_Backward(norm,f(i,j,k))
           !*(3) get fluxes
           x0=0.0_sp; deltax=1.0_sp
           if (a1 .LT. 0.0_sp) then
             deltax(dir)=-a1
-            vof1(i,j,k) = FloodForward(norm,alpha,x0,deltax)
+            vof1(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
           end if
           if (a2 .GT. 0.0_sp) then
             x0(dir)=1.0_sp-a2;
             deltax(dir)=a2
-            vof3(i,j,k) = FloodForward(norm,alpha,x0,deltax)
+            vof3(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
           end if
         endif
       enddo
@@ -333,9 +303,9 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1x, c1y, c1z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c2x, c2y, c2z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
-  Real(sp) :: norm(3), abs_norm(3)
+  Real(sp) :: norm(3)
   Real(sp) :: c3(3)
-  Real(sp) :: FloodBackward
+  ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
   Integer :: nexch(2)
   nexch = nl(1:2)
@@ -370,7 +340,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2xyz = 0.0_sp
         c3xyz = 0.0_sp
         ! f = 1
-        if (f(i,j,k) .EQ. 1.0_sp) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
@@ -387,7 +357,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1) = cx(i,j,k)
           c3(2) = cy(i,j,k)
           c3(3) = cz(i,j,k)
-          Call NormMOF(f(i,j,k), c3, norm, abs_norm)
+          Call NormMOF(f(i,j,k), c3, norm)
           if (i == 6 .and. j == 8 .and. k==8) Then
             print * , f(i,j,k), c3, norm
           end if
@@ -395,7 +365,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
             print * , f(i,j,k), c3, norm
           end if
           !*(2) get alpha;
-          alpha = FloodBackward(norm,f(i,j,k))
+          alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
           alpha = alpha + norm(dir)*a1
           !*(3) get fluxes
@@ -562,9 +532,9 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1x, c1y, c1z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c2x, c2y, c2z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
-  Real(sp) :: norm(3), abs_norm(3)
+  Real(sp) :: norm(3)
   Real(sp) :: c3(3)
-  Real(sp) :: FloodBackward!, FloodForward
+  ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
   Integer :: nexch(2)
   nexch = nl(1:2)
@@ -597,7 +567,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c1xyz = 0.0_sp
         c3xyz = 0.0_sp
         ! f = 1
-        if (f(i,j,k) .EQ. 1.0_sp) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
           c1xyz = 0.5_sp
@@ -611,9 +581,9 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1)  = cx(i,j,k)
           c3(2)  = cy(i,j,k)
           c3(3)  = cz(i,j,k)
-          Call NormMOF(f(i,j,k), c3, norm, abs_norm)
+          Call NormMOF(f(i,j,k), c3, norm)
           !*(2) get alpha;
-          alpha = FloodBackward(norm,f(i,j,k))
+          alpha = FloodSZ_Backward(norm,f(i,j,k))
           !*(3) get fluxes
           x0=0.0_sp; deltax=1.0_sp
           if (a1 .LT. 0.0_sp) then
@@ -627,12 +597,12 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           end if
         endif
         c2xyz(1) = cx(i,j,k); c2xyz(2) = cy(i,j,k); c2xyz(3) = cz(i,j,k);
-        Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Visual3DContour(f1=cz)
         c1xyz(dir)  = c1xyz(dir) + 1.0_sp
         c3xyz(dir)  = c3xyz(dir) - 1.0_sp
@@ -765,4 +735,4 @@ Subroutine Centroid_Eulerian_Adv(c, ul, ur, xl, xr, dir)
 
 End Subroutine Centroid_Eulerian_Adv
 
-End Module MOD_VOF
+End Module ModVOF
