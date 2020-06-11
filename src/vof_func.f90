@@ -20,6 +20,8 @@
 !       (4.4) Spherical angle to Cartesian norm
 !       (4.5) Anvance of angle
 !-----------------
+! Author: Zhouteng Ye (yzt9zju@gmail.com)
+!-----------------
 ! Note:
 !    The origin and cell size for each function/subtourines are
 !         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|

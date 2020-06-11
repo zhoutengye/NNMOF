@@ -1,37 +1,20 @@
 !=================
 ! Includes:
-!     (1) Mu
-!       (1.1) Norm calculation Parker and Youngs
-!       (1.2) Norm calculation Central difference
-!       (1.3) Norm calculation Mixed Central difference and Youngs (MYC)
-!       (1.4) Norm calculation MOF interface
-!     (2) Directional split
-!       (2.1) Flooding algorithm backward finding alpha
-!       (2.2) Flooding algorithm backward finding centroid
-!       (2.3) Flooing algorithm forward finding vof
-!       (2.4) Flooding algorithm forward finding vof and centroid
-!     (3) MOF Reconstruction
-!       (3.1) MOF iteration using Gauss-Newton
-!       (3.2) Find centroid for given norm and volume function
-!     (4) Misc
-!       (4.1) Normalization vector 1 (nx+ny+nz=1)
-!       (4.2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
-!       (4.3) Cartesian norm to Spherical angle
-!       (4.4) Spherical angle to Cartesian norm
-!       (4.5) Anvance of angle
+!     (1) VOF/MOF Advection
+!       (1.1) VOF-CIAM (Lagrangian)
+!       (1.2) VOF-WY (Eulerian)
+!       (1.3) MOF-CIAM (Lanrangian)
+!       (1.4) MOF-WY (Eulerian) (!!! NOT WORKING)
+!     (2) Directional split VOF/MOF advection
+!       (1.1) VOF-CIAM (Lagrangian)
+!       (1.2) VOF-WY (Eulerian)
+!       (1.3) MOF-CIAM (Lanrangian)
+!       (1.4) MOF-WY (Eulerian) (!!! NOT WORKING)
+!     (3) Advection of centroid
+!       (3.1) Langrangian advection
+!       (3.2) Eulerian advection
 !-----------------
-! Note:
-!    The origin and cell size for each function/subtourines are
-!         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
-!         |                   | Origin           |  cell size        |
-!         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
-!         | Backward flooidng | 0,0,0            | 1,1,1             |
-!         | Forward flooidng  | x0(1),x0(2),x0(3)| dx(1),dx(2),dx(3) |
-!         | MOF               ! -0.5,-0.5,-0.5   | 1,1,1             |
-!         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
-!    In MOF interface (1.4) shifts the origin.
-!
-!    While calling those functions, be carefully about the grid origin and size
+! Author: Zhouteng Ye (yzt9zju@gmail.com)
 !=================
 Module ModVOF
   Use ModGlobal, only : sp
