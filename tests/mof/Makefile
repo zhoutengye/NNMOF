@@ -1,11 +1,11 @@
-EXEC = VOF
-FC = mpif90
-DEBUG = true
-VERBOSE = false
-TEST_NUM = 2
-DIMENSION = TWO_DIMENSIONAL
-PRECISION = DOUBLE_PRECISION
-HDF5_DIR = $(HOME)/hdf5/gnu
+EXEC       = VOF
+FC         = mpif90
+DEBUG      = true
+VERBOSE    = false
+TEST_NUM   = 2
+DIMENSION  = TWO_DIMENSIONAL
+PRECISION  = DOUBLE_PRECISION
+HDF5_DIR   = $(HOME)/hdf5/gnu
 # HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 SRC_DIR = ../../src
