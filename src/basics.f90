@@ -25,8 +25,9 @@ Module ModGlobal
   !! -----(1) Global variables------------
   !! MPI variables
   Integer  :: myid
-  Integer  :: left,right,front,back
+  Integer  :: left,right,front,back,top,bottom
   Integer, dimension(2) :: coord
+  logical, dimension(3) :: periods
   Integer  :: comm_cart,ierr
   Integer  :: xhalo,yhalo
   Integer  :: status(MPI_STATUS_SIZE)
@@ -131,12 +132,13 @@ Contains
     Real(sp) :: dx, dy, dz
     Integer  :: px, py
     Logical  :: io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz
+    Logical  :: periodx, periody, periodz
     Integer  :: nn
     Character(80) :: input_name
     Character(80) :: file_name
 
     namelist /mpivar/ px, py
-    namelist /gridvar/ nx,ny,nz,dx,dy,dz
+    namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
     namelist /compvar/ dt, tstart, tend
     namelist /outvar/ output_inteval, startframe
     namelist /iofield/ n_vars, io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
@@ -164,10 +166,15 @@ Contains
       dl(1) = dx
       dl(2) = dy
       dl(3) = dz
+      periods(1) = periodx
+      periods(2) = periody
+      periods(3) = periodz
     end if
 
     ! Broad values to all processors
     Call MPI_BCAST(dims, 2, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(periods, 3, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     Call MPI_BCAST(n, 3, MPI_INT, 0, MPI_COMM_WORLD, ierr)
@@ -490,16 +497,21 @@ Contains
     implicit none
     integer, intent(in), dimension(3) :: n
     integer :: ntx,nty,ntz
-    logical, dimension(3) :: periods
     logical :: reorder = .true.
     !
-    periods(:) = .false.
     call MPI_CART_CREATE( MPI_COMM_WORLD, 2, dims, &
         periods, reorder, comm_cart, ierr)
     call MPI_CART_COORDS( comm_cart, myid, 2, coord, ierr)
     !
     call MPI_CART_SHIFT(comm_cart,0,1,left,right,ierr)
     call MPI_CART_SHIFT(comm_cart,1,1,front,back,ierr)
+    If (periods(3)) Then
+      top    = myid
+      bottom = myid
+    Else
+      top    = -1
+      bottom = -1
+    EndIf
     !
     nl(1) = n(1) / dims(1)
     nl(2) = n(2) / dims(2)
@@ -657,14 +669,18 @@ Contains
     Integer :: nexch(2)
     Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     nexch = nl(1:2)
-    call updthalo(nexch,1,f)
-    call updthalo(nexch,2,f)
-    if(left .eq.MPI_PROC_NULL)  Call self%setBC(1, -1, f)
-    if(right .eq.MPI_PROC_NULL) Call self%setBC(1, 1, f)
-    if(front .eq.MPI_PROC_NULL) Call self%setBC(2, -1, f)
-    if(back .eq.MPI_PROC_NULL)  Call self%setBC(2, 1, f)
-    Call self%setBC(3, -1, f)
-    Call self%setBC(3, 1, f)
+    Call updthalo(nexch,1,f)
+    Call updthalo(nexch,2,f)
+    If(left   .eq. MPI_PROC_NULL) Call self%setBC(1, -1, f)
+    If(right  .eq. MPI_PROC_NULL) Call self%setBC(1,  1, f)
+    If(front  .eq. MPI_PROC_NULL) Call self%setBC(2, -1, f)
+    If(back   .eq. MPI_PROC_NULL) Call self%setBC(2,  1, f)
+    If(bottom .eq. MPI_PROC_NULL) Call self%setBC(3, -1, f)
+    If(top    .eq. MPI_PROC_NULL) Then
+      Call self%setBC(3,  1, f)
+    Else
+      Call periodzbound(f)
+    EndIf
   End Subroutine SetBCS
 
   !===============================
@@ -725,4 +741,12 @@ Contains
       End Select
     End Select
   End Subroutine SetBC
+
+  Subroutine Periodzbound(var)
+    Implicit None
+    Real(sp), Intent(InOut) :: var(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    var(0:nl(1)+1,0:nl(2)+1,0)       = var(0:nl(1)+1,0:nl(2)+1,nl(3))
+    var(0:nl(1)+1,0:nl(2)+1,nl(3)+1) = var(0:nl(1)+1,0:nl(2)+1,1)
+  End Subroutine Periodzbound
+
 End Module ModGlobal

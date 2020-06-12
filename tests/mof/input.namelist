@@ -10,6 +10,9 @@ nz = 40
 dx = 1.0
 dy = 1.0
 dz = 1.0
+periodx = .true.
+periody = .true.
+periodz = .true.
 /
 
 &compvar
