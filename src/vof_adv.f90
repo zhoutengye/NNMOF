@@ -179,6 +179,7 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
           !*(1)* normal vector
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           Call NormMYCS(f_block, norm)
+          Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
@@ -283,6 +284,7 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
           !*(1)* normal vector
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           Call NormMYCS(f_block, norm)
+          Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           !*(3) get fluxes
@@ -408,6 +410,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           Call NormMYCS(f_block, init_norm)
           ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
           Call NormMOF(f(i,j,k), c3, norm)
+          Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
@@ -608,6 +611,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(2)  = cy(i,j,k)
           c3(3)  = cz(i,j,k)
           Call NormMOF(f(i,j,k), c3, norm)
+          Call Normalization1(norm)
           ! f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           ! Call NormMYCS(f_block, norm)
           !*(2) get alpha;
