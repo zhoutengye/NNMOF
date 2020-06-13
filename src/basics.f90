@@ -115,7 +115,7 @@ Contains
     ! Initialize mpi blocks
     Call H5Init(inputfield)
     ! Load the initial field
-    Call H5LoadInit
+    If (inputfield) Call H5LoadInit
     ! Initialize Boundary conditions
     Call InitBound
 

@@ -1,6 +1,26 @@
+# include "param.h"
 Module ModTools
   Use ModGlobal
   Implicit None
+
+  Type Octree
+    Real(sp) :: xc(3)
+    Real(sp) :: dx(3)
+    Real(sp) :: centroids(2,2,2,3)
+    Real(sp) :: vofs(2,2,2)
+    Real(sp) :: centroid(3)
+    Real(sp) :: vof
+    Integer  :: level
+    Integer  :: maxlevel
+  End Type Octree
+  PROCEDURE(InterfaceLS), POINTER :: ShapeLevelSet
+  Interface
+    Real(sp) Function InterfaceLS(x,y,z)
+      import
+      Real(sp) :: x, y, z
+    End Function  InterfaceLS
+  End Interface
+
 Contains
   Subroutine Visual3DContour(f1, f2, f3, f4, f5, slice_dir, slice_coord)
     Implicit None
@@ -162,5 +182,230 @@ Contains
     End If
 
   End Subroutine Visual2DContour
+
+  Recursive Subroutine VolumeCentroidQuadTree(Tree)
+    Implicit None
+    Type(Octree) :: Tree
+    Type(Octree) :: TreeChild
+    Real(sp) :: xc, yc, zc
+    Real(sp) :: halfdx, halfdy, halfdz
+    Integer  :: flag
+    Integer  :: level
+    Integer  :: dir
+    Integer  :: i, j, k
+    Real(sp) :: moment(3)
+
+    level = Tree%level + 1
+    halfdx = Tree%dx(1) / 2.0_sp
+    halfdy = Tree%dx(2) / 2.0_sp
+    halfdz = Tree%dx(3) / 2.0_sp
+
+    Do k = 1, 2
+      Do j = 1, 2
+        Do i = 1, 2
+          ! actually pass xc +|- 1/4dx
+          xc = Tree%xc(1) + halfdx * (dble(i) - 1.5_sp)
+          yc = Tree%xc(2) + halfdy * (dble(j) - 1.5_sp)
+          zc = Tree%xc(3) + halfdz * (dble(k) - 1.5_sp)
+          flag = InOut(xc, yc, zc, halfdx, halfdy, halfdz)
+          ! Dark cell
+          If ( flag .eq. 1) Then
+            Tree%vofs(i,j,k) = 1.0_sp
+            Tree%centroids(i,j,k,1)  = xc
+            Tree%centroids(i,j,k,2)  = yc
+            Tree%centroids(i,j,k,3)  = zc
+          ! light cell
+          ElseIf ( flag .eq. 2) Then
+            Tree%vofs(i,j,k) = 0.0_sp
+            Tree%centroids(i,j,k,1)  = 0.0_sp
+            Tree%centroids(i,j,k,2)  = 0.0_sp
+            Tree%centroids(i,j,k,3)  = 0.0_sp
+          ! interface cell
+          Else If ( flag .eq. 3) Then
+            ! stop at maximum level
+            If (level >= tree%maxlevel) Then
+              Tree%vofs(i,j,k) = 1.0_sp
+              Tree%centroids(i,j,k,1)  = 0.5_sp
+              Tree%centroids(i,j,k,2)  = 0.5_sp
+              Tree%centroids(i,j,k,3)  = 0.5_sp
+            ! Recursive octree
+            Else
+              TreeChild%level = level
+              TreeChild%maxlevel = Tree%maxlevel
+              TreeChild%xc(1) = xc
+              TreeChild%xc(2) = yc
+              TreeChild%xc(3) = zc
+              TreeChild%dx(1) = halfdx
+              TreeChild%dx(2) = halfdy
+              TreeChild%dx(3) = halfdz
+              Call VolumeCentroidQuadTree(TreeChild)
+              Tree%vofs(i,j,k)  = TreeChild%vof
+              Tree%centroids(i,j,k,1)  = TreeChild%centroid(1)
+              Tree%centroids(i,j,k,2)  = TreeChild%centroid(2)
+              Tree%centroids(i,j,k,3)  = TreeChild%centroid(3)
+            End If
+          EndIf
+        End Do
+      End Do
+    End Do
+
+    Tree%vof = 0.0_sp
+    moment = 0
+    Do k = 1, 2
+      Do j = 1, 2
+        Do i = 1, 2
+          Tree%vof = Tree%vof + Tree%vofs(i,j,k)
+          Do dir = 1,3
+            moment(dir) = moment(dir) + Tree%vofs(i,j,k) * Tree%Centroids(i,j,k,dir)
+          End Do
+        End Do
+      End Do
+    End Do
+
+    Tree%vof = Tree%vof / 8.0_sp
+
+    Do dir = 1,3
+      Tree%centroid(dir) = moment(dir) / (Tree%vof + 1e-12) / 8.0_sp
+    End Do
+
+    If (Tree%vof <= 1e-12) Then
+      Tree%centroid(1:3) = 0.0_sp
+      Tree%vof = 0.0_sp
+    ElseIf (Tree%vof >= 1.0_sp - 1e-12) Then
+      Tree%centroid(1:3) = 0.5_sp
+      Tree%vof = 1.0_sp
+    End If
+
+  End Subroutine VolumeCentroidQuadTree
+
+ Recursive Subroutine VolumeQuadTree(Tree)
+    Implicit None
+    Type(Octree) :: Tree
+    Type(Octree) :: TreeChild
+    Real(sp) :: xc, yc, zc
+    Real(sp) :: halfdx, halfdy, halfdz
+    Integer  :: flag
+    Integer  :: level
+    Integer  :: i, j, k
+
+    level = Tree%level + 1
+    halfdx = Tree%dx(1) / 2.0_sp
+    halfdy = Tree%dx(2) / 2.0_sp
+    halfdz = Tree%dx(3) / 2.0_sp
+
+    Do k = 1, 2
+      Do j = 1, 2
+        Do i = 1, 2
+          ! actually pass xc +|- 1/4dx
+          xc = Tree%xc(1) + halfdx * (dble(i) - 1.5_sp)
+          yc = Tree%xc(2) + halfdy * (dble(j) - 1.5_sp)
+          zc = Tree%xc(3) + halfdz * (dble(k) - 1.5_sp)
+          flag = InOut(xc, yc, zc, halfdx, halfdy, halfdz)
+          ! Dark cell
+          If ( flag .eq. 1) Then
+            Tree%vofs(i,j,k) = 1.0_sp
+          ! light cell
+          ElseIf ( flag .eq. 2) Then
+            Tree%vofs(i,j,k) = 0.0_sp
+          ! interface cell
+          Else If ( flag .eq. 3) Then
+            ! stop at maximum level
+            If (level >= tree%maxlevel) Then
+              ! Tree%vofs(i,j,k) = 1.0_sp
+              Tree%vofs(i,j,k) = heaviside(ShapeLevelSet(xc,yc,zc),halfdx)
+            ! Recursive octree
+            Else
+              TreeChild%level = level
+              TreeChild%maxlevel = Tree%maxlevel
+              TreeChild%xc(1) = xc
+              TreeChild%xc(2) = yc
+              TreeChild%xc(3) = zc
+              TreeChild%dx(1) = halfdx
+              TreeChild%dx(2) = halfdy
+              TreeChild%dx(3) = halfdz
+              Call VolumeQuadTree(TreeChild)
+              Tree%vofs(i,j,k)  = TreeChild%vof
+            End If
+          EndIf
+        End Do
+      End Do
+    End Do
+
+    Tree%vof = 0.0_sp
+    Do k = 1, 2
+      Do j = 1, 2
+        Do i = 1, 2
+          Tree%vof = Tree%vof + Tree%vofs(i,j,k)
+        End Do
+      End Do
+    End Do
+
+    Tree%vof = Tree%vof / 8.0_sp
+
+    If (Tree%vof <= 1e-12) Then
+      Tree%vof = 0.0_sp
+    ElseIf (Tree%vof >= 1.0_sp - 1e-12) Then
+      Tree%vof = 1.0_sp
+    End If
+
+
+  End Subroutine VolumeQuadTree
+
+  Integer Function InOut(xc, yc, zc, dx, dy, dz)
+    Implicit None
+    Real(sp) :: xc, yc, zc
+    Real(sp) :: dx, dy, dz
+
+    Real(sp) :: xx, yy, zz
+    Real(sp) :: lsoctree(2,2,2)
+    Logical  :: flag(2,2,2)
+    Integer  :: i, j, k
+
+    Do k = 1, 2
+      Do j = 1, 2
+        Do i = 1, 2
+          xx = xc + dx * (dble(i) - 1.5_sp)
+          yy = yc + dy * (dble(j) - 1.5_sp)
+          zz = zc + dz * (dble(k) - 1.5_sp)
+          lsoctree(i,j,k) = ShapeLevelSet(xx, yy, zz)
+          If ( lsoctree(i,j,k) .gt. 1.0e-10) Then
+            flag(i,j,k) = .true.
+          Else
+            flag(i,j,k) = .false.
+          End If
+        End Do
+      End Do
+    End Do
+
+    If ( all(flag) ) Then
+      Inout = 1
+    ElseIf ( any(flag) ) Then
+      Inout = 3
+    Else
+      Inout = 2
+    EndIf
+
+ End Function InOut
+
+ Real(sp) Function ShapeLS(x,y,z)
+   Implicit None
+   Real(sp) :: x, y, z
+   Print *, "x=", x, 'y=', y, 'z=', z
+   Print *, "Please specify the shape function"
+   ShapeLs = 8888.888888888_sp
+ End Function ShapeLS
+
+ Real(sp) Function Heaviside(dis,h)
+   Implicit None
+   Real(sp) :: dis
+   Real(sp) :: h
+   If ( dis .ge. h) Then
+     heaviside =  1.0_sp
+   Else If ( dis .le. -h) Then
+     heaviside = 0.0_sp
+   Else
+     heaviside = 0.5_sp * ( 1.0_sp + dis / h + 1.0_sp / Pi * sin(Pi * dis / h) )
+   End If
+ End Function Heaviside
 
 End Module ModTools
