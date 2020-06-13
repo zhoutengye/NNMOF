@@ -2,6 +2,7 @@
 *.o
 *.txt
 *.dat
+*.h5
 *genmod.f90
 src/TEST-*
 src/buffer.f90
