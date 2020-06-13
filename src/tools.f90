@@ -183,7 +183,7 @@ Contains
 
   End Subroutine Visual2DContour
 
-  Recursive Subroutine VolumeCentroidQuadTree(Tree)
+  Recursive Subroutine VolumeCentroidOctree(Tree)
     Implicit None
     Type(Octree) :: Tree
     Type(Octree) :: TreeChild
@@ -238,7 +238,7 @@ Contains
               TreeChild%dx(1) = halfdx
               TreeChild%dx(2) = halfdy
               TreeChild%dx(3) = halfdz
-              Call VolumeCentroidQuadTree(TreeChild)
+              Call VolumeCentroidOctree(TreeChild)
               Tree%vofs(i,j,k)  = TreeChild%vof
               Tree%centroids(i,j,k,1)  = TreeChild%centroid(1)
               Tree%centroids(i,j,k,2)  = TreeChild%centroid(2)
@@ -276,9 +276,9 @@ Contains
       Tree%vof = 1.0_sp
     End If
 
-  End Subroutine VolumeCentroidQuadTree
+  End Subroutine VolumeCentroidOctree
 
- Recursive Subroutine VolumeQuadTree(Tree)
+ Recursive Subroutine VolumeOctree(Tree)
     Implicit None
     Type(Octree) :: Tree
     Type(Octree) :: TreeChild
@@ -293,6 +293,8 @@ Contains
     halfdy = Tree%dx(2) / 2.0_sp
     halfdz = Tree%dx(3) / 2.0_sp
 
+    ! print *, level, Tree%xc, Tree%dx
+
     Do k = 1, 2
       Do j = 1, 2
         Do i = 1, 2
@@ -305,8 +307,10 @@ Contains
           If ( flag .eq. 1) Then
             Tree%vofs(i,j,k) = 1.0_sp
           ! light cell
+            ! print  *, '111', xc, yc, zc
           ElseIf ( flag .eq. 2) Then
             Tree%vofs(i,j,k) = 0.0_sp
+            ! print  *, '000', xc, yc, zc , sqrt(xc**2+yc**2+zc**2)
           ! interface cell
           Else If ( flag .eq. 3) Then
             ! stop at maximum level
@@ -323,7 +327,7 @@ Contains
               TreeChild%dx(1) = halfdx
               TreeChild%dx(2) = halfdy
               TreeChild%dx(3) = halfdz
-              Call VolumeQuadTree(TreeChild)
+              Call VolumeOctree(TreeChild)
               Tree%vofs(i,j,k)  = TreeChild%vof
             End If
           EndIf
@@ -349,7 +353,7 @@ Contains
     End If
 
 
-  End Subroutine VolumeQuadTree
+  End Subroutine VolumeOctree
 
   Integer Function InOut(xc, yc, zc, dx, dy, dz)
     Implicit None
