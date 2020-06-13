@@ -112,10 +112,8 @@ Contains
     Call InitMPI(n)
     ! Initialize the shape of the block variables
     Call InitShape
-    ! Initialize mpi blocks
+    ! Initialize HDF5 file
     Call H5Init(inputfield)
-    ! Load the initial field
-    If (inputfield) Call H5LoadInit
     ! Initialize Boundary conditions
     Call InitBound
 
@@ -288,15 +286,15 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, h5error)
 
     if ( inputfield ) then 
-    !   1. Create input file
-    Call h5open_f(h5error)
-    Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, h5error)
-    Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, h5error)
-
-    ! Create the file collectively.
-    h5_input%filename = "input.h5"
-    Call h5fopen_f(h5_input%filename, H5F_ACC_RDONLY_F, h5_input%file_id, h5error, access_prp = plist_id)
-    Call h5pclose_f(plist_id, h5error)
+      !   1. Open input file
+      Call h5open_f(h5error)
+      Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, h5error)
+      Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, h5error)
+      
+      ! Open the file collectively.
+      h5_input%filename = "input.h5"
+      Call h5fopen_f(h5_input%filename, H5F_ACC_RDONLY_F, h5_input%file_id, h5error, access_prp = plist_id)
+      Call h5pclose_f(plist_id, h5error)
     end if
 
     !   2. Create output file
@@ -310,46 +308,63 @@ Contains
     Call h5fcreate_f(h5_output%filename, H5F_ACC_TRUNC_F, h5_output%file_id, h5error, access_prp = plist_id)
     Call h5pclose_f(plist_id, h5error)
 
+    ! Load the initial field
+    Call H5LoadInit(Inputfield)
+
   End Subroutine H5Init
 
   !====================
   ! Load initial conditions from hdf5 file
   ! from the input h5 file with 'init' dataset in each group
   !====================
-  Subroutine H5LoadInit
+  Subroutine H5LoadInit(inputfield)
     Implicit None
+    logical :: inputfield
     Integer :: i
     Character(80) :: data_name
     data_name = 'init'
+    If (inputfield) Then
+      do i = 1, n_vars
+        if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), phi, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), u, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), v, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), w, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), cx, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), cy, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), cz, data_name)
+        endif
+      end do
+    End If
+
     do i = 1, n_vars
       if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), phi, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), u, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), v, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), w, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), cx, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), cy, data_name)
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
-        Call HDF5OpenGroup(h5_input, h5_input_field(i))
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
-        Call HDF5ReadData(h5_input_field(i), cz, data_name)
       endif
     end do
 
