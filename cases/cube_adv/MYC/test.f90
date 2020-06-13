@@ -284,11 +284,11 @@ Subroutine test3
   ! VOF advection
   Do While (time < tend)
     nn = nn + 1
-    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
+    Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
-    rank = mod(nn+1,3)
+    ! rank = mod(nn+1,3)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+    ! Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
     ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
@@ -311,7 +311,7 @@ Subroutine test3
   End Do
   print *, nn
 
-    data_name = 'test'
+    data_name = 'init'
   do nn = 1, n_vars
       Select Case(Trim(h5_output_field(nn)%groupname))
       Case('phi')

@@ -311,7 +311,7 @@ Subroutine test3
   End Do
   print *, nn
 
-    data_name = 'test'
+  data_name = 'test'
   do nn = 1, n_vars
       Select Case(Trim(h5_output_field(nn)%groupname))
       Case('phi')
