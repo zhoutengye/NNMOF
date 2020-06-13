@@ -10,4 +10,5 @@
 #  define ToFloat      dble
 #endif
 
-# define NOTZERO  1.0e-10
+# define NOTZERO  1.0e-12
+# define Pi  3.1415926535897932d0

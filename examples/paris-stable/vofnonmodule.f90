@@ -693,11 +693,11 @@ SUBROUTINE swpr(us,c,f,dir,vof1,cg,vof3)
   if(ng < 2) call pariserror("wrong ng")
   ii=0; jj=0; kk=0
   if (dir == 1) then
-     ii=1; dm1 => dmx;  dm2 => dmy;  dm3 => dmz 
+     ii=1; dm1 => dmx;  dm2 => dmy;  dm3 => dmz
   else if (dir == 2) then
-     jj=1; dm1 => dmy;  dm2 => dmz;  dm3 => dmx 
+     jj=1; dm1 => dmy;  dm2 => dmz;  dm3 => dmx
   else if (dir == 3) then
-     kk=1; dm1 => dmz;  dm2 => dmx;  dm3 => dmy 
+     kk=1; dm1 => dmz;  dm2 => dmx;  dm3 => dmy
   endif
   dxyz = dxh(is)
   call test_cell_size()
