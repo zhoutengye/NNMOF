@@ -6,7 +6,7 @@ py = 1
 &gridvar
 nx = 100
 ny = 100
-nz = 100
+nz = 50
 dx = 1.0
 dy = 1.0
 dz = 1.0

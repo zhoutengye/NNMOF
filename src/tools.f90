@@ -194,11 +194,42 @@ Contains
     Integer  :: dir
     Integer  :: i, j, k
     Real(sp) :: moment(3)
+    Real(sp) :: octls(2,2,2)
+    Real(sp) :: nnx, nny, nnz, nnn
 
     level = Tree%level + 1
     halfdx = Tree%dx(1) / 2.0_sp
     halfdy = Tree%dx(2) / 2.0_sp
     halfdz = Tree%dx(3) / 2.0_sp
+
+    Do k = 1, 2
+      Do j = 1, 2
+        Do i = 1, 2
+          xc = Tree%xc(1) + halfdx * (dble(i) - 1.5_sp)
+          yc = Tree%xc(2) + halfdy * (dble(j) - 1.5_sp)
+          zc = Tree%xc(3) + halfdz * (dble(k) - 1.5_sp)
+          octls(2,2,2) = ShapeLevelSet(xc, yc, zc)
+        End Do
+      End Do
+    End Do
+    nnx = ( octls(2,2,2) - octls(1,2,2) + &
+            octls(2,1,2) - octls(1,1,2) + &
+            octls(2,2,1) - octls(1,2,1) + &
+            octls(2,1,1) - octls(1,1,1) ) / 4.0_sp
+    nny = ( octls(2,2,2) - octls(2,1,2) + &
+            octls(1,2,2) - octls(1,1,2) + &
+            octls(2,2,1) - octls(2,1,1) + &
+            octls(1,2,1) - octls(1,1,1) ) / 4.0_sp
+    nnz = ( octls(2,2,2) - octls(2,2,1) + &
+            octls(2,1,2) - octls(2,1,1) + &
+            octls(1,2,2) - octls(1,2,1) + &
+            octls(1,1,2) - octls(1,1,1) ) / 4.0_sp
+
+    nnn = sqrt(nnx**2 + nny**2 + nnz ** 2)
+    nnx = nnx / nnn
+    nny = nny / nnn
+    nnz = nnz / nnn
+
 
     Do k = 1, 2
       Do j = 1, 2
@@ -224,11 +255,11 @@ Contains
           Else If ( flag .eq. 3) Then
             ! stop at maximum level
             If (level >= tree%maxlevel) Then
-              Tree%vofs(i,j,k) = 1.0_sp
-              Tree%centroids(i,j,k,1)  = 0.5_sp
-              Tree%centroids(i,j,k,2)  = 0.5_sp
-              Tree%centroids(i,j,k,3)  = 0.5_sp
-            ! Recursive octree
+              Tree%vofs(i,j,k) = heaviside(ShapeLevelSet(xc,yc,zc),halfdx)
+              Tree%centroids(i,j,k,1)  = xc
+              Tree%centroids(i,j,k,2)  = yc
+              Tree%centroids(i,j,k,3)  = zc
+              ! Recursive octree
             Else
               TreeChild%level = level
               TreeChild%maxlevel = Tree%maxlevel
@@ -258,6 +289,9 @@ Contains
           Do dir = 1,3
             moment(dir) = moment(dir) + Tree%vofs(i,j,k) * Tree%Centroids(i,j,k,dir)
           End Do
+          ! If (level .eq. 2) Then
+            ! print *, Tree%vofs(i,j,k), Tree%Centroids(i,j,k,1)
+          ! EndIf
         End Do
       End Do
     End Do
@@ -268,13 +302,19 @@ Contains
       Tree%centroid(dir) = moment(dir) / (Tree%vof + 1e-12) / 8.0_sp
     End Do
 
+    ! print *, level, moment(1), tree%vof, Tree%centroid(i)
+    ! read(*,*)
+
     If (Tree%vof <= 1e-12) Then
       Tree%centroid(1:3) = 0.0_sp
       Tree%vof = 0.0_sp
     ElseIf (Tree%vof >= 1.0_sp - 1e-12) Then
-      Tree%centroid(1:3) = 0.5_sp
+      Tree%centroid(1) = Tree%xc(1)
+      Tree%centroid(2) = Tree%xc(2)
+      Tree%centroid(3) = Tree%xc(3)
       Tree%vof = 1.0_sp
     End If
+
 
   End Subroutine VolumeCentroidOctree
 
@@ -372,11 +412,12 @@ Contains
           yy = yc + dy * (dble(j) - 1.5_sp)
           zz = zc + dz * (dble(k) - 1.5_sp)
           lsoctree(i,j,k) = ShapeLevelSet(xx, yy, zz)
-          If ( lsoctree(i,j,k) .gt. 1.0e-10) Then
+          If ( lsoctree(i,j,k) .ge. 0.0_sp) Then
             flag(i,j,k) = .true.
           Else
             flag(i,j,k) = .false.
           End If
+          ! print *, xx, yy, zz
         End Do
       End Do
     End Do
@@ -388,6 +429,7 @@ Contains
     Else
       Inout = 2
     EndIf
+
 
  End Function InOut
 
@@ -411,5 +453,9 @@ Contains
      heaviside = 0.5_sp * ( 1.0_sp + dis / h + 1.0_sp / Pi * sin(Pi * dis / h) )
    End If
  End Function Heaviside
+
+ ! Function VOF2LS(vof,h)
+ !   Implicit None
+ ! End Function VOF2LS
 
 End Module ModTools

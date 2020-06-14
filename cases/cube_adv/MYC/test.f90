@@ -261,6 +261,7 @@ Subroutine test3
   Character(80) :: data_name
   Integer :: i, j, k
   Real(sp) :: err
+  Real(sp) :: tt1, tt2
   Integer :: rank
 
   Call Init(inputfield=.true.)
@@ -282,10 +283,12 @@ Subroutine test3
   ! f_exact(11:15,6:10,6:10) = 1.0_sp
 
   ! VOF advection
+  Call CPU_Time(tt1)
   Do While (time < tend)
     nn = nn + 1
-    Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
-    ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    Call VOFWY(Phi, u, v, w, nl, dl, dt)
+    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
+    if (myid .eq. 0) print *, 'step =', nn
     ! rank = mod(nn+1,3)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
@@ -309,7 +312,9 @@ Subroutine test3
     ! Call Visual3DContour(f1=phi)
     time =  time + dt
   End Do
-  print *, nn
+  Call CPU_Time(tt2)
+  print *, 'cpu_time =', tt2-tt1
+  if (myid .eq.0 ) print *, nn
 
     data_name = 'init'
   do nn = 1, n_vars
@@ -354,8 +359,9 @@ Subroutine test3
   endif
 
   ! Call Visual3DContour(f1=f_end)
-  Call Visual3DContour(f1=f_beg, f2=f_end)
-  Call Visual2DContour(f1=f_beg, f2=f_end, slice_dir=3, slice_coord=1)
+  ! Call Visual3DContour(f1=f_beg, f2=f_end)
+  Call Visual3DContour(f1=f_end)
+  Call Visual2DContour(f1=f_beg, f2=f_end, slice_dir=3, slice_coord=25)
 
 
   Call MPI_FINALIZE(ierr)
