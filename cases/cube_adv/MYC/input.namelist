@@ -1,0 +1,41 @@
+&mpivar
+px = 2
+py = 1
+/
+
+&gridvar
+nx = 100
+ny = 100
+nz = 50
+dx = 1.0
+dy = 1.0
+dz = 1.0
+periodx = .true.
+periody = .true.
+periodz = .true.
+/
+
+&compvar
+tstart = 0.0
+tend  = 100.0
+dt = 0.2
+/
+
+&outvar
+output_inteval = 1.0
+startframe = 0
+/
+
+&iofield
+n_vars = 7
+io_phi = .true.
+io_u   = .true.
+io_v   = .true.
+io_w   = .true.
+io_cx  = .true.
+io_cy  = .true.
+io_cz  = .true.
+output_path = ''
+output_name = ''
+/
+
