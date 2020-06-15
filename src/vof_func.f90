@@ -48,6 +48,18 @@ Module ModVOFFunc
   ! Real(sp), Parameter :: GaussNewtonTol = 1e-13
   Real(sp), Parameter :: MOF_Pi = 3.1415926535897932d0
   Real(sp), Parameter :: epsc = 1.0e-12
+
+  PROCEDURE(InterfaceMOF), POINTER :: MOFNorm => NormMOF
+  Interface
+    Subroutine InterfaceMOF(f,c,norm, init_norm)
+      Implicit None
+      Real(8), Intent(In) :: f
+      Real(8), Intent(In) :: c(3)
+      Real(8), Intent(Out) :: norm(3)
+      Real(8), Intent(In), optional :: init_norm(3)
+    End Subroutine InterfaceMOF
+  End Interface
+
 Contains
 
   !=======================================================
