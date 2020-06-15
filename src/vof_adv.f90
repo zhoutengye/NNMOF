@@ -24,18 +24,6 @@ Module ModVOF
 #if defined(VISUALIZE)
   Use ModTools
 #endif
-
-  PROCEDURE(MOFINTERFACE), POINTER :: MOFNorm => NormMOF
-  Interface
-    Subroutine MOFINTERFACE(f,c,norm, init_norm)
-      Implicit None
-      Real(8), Intent(In) :: f
-      Real(8), Intent(In) :: c(3)
-      Real(8), Intent(Out) :: norm(3)
-      Real(8), Intent(In), optional :: init_norm(3)
-    End Subroutine MOFINTERFACE
-  End Interface
-
 Contains
 
   Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt)
@@ -420,7 +408,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           Call NormMYCS(f_block, init_norm)
           ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
-          Call NormMOF(f(i,j,k), c3, norm)
+          Call MOFNorm(f(i,j,k), c3, norm)
           Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
@@ -621,7 +609,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1)  = cx(i,j,k)
           c3(2)  = cy(i,j,k)
           c3(3)  = cz(i,j,k)
-          Call NormMOF(f(i,j,k), c3, norm)
+          Call MOFNorm(f(i,j,k), c3, norm)
           Call Normalization1(norm)
           ! f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           ! Call NormMYCS(f_block, norm)
