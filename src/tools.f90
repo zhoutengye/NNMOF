@@ -188,14 +188,13 @@ Contains
     Type(Octree) :: Tree
     Type(Octree) :: TreeChild
     Real(sp) :: xc, yc, zc
+    Real(sp) :: xx, yy, zz
     Real(sp) :: halfdx, halfdy, halfdz
     Integer  :: flag
     Integer  :: level
     Integer  :: dir
     Integer  :: i, j, k
     Real(sp) :: moment(3)
-    Real(sp) :: octls(2,2,2)
-    Real(sp) :: nnx, nny, nnz, nnn
 
     level = Tree%level + 1
     halfdx = Tree%dx(1) / 2.0_sp
@@ -205,46 +204,20 @@ Contains
     Do k = 1, 2
       Do j = 1, 2
         Do i = 1, 2
-          xc = Tree%xc(1) + halfdx * (dble(i) - 1.5_sp)
-          yc = Tree%xc(2) + halfdy * (dble(j) - 1.5_sp)
-          zc = Tree%xc(3) + halfdz * (dble(k) - 1.5_sp)
-          octls(2,2,2) = ShapeLevelSet(xc, yc, zc)
-        End Do
-      End Do
-    End Do
-    nnx = ( octls(2,2,2) - octls(1,2,2) + &
-            octls(2,1,2) - octls(1,1,2) + &
-            octls(2,2,1) - octls(1,2,1) + &
-            octls(2,1,1) - octls(1,1,1) ) / 4.0_sp
-    nny = ( octls(2,2,2) - octls(2,1,2) + &
-            octls(1,2,2) - octls(1,1,2) + &
-            octls(2,2,1) - octls(2,1,1) + &
-            octls(1,2,1) - octls(1,1,1) ) / 4.0_sp
-    nnz = ( octls(2,2,2) - octls(2,2,1) + &
-            octls(2,1,2) - octls(2,1,1) + &
-            octls(1,2,2) - octls(1,2,1) + &
-            octls(1,1,2) - octls(1,1,1) ) / 4.0_sp
-
-    nnn = sqrt(nnx**2 + nny**2 + nnz ** 2)
-    nnx = nnx / nnn
-    nny = nny / nnn
-    nnz = nnz / nnn
-
-
-    Do k = 1, 2
-      Do j = 1, 2
-        Do i = 1, 2
           ! actually pass xc +|- 1/4dx
           xc = Tree%xc(1) + halfdx * (dble(i) - 1.5_sp)
           yc = Tree%xc(2) + halfdy * (dble(j) - 1.5_sp)
           zc = Tree%xc(3) + halfdz * (dble(k) - 1.5_sp)
+          xx = halfdx * (dble(i) - 1.5_sp)
+          yy = halfdy * (dble(j) - 1.5_sp)
+          zz = halfdz * (dble(k) - 1.5_sp)
           flag = InOut(xc, yc, zc, halfdx, halfdy, halfdz)
           ! Dark cell
           If ( flag .eq. 1) Then
             Tree%vofs(i,j,k) = 1.0_sp
-            Tree%centroids(i,j,k,1)  = xc
-            Tree%centroids(i,j,k,2)  = yc
-            Tree%centroids(i,j,k,3)  = zc
+            Tree%centroids(i,j,k,1)  = xx
+            Tree%centroids(i,j,k,2)  = yy
+            Tree%centroids(i,j,k,3)  = zz
           ! light cell
           ElseIf ( flag .eq. 2) Then
             Tree%vofs(i,j,k) = 0.0_sp
@@ -253,12 +226,14 @@ Contains
             Tree%centroids(i,j,k,3)  = 0.0_sp
           ! interface cell
           Else If ( flag .eq. 3) Then
+            ! print *, xx, yy, zz
             ! stop at maximum level
             If (level >= tree%maxlevel) Then
               Tree%vofs(i,j,k) = heaviside(ShapeLevelSet(xc,yc,zc),halfdx)
-              Tree%centroids(i,j,k,1)  = xc
-              Tree%centroids(i,j,k,2)  = yc
-              Tree%centroids(i,j,k,3)  = zc
+              ! Tree%vofs(i,j,k) = 1.0_sp
+              Tree%centroids(i,j,k,1)  = xx
+              Tree%centroids(i,j,k,2)  = yy
+              Tree%centroids(i,j,k,3)  = zz
               ! Recursive octree
             Else
               TreeChild%level = level
@@ -271,9 +246,12 @@ Contains
               TreeChild%dx(3) = halfdz
               Call VolumeCentroidOctree(TreeChild)
               Tree%vofs(i,j,k)  = TreeChild%vof
-              Tree%centroids(i,j,k,1)  = TreeChild%centroid(1)
-              Tree%centroids(i,j,k,2)  = TreeChild%centroid(2)
-              Tree%centroids(i,j,k,3)  = TreeChild%centroid(3)
+              Tree%centroids(i,j,k,1)  = xx + TreeChild%centroid(1)
+              Tree%centroids(i,j,k,2)  = yy + TreeChild%centroid(2)
+              Tree%centroids(i,j,k,3)  = zz + TreeChild%centroid(3)
+              ! Tree%centroids(i,j,k,1)  = xx + TreeChild%centroid(1) / 2**(level+1)
+              ! Tree%centroids(i,j,k,2)  = yy + TreeChild%centroid(2) / 2**(level+1)
+              ! Tree%centroids(i,j,k,3)  = zz + TreeChild%centroid(3) / 2**(level+1)
             End If
           EndIf
         End Do
@@ -309,9 +287,9 @@ Contains
       Tree%centroid(1:3) = 0.0_sp
       Tree%vof = 0.0_sp
     ElseIf (Tree%vof >= 1.0_sp - 1e-12) Then
-      Tree%centroid(1) = Tree%xc(1)
-      Tree%centroid(2) = Tree%xc(2)
-      Tree%centroid(3) = Tree%xc(3)
+      Tree%centroid(1) = 0.0_sp
+      Tree%centroid(2) = 0.0_sp
+      Tree%centroid(3) = 0.0_sp
       Tree%vof = 1.0_sp
     End If
 
