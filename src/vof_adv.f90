@@ -25,6 +25,17 @@ Module ModVOF
   Use ModTools
 #endif
 
+  PROCEDURE(MOFINTERFACE), POINTER :: MOFNorm => NormMOF
+  Interface
+    Subroutine MOFINTERFACE(f,c,norm, init_norm)
+      Implicit None
+      Real(8), Intent(In) :: f
+      Real(8), Intent(In) :: c(3)
+      Real(8), Intent(Out) :: norm(3)
+      Real(8), Intent(In), optional :: init_norm(3)
+    End Subroutine MOFINTERFACE
+  End Interface
+
 Contains
 
   Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt)
