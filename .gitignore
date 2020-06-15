@@ -7,4 +7,7 @@
 src/TEST-*
 src/buffer.f90
 docs/ltximg/
-
+*TEST-1
+*TEST-2
+*TEST-3
+*TEST-3
