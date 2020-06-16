@@ -24,6 +24,7 @@ Module ModVOF
 #if defined(VISUALIZE)
   Use ModTools
 #endif
+
 Contains
 
   Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt)
@@ -138,8 +139,6 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
   Real(sp) :: f_block(3,3,3)
   ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
   Real(sp) :: EPSC = 1.0e-12
-  Integer :: nexch(2)
-  nexch = nl(1:2)
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -245,8 +244,6 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
   Real(sp) :: f_block(3,3,3)
   ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
   Real(sp) :: EPSC = 1.0e-12
-  Integer :: nexch(2)
-  nexch = nl(1:2)
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -355,8 +352,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp) :: c3(3)
   ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
-  Integer :: nexch(2)
-  nexch = nl(1:2)
+  Real(sp) :: ddl
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -406,10 +402,10 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(2) = cy(i,j,k)
           c3(3) = cz(i,j,k)
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
-          Call NormMYCS(f_block, init_norm)
+          ! Call NormMYCS(f_block, norm)
           ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
           Call MOFNorm(f(i,j,k), c3, norm)
-          Call Normalization1(norm)
+          ! Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
@@ -434,16 +430,21 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! If (vof1(i,j,k) .gt. epsc) Then
-        !   Call Centroid_Lagrangian_Adv(c1xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
+          ! Call Centroid_Lagrangian_Adv(c1xyz, c1xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
         ! EndIf
         ! If (vof2(i,j,k) .gt. epsc) Then
-        !   Call Centroid_Lagrangian_Adv(c2xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
+          ! Call Centroid_Lagrangian_Adv(c2xyz, c2xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
         ! EndIf
         ! If (vof3(i,j,k) .gt. epsc) Then
-        !   Call Centroid_Lagrangian_Adv(c3xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
+          ! Call Centroid_Lagrangian_Adv(c3xyz, c3xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
         ! EndIf
         c1xyz(dir) = c1xyz(dir) + 1.0_sp
         c3xyz(dir) = c3xyz(dir) - 1.0_sp
+        c2xyz(dir) = c2xyz(dir) - a2 + a1
+
+        ! c1xyz(dir) = c1xyz(dir) * 1.0_sp
+        ! c3xyz(dir) = c3xyz(dir) - 1.0_sp
+        ! c2xyz(dir) = c2xyz(dir)
 
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
@@ -556,16 +557,17 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp) :: mx, my, mz
   Real(sp) :: x0(3), deltax(3)
   Real(sp) :: c1xyz(3), c2xyz(3), c3xyz(3)
+  Real(sp) :: c1xyza(3), c3xyza(3)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof3
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1x, c1y, c1z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c2x, c2y, c2z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
+  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1xa, c1ya, c1za
+  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3xa, c3ya, c3za
   Real(sp) :: norm(3)
   Real(sp) :: c3(3)
   ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
-  Integer :: nexch(2)
-  nexch = nl(1:2)
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -628,15 +630,13 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           end if
         endif
         c2xyz(1) = cx(i,j,k); c2xyz(2) = cy(i,j,k); c2xyz(3) = cz(i,j,k);
-        ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Eulerian_Adv(c1xyz, c1xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        Call Centroid_Eulerian_Adv(c3xyz, c3xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Lagrangian_Adv(c1xyz, c1xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Lagrangian_Adv(c2xyz, c2xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
+        ! Call Centroid_Lagrangian_Adv(c3xyz, c3xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
         ! Call Visual3DContour(f1=cz)
-        c1xyz(dir)  = c1xyz(dir) + 1.0_sp
-        c3xyz(dir)  = c3xyz(dir) - 1.0_sp
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
         c1z(i,j,k) = c1xyz(3)
@@ -646,6 +646,12 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2x(i,j,k) = c2xyz(1)
         c2y(i,j,k) = c2xyz(2)
         c2z(i,j,k) = c2xyz(3)
+        c1xa(i,j,k) = c1xyza(1)
+        c1ya(i,j,k) = c1xyza(2)
+        c1za(i,j,k) = c1xyza(3)
+        c3xa(i,j,k) = c3xyza(1)
+        c3ya(i,j,k) = c3xyza(2)
+        c3za(i,j,k) = c3xyza(3)
       enddo
     enddo
   enddo
@@ -663,33 +669,32 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   call phi_bc%setBCS(c2z)
   call phi_bc%setBCS(c3z)
   !new values of f and  clip it: 0. <= f <= 1.
-  print * , f(6,8,8), cx(6,8,8), cy(6,8,8), cz(6,8,8)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
         mx = f(i,j,k) * c2x(i,j,k) &
             - vof1(i,j,k) * c1x(i,j,k) &
             - vof3(i,j,k) * c3x(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * c1x(i+ii,j+jj,k+kk) &
-            + vof3(i-ii,j-jj,k-kk) * c3x(i-ii,j-jj,k-kk)
+            + vof1(i+ii,j+jj,k+kk) * ( c1xa(i+ii,j+jj,k+kk) + 1.0_sp ) &
+            + vof3(i-ii,j-jj,k-kk) * ( c3xa(i-ii,j-jj,k-kk) - 1.0_sp )
         my = f(i,j,k) * c2y(i,j,k) &
             - vof1(i,j,k) * c1y(i,j,k) &
             - vof3(i,j,k) * c3y(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * c1y(i+ii,j+jj,k+kk) &
-            + vof3(i-ii,j-jj,k-kk) * c3y(i-ii,j-jj,k-kk)
+            + vof1(i+ii,j+jj,k+kk) * ( c1ya(i+ii,j+jj,k+kk) + 1.0_sp )&
+            + vof3(i-ii,j-jj,k-kk) * ( c3ya(i-ii,j-jj,k-kk) - 1.0_sp )
         mz = f(i,j,k) * c2z(i,j,k) &
             - vof1(i,j,k) * c1z(i,j,k) &
             - vof3(i,j,k) * c3z(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk) &
-            + vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-jj,k-kk)
+            + vof1(i+ii,j+jj,k+kk) * (c1za(i+ii,j+jj,k+kk) + 1.0_sp ) &
+            + vof3(i-ii,j-jj,k-kk) * (c3za(i-ii,j-jj,k-kk) - 1.0_sp )
         f(i,j,k) = f(i,j,k) &
             - vof1(i,j,k) &
             - vof3(i,j,k) &
             + vof1(i+ii,j+jj,k+kk) &
             + vof3(i-ii,j-jj,k-kk)
-        cx(i,j,k) = mx / f(i,j,k)
-        cy(i,j,k) = my / f(i,j,k)
-        cz(i,j,k) = mz / f(i,j,k)
+        cx(i,j,k) = mx / ( f(i,j,k) + 1e-10 )
+        cy(i,j,k) = my / ( f(i,j,k) + 1e-10 )
+        cz(i,j,k) = mz / ( f(i,j,k) + 1e-10 )
         if (f(i,j,k) < EPSC) then
           f(i,j,k) = 0.0_sp
           cx(i,j,k) = 0.0_sp
@@ -730,10 +735,10 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   ! Call Visual3DContour(f1=cy)
   ! Call Visual3DContour(f1=cz)
 
-  print * , f(6,8,8), cx(6,8,8), cy(6,8,8), cz(6,8,8)
-  print * , f(11,8,8), cx(11,8,8), cy(11,8,8), cz(11,8,8)
-  print * , c1x(10,8,8), c1y(10,8,8), c1z(10,8,8)
-  print * , c3x(10,8,8), c3y(10,8,8), c3z(10,8,8)
+  ! print * , f(6,8,8), cx(6,8,8), cy(6,8,8), cz(6,8,8)
+  ! print * , f(11,8,8), cx(11,8,8), cy(11,8,8), cz(11,8,8)
+  ! print * , c1x(10,8,8), c1y(10,8,8), c1z(10,8,8)
+  ! print * , c3x(10,8,8), c3y(10,8,8), c3z(10,8,8)
   ! apply proper boundary conditions to c
   ! apply proper boundary conditions to c
   call phi_bc%setBCS(f)
@@ -744,25 +749,27 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   return
 End Subroutine AdvWY_MOF
 
-Subroutine Centroid_Lagrangian_Adv(c, ul, ur, xl, xr, dir)
+Subroutine Centroid_Lagrangian_Adv(c, cout, ul, ur, xl, xr, dir)
   Implicit None
-  Real(sp), Intent(Inout) :: c(3)
-  Real(sp), Intent(In) :: ul, ur
-  Real(sp), Intent(In) :: xl, xr
-  Integer,  Intent(In) :: dir
+  Real(sp), Intent(In)  :: c(3)
+  Real(sp), Intent(In)  :: ul, ur
+  Real(sp), Intent(In)  :: xl, xr
+  Integer,  Intent(In)  :: dir
+  Real(sp), Intent(Out) :: cout(3)
 
-  c(dir) = (1.0_sp + ur - ul) * c(dir) - (ur * xl - ul * xr)
+  cout(dir) = (1.0_sp + ur - ul) * c(dir) - (ur * xl - ul * xr)
 
 End Subroutine Centroid_Lagrangian_Adv
 
-Subroutine Centroid_Eulerian_Adv(c, ul, ur, xl, xr, dir)
+Subroutine Centroid_Eulerian_Adv(c, cout, ul, ur, xl, xr, dir)
   Implicit None
-  Real(sp), Intent(Inout) :: c(3)
-  Real(sp), Intent(In) :: ul, ur
-  Real(sp), Intent(In) :: xl, xr
-  Integer,  Intent(In) :: dir
+  Real(sp), Intent(In)  :: c(3)
+  Real(sp), Intent(In)  :: ul, ur
+  Real(sp), Intent(In)  :: xl, xr
+  Integer,  Intent(In)  :: dir
+  Real(sp), Intent(Out) :: cout(3)
 
-  c(dir) =  (c(dir) - (ur * xl - ul * xr)) / (1.0_sp - ur + ul)
+  cout(dir) =  (c(dir) - (ur * xl - ul * xr)) / (1.0_sp - ur + ul)
 
 End Subroutine Centroid_Eulerian_Adv
 

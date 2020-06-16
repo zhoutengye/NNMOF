@@ -34,6 +34,7 @@ Module ModGlobal
   Integer  :: blockx, blocky
   Integer  :: nproc
   Integer  :: dims(2)
+  Integer  :: nexch(2)
 
   !! Computational parameters
   Integer  :: n(3)
@@ -534,6 +535,7 @@ Contains
     ntx = nl(1)+2
     nty = nl(2)+2
     ntz = nl(3)+2
+    nexch = nl(1:2)
     !
     ! Definitions of datatypes for velocity and pressure b.c.'s
     ! Note: array(i,j,k) is basically a 1-dim array;
