@@ -7,9 +7,9 @@ py = 1
 nx = 100
 ny = 100
 nz = 50
-dx = 0.01
-dy = 0.01
-dz = 0.01
+dx = 1.0
+dy = 1.0
+dz = 1.0
 periodx = .true.
 periody = .true.
 periodz = .true.
@@ -17,8 +17,8 @@ periodz = .true.
 
 &compvar
 tstart = 0.0
-tend  = 1.0
-dt = 0.002
+tend  = 5.0
+dt = 0.2
 /
 
 &outvar
