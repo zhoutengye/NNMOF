@@ -27,20 +27,6 @@ Module ModVOF
 
 Contains
 
-  Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt)
-    Implicit None
-    Real(sp) :: dt
-    Integer,Intent(In)     :: nl(3)
-    Real(sp),Intent(In)    :: dl(3)
-    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    call AdvCIAM(u, phi, nl, dl, dt, 1)
-    call AdvCIAM(v, phi, nl, dl, dt, 2)
-    call AdvCIAM(w, phi, nl, dl, dt, 3)
-  End Subroutine VOFCIAM
-
   Subroutine VOFWY(Phi, u, v, w, nl, dl, dt)
     Implicit None
     Real(sp) :: dt
@@ -610,8 +596,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
-          ! vof2(i,j,k) = 1.0_sp - vof1(i,j,k) - vof3(i,j,k)
-          vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
+          vof2(i,j,k) = 1.0_sp - DMAX1(-a1,0.0_sp) - DMAX1(a2,0.0_sp)
           c1xyz = 0.5_sp
           c2xyz = 0.5_sp
           c3xyz = 0.5_sp
@@ -700,9 +685,9 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         f(i,j,k) = vof2(i,j,k) &
             + vof1(i+ii,j+jj,k+kk) &
             + vof3(i-ii,j-jj,k-kk)
-        cx(i,j,k) = mx / ( f(i,j,k) + 1e-10 )
-        cy(i,j,k) = my / ( f(i,j,k) + 1e-10 )
-        cz(i,j,k) = mz / ( f(i,j,k) + 1e-10 )
+        cx(i,j,k) = mx / ( f(i,j,k) + 1e-30 )
+        cy(i,j,k) = my / ( f(i,j,k) + 1e-30 )
+        cz(i,j,k) = mz / ( f(i,j,k) + 1e-30 )
         if (f(i,j,k) < EPSC) then
           f(i,j,k) = 0.0_sp
           cx(i,j,k) = 0.0_sp

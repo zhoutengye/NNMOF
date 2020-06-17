@@ -145,8 +145,10 @@ Contains
     Call getarg(1,input_name)
     if (INPUT_NAME .eq. '') Then
       file_name = 'input.namelist'
+      h5_input%filename = "input.h5"
     Else
       file_name = trim(input_name)//'.namelist'
+      h5_input%filename = trim(input_name)//'.h5'
     endif
 
     ! Read at processor 0
@@ -293,7 +295,6 @@ Contains
       Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, h5error)
       
       ! Open the file collectively.
-      h5_input%filename = "input.h5"
       Call h5fopen_f(h5_input%filename, H5F_ACC_RDONLY_F, h5_input%file_id, h5error, access_prp = plist_id)
       Call h5pclose_f(plist_id, h5error)
     end if
@@ -502,6 +503,32 @@ Contains
 
 
   end SUBROUTINE HDF5ReadData
+
+  Subroutine HDF5WriteFrame(data_name)
+    IMPLICIT NONE
+    Character(80) :: data_name
+    Integer :: nn
+
+    do nn = 1, n_vars
+      Select Case(Trim(h5_output_field(nn)%groupname))
+      Case('phi')
+        Call HDF5WriteData(h5_output_field(nn), phi,data_name)
+      Case('u')
+        Call HDF5WriteData(h5_output_field(nn), u,data_name)
+      Case('v')
+        Call HDF5WriteData(h5_output_field(nn), v,data_name)
+      Case('w')
+        Call HDF5WriteData(h5_output_field(nn), w,data_name)
+      Case('cx')
+        Call HDF5WriteData(h5_output_field(nn), cx,data_name)
+      Case('cy')
+        Call HDF5WriteData(h5_output_field(nn), cy,data_name)
+      Case('cz')
+        Call HDF5WriteData(h5_output_field(nn), cz,data_name)
+      End Select
+    end do
+
+  end SUBROUTINE HDF5WriteFrame
   !! -----End HDF5 for field IO------------
 
   !!------(5) MPI initialization and exchange------
