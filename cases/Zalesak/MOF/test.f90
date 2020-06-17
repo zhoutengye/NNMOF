@@ -275,8 +275,11 @@ Subroutine test3
   Allocate(f_exact(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
   f_beg = phi
 
-   ! u = 1.0_sp
-   ! v = 1.0_sp
+  ! u = -u
+  ! v = -v
+  ! u = - 1.0_sp
+  ! v = - 1.0_sp
+  ! w = - 1.0_sp
 
   f_exact = f_beg
   ! f_exact(11:15,6:10,6:10) = 1.0_sp
@@ -291,9 +294,9 @@ Subroutine test3
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,3)
-    Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
-    !  Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
     ! call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)

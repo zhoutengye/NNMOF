@@ -117,6 +117,33 @@ Contains
     call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
   End Subroutine MOFWY
 
+  Subroutine MOFWY2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+    Implicit None
+    Real(sp) :: dt
+    Integer,Intent(In)     :: nl(3)
+    Real(sp),Intent(In)    :: dl(3)
+    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(InOut)    :: cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(InOut)    :: cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(InOut)    :: cz(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Integer :: rank
+    if (rank == 1) Then
+      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    else  if (rank == 2) Then
+      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    else  if (rank == 0) Then
+      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    end if
+  End Subroutine MOFWY2
 
 
 !=======================================================
@@ -395,7 +422,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c2xyz(dir) = 0.5_sp + DMAX1(a1/2.0_sp,0.0_sp) - DMIN1(a2/2.0_sp,0.0_sp)
           c3xyz(dir) = 1.0_sp + DMAX1(a2/2.0_sp,0.0_sp)
 
-        ! 0 < f < 1
+          ! 0 < f < 1
         else if (f(i,j,k) .GT. 0.0_sp) then
           !*(1)* normal vector
           c3(1) = cx(i,j,k)
@@ -405,7 +432,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           ! Call NormMYCS(f_block, norm)
           ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
           Call MOFNorm(f(i,j,k), c3, norm)
-          ! Call Normalization1(norm)
+          Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)
@@ -426,25 +453,8 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           deltax(dir) = 1.0_sp - x0(dir) + DMIN1(0.0_sp,a2)
           Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
-        ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! If (vof1(i,j,k) .gt. epsc) Then
-          ! Call Centroid_Lagrangian_Adv(c1xyz, c1xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
-        ! EndIf
-        ! If (vof2(i,j,k) .gt. epsc) Then
-          ! Call Centroid_Lagrangian_Adv(c2xyz, c2xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
-        ! EndIf
-        ! If (vof3(i,j,k) .gt. epsc) Then
-          ! Call Centroid_Lagrangian_Adv(c3xyz, c3xyz, -a1, -a2, 0.0_sp, 1.0_sp, dir)
-        ! EndIf
-        c1xyz(dir) = c1xyz(dir) + 1.0_sp
-        c3xyz(dir) = c3xyz(dir) - 1.0_sp
-        c2xyz(dir) = c2xyz(dir) - a2 + a1
-
-        ! c1xyz(dir) = c1xyz(dir) * 1.0_sp
-        ! c3xyz(dir) = c3xyz(dir) - 1.0_sp
-        ! c2xyz(dir) = c2xyz(dir)
+        If (vof1(i,j,k) .ge. epsc) c1xyz(dir) = c1xyz(dir) + 1.0_sp
+        If (vof3(i,j,k) .ge. epsc) c3xyz(dir) = c3xyz(dir) - 1.0_sp
 
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
@@ -557,20 +567,19 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp) :: mx, my, mz
   Real(sp) :: x0(3), deltax(3)
   Real(sp) :: c1xyz(3), c2xyz(3), c3xyz(3)
-  Real(sp) :: c1xyza(3), c3xyza(3)
-  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof3
+  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof3, vof2
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1x, c1y, c1z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c2x, c2y, c2z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
-  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1xa, c1ya, c1za
-  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3xa, c3ya, c3za
   Real(sp) :: norm(3)
+  Real(sp) :: f_block(3,3,3)
   Real(sp) :: c3(3)
   ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
   vof1 = 0.0_sp
+  vof2 = 0.0_sp
   vof3 = 0.0_sp
 
   if (dir.eq.1)  then
@@ -595,26 +604,31 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
 
         c1xyz = 0.0_sp
+        c2xyz = 0.0_sp
         c3xyz = 0.0_sp
         ! f = 1
         if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
+          ! vof2(i,j,k) = 1.0_sp - vof1(i,j,k) - vof3(i,j,k)
+          vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           c1xyz = 0.5_sp
+          c2xyz = 0.5_sp
           c3xyz = 0.5_sp
-          c1xyz(dir) = DMAX1(-a1/2,0.0_sp)
+          c1xyz(dir) = DMAX1(-a1/2.0_sp,0.0_sp)
+          c2xyz(dir) = 0.5_sp + DMAX1(a1/2.0_sp,0.0_sp) - DMIN1(a2/2.0_sp,0.0_sp)
           c3xyz(dir) = 1.0_sp - DMAX1(a2/2.0_sp,0.0_sp)
 
         ! 0 < f < 1
         else if (f(i,j,k) .GT. 0.0_sp) then
           !*(1)* normal vector
-          c3(1)  = cx(i,j,k)
-          c3(2)  = cy(i,j,k)
-          c3(3)  = cz(i,j,k)
-          Call MOFNorm(f(i,j,k), c3, norm)
-          Call Normalization1(norm)
-          ! f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
+          c2xyz(1)  = cx(i,j,k)
+          c2xyz(2)  = cy(i,j,k)
+          c2xyz(3)  = cz(i,j,k)
+          f_block(1:3,1:3,1:3) = f(i-1:i+1,j-1:j+1,k-1:k+1)
           ! Call NormMYCS(f_block, norm)
+          Call MOFNorm(f(i,j,k), c2xyz, norm)
+          Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           !*(3) get fluxes
@@ -628,15 +642,22 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
             deltax(dir)=a2
             Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof3(i,j,k),c3xyz)
           end if
+          x0(dir) = DMAX1(-a1,0.0_sp)
+          deltax(dir) = 1.0_sp - x0(dir) - DMAX1(0.0_sp,a2)
+          Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
-        c2xyz(1) = cx(i,j,k); c2xyz(2) = cy(i,j,k); c2xyz(3) = cz(i,j,k);
-        Call Centroid_Eulerian_Adv(c1xyz, c1xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
-        Call Centroid_Eulerian_Adv(c3xyz, c3xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Lagrangian_Adv(c1xyz, c1xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Lagrangian_Adv(c2xyz, c2xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Centroid_Lagrangian_Adv(c3xyz, c3xyza, a1, a2, 0.0_sp, 1.0_sp, dir)
-        ! Call Visual3DContour(f1=cz)
+        If (vof1(i,j,k) > epsc) Then
+          Call Centroid_Eulerian_Adv(c1xyz, c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          c1xyz(dir) = c1xyz(dir) + 1.0_sp
+        End If
+        If (vof2(i,j,k) > epsc) Then
+          Call Centroid_Eulerian_Adv(c2xyz, c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+        End If
+        If (vof3(i,j,k) > epsc) Then
+          Call Centroid_Eulerian_Adv(c3xyz, c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          c3xyz(dir) = c3xyz(dir) - 1.0_sp
+        End If
+
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
         c1z(i,j,k) = c1xyz(3)
@@ -646,18 +667,13 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2x(i,j,k) = c2xyz(1)
         c2y(i,j,k) = c2xyz(2)
         c2z(i,j,k) = c2xyz(3)
-        c1xa(i,j,k) = c1xyza(1)
-        c1ya(i,j,k) = c1xyza(2)
-        c1za(i,j,k) = c1xyza(3)
-        c3xa(i,j,k) = c3xyza(1)
-        c3ya(i,j,k) = c3xyza(2)
-        c3za(i,j,k) = c3xyza(3)
       enddo
     enddo
   enddo
 
   ! apply proper boundary conditions to vof1, vof3
   call phi_bc%setBCS(vof1)
+  call phi_bc%setBCS(vof2)
   call phi_bc%setBCS(vof3)
   call phi_bc%setBCS(c1x)
   call phi_bc%setBCS(c2x)
@@ -672,24 +688,16 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        mx = f(i,j,k) * c2x(i,j,k) &
-            - vof1(i,j,k) * c1x(i,j,k) &
-            - vof3(i,j,k) * c3x(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * ( c1xa(i+ii,j+jj,k+kk) + 1.0_sp ) &
-            + vof3(i-ii,j-jj,k-kk) * ( c3xa(i-ii,j-jj,k-kk) - 1.0_sp )
-        my = f(i,j,k) * c2y(i,j,k) &
-            - vof1(i,j,k) * c1y(i,j,k) &
-            - vof3(i,j,k) * c3y(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * ( c1ya(i+ii,j+jj,k+kk) + 1.0_sp )&
-            + vof3(i-ii,j-jj,k-kk) * ( c3ya(i-ii,j-jj,k-kk) - 1.0_sp )
-        mz = f(i,j,k) * c2z(i,j,k) &
-            - vof1(i,j,k) * c1z(i,j,k) &
-            - vof3(i,j,k) * c3z(i,j,k) &
-            + vof1(i+ii,j+jj,k+kk) * (c1za(i+ii,j+jj,k+kk) + 1.0_sp ) &
-            + vof3(i-ii,j-jj,k-kk) * (c3za(i-ii,j-jj,k-kk) - 1.0_sp )
-        f(i,j,k) = f(i,j,k) &
-            - vof1(i,j,k) &
-            - vof3(i,j,k) &
+        mx = vof3(i-ii,j-jj,k-kk) * c3x(i-ii,j-jj,k-kk) + &
+            vof2(i,j,k) * c2x(i,j,k) + &
+            vof1(i+ii,j+jj,k+kk) * c1x(i+ii,j+jj,k+kk)
+        my = vof3(i-ii,j-jj,k-kk) * c3y(i-ii,j-jj,k-kk) +&
+            vof2(i,j,k) * c2y(i,j,k) + &
+            vof1(i+ii,j+jj,k+kk) * c1y(i+ii,j+jj,k+kk)
+        mz = vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-jj,k-kk) +&
+            vof2(i,j,k) * c2z(i,j,k) + &
+            vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk)
+        f(i,j,k) = vof2(i,j,k) &
             + vof1(i+ii,j+jj,k+kk) &
             + vof3(i-ii,j-jj,k-kk)
         cx(i,j,k) = mx / ( f(i,j,k) + 1e-10 )
