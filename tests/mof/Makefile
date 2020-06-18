@@ -1,15 +1,15 @@
 EXEC       = VOF
 FC         = mpif90
-DEBUG      = true
+DEBUG      = false
 VERBOSE    = false
-TEST_NUM   = 2
+TEST_NUM   = 1
 DIMENSION  = TWO_DIMENSIONAL
 PRECISION  = DOUBLE_PRECISION
 # HDF5_DIR   = $(HOME)/hdf5/gnu
 HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 SRC_DIR = ../../src
-SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
+SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/mof_lemoine.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
 CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM)
 ifeq ($(DEBUG), true)
         FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
