@@ -34,11 +34,11 @@ Nueral Network boosted Moment of Fluid
 
 ** GTD
    
-*** Basic VOF[0/4]
-- [ ] Basic MPI from CaNS
-- [ ] VOF-PLIC, APPLIC, THINC, THINCSW
-- [ ] Advection of centroid
-- [ ] MOF
+*** Basic VOF[4/4]
+- [X] Basic MPI from CaNS
+- [X] VOF-PLIC
+- [X] Advection of centroid
+- [X] MOF
 
 *** MOF [0/3]
 - [ ] Fkeas

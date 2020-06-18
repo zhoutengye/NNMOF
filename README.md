@@ -30,19 +30,18 @@ Nueral Network boosted Moment of Fluid
 The `Field` type contains the BC information. `lohi` indicates the index of the boundary in each 
 direction, `bound_type` is the type of boundary conditoin, 1 means Dilichlet, 2 means Nuemann;
 `bound_value` is the value of the boundary conditoin. The shape of `lohi`, `bound_value` and 
-`bound_type` are `(3,2)`. 
-When calling
+`bound_type` are `(3,2)`.
 
 
 ## GTD
 
 
-### Basic VOF<code>[0/4]</code>
+### Basic VOF<code>[4/4]</code>
 
--   [ ] Basic MPI from CaNS
--   [ ] VOF-PLIC, APPLIC, THINC, THINCSW
--   [ ] Advection of centroid
--   [ ] MOF
+-   [X] Basic MPI from CaNS
+-   [X] VOF-PLIC
+-   [X] Advection of centroid
+-   [X] MOF
 
 
 ### MOF <code>[0/3]</code>
