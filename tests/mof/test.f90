@@ -34,7 +34,7 @@ Subroutine test1
   Real(sp) :: init_norm(3)
   Real(sp) :: angle(2)
 
-  Call Init(inputfield=.true.)
+  Call Init(inputfield=.false.)
 
   ! ! ==================Test norm2angle and angle2norm
   ! f = 1.0/6.0_sp
@@ -86,27 +86,62 @@ Subroutine test1
   ! print *, c
 
   ! ===============Test MOF reconstruction
-  f = 1.0/6.0_sp
-  f = 4.0/5.0_sp
-  ! norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  f = 1.0/48.0_sp
+  ! f = 4.0/5.0_sp
+  c = (/ 1.0/8.0_sp, 1.0/8.0_sp, 1.0/8.0_sp /)
   ! c = (/ 3.0/4.0_sp, 3.0/4.0_sp, 3.0/4.0_sp /)
-  c = (/ 2.0/4.0_sp, 2.0/4.0_sp, 3.0/5.0_sp /)
+  ! c = (/ 2.0/4.0_sp, 2.0/4.0_sp, 3.0/5.0_sp /)
   ! norm = (/ 1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
   ! norm = (/ -1.0/1.0_sp, 0.0/3.0_sp, -0.0/3.0_sp /)
-  c = c-0.5_sp
+  ! c = c-0.5_sp
 
-  f = 1.0/6.0_sp
+  ! f = 1.0/6.0_sp
 
   !  --------------Different initial guess
-  init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/3.0_sp /)
+  init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /)
   ! init_norm = (/ -1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
   Call Normalization2(init_norm)
-  Call MOFZY(f,c,norm)
-  ! Call MOFZY(f,c,norm,init_norm)
-  c = c - 0.5_sp
-
+  Call MOFLemoine(f,c,norm, init_norm)
+  ! print *, mof_niter
   ! Call MOFZY(f,c,norm)
+  print *, norm
+  block
+    integer :: ii
+    integer :: nnn = 100000
+    real(8) :: tt1, tt2
+    real(8) :: ttt1, ttt2
+    real(8) :: nnn1, nnn2
+    init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /)
+    Call cpu_time(tt1)
+    Do ii = 1, nnn
+      init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /) + 0.00001_sp
+      Call MOFLemoine(f,c,norm, init_norm)
+      nnn1 = nnn1 + mof_niter
+    End Do
+    Call cpu_time(tt2)
+    print *, norm
+    print *, tt2-tt1
+    print *, dble(nnn1/dble(nnn))
+    Call cpu_time(ttt1)
+    c = c - 0.5_sp
+    Do ii = 1, nnn
+      init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /) + 0.00001_sp
+      Call MOFZY(f,c,norm,init_norm)
+      nnn2 = nnn2 + mof_niter
+    End Do
+    Call cpu_time(ttt2)
+  print *, norm
+  print *, tt2-tt1
+  print *, ttt2-ttt1
+  print *, dble(nnn2/dble(nnn))
+  End block
 
+  ! Call MOFLemoine(f,c,norm, init_norm)
+  ! print *, norm
+  ! c = c - 0.5_sp
+  ! Call MOFZY(f,c,norm)
+  ! print *, norm
+  
   Call Normalization2(norm)
 
   ! if (myid .eq. 0) Print *,norm
@@ -130,7 +165,6 @@ Subroutine test2
   Real(sp), allocatable, Dimension(:,:,:) :: f_exact
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
-  Integer  :: nexch(2)
   Integer  :: nn = 0
   Character(80) :: data_name
   Integer :: i, j, k
@@ -143,7 +177,6 @@ Subroutine test2
   v = 1.0_sp
   w = 1.0_sp
 
-  nexch = nl(1:2)
   Call u_bc%SetBCS(u)
   Call v_bc%SetBCS(v)
   Call w_bc%SetBCS(w)
@@ -256,7 +289,6 @@ Subroutine test3
   Real(sp), allocatable, Dimension(:,:,:) :: f_exact
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
-  Integer  :: nexch(2)
   Integer  :: nn = 0
   Character(80) :: data_name
   Integer :: i, j, k
@@ -265,7 +297,6 @@ Subroutine test3
 
   Call Init(inputfield=.true.)
 
-  nexch = nl(1:2)
   Call u_bc%SetBCS(u)
   Call v_bc%SetBCS(v)
   Call w_bc%SetBCS(w)

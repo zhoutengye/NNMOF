@@ -1,24 +1,25 @@
 !=================
 ! Includes:
 !     (1) Norm Calculation
-!       (1.1) Norm calculation Parker and Youngs
-!       (1.2) Norm calculation Central difference
-!       (1.3) Norm calculation Mixed Central difference and Youngs (MYC)
-!       (1.4) Norm calculation MOF interface
+!       (1-1) Norm calculation Parker and Youngs
+!       (1-2) Norm calculation Central difference
+!       (1-3) Norm calculation Mixed Central difference and Youngs (MYC)
+!       (1-4) Norm calculation MOF interface
 !     (2) Flooding algorithm (VOF Reconstruction)
-!       (2.1) Flooding algorithm backward finding alpha
-!       (2.2) Flooding algorithm backward finding centroid
-!       (2.3) Flooing algorithm forward finding vof
-!       (2.4) Flooding algorithm forward finding vof and centroid
+!       (2-1) Flooding algorithm backward finding alpha
+!       (2-2) Flooding algorithm backward finding centroid
+!       (2-3) Flooing algorithm forward finding vof
+!       (2-4) Flooding algorithm forward finding vof and centroid
 !     (3) MOF Reconstruction
-!       (3.1) MOF iteration using Gauss-Newton
-!       (3.2) Find centroid for given norm and volume function
+!       (3-1) MOF reconstruction using Gauss-Newton
+!       (3-2) MOF reconstruction using Analytic form
+!       (3-2) Find centroid for given norm and volume function
 !     (4) Misc
-!       (4.1) Normalization vector 1 (nx+ny+nz=1)
-!       (4.2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
-!       (4.3) Cartesian norm to Spherical angle
-!       (4.4) Spherical angle to Cartesian norm
-!       (4.5) Anvance of angle
+!       (4-1) Normalization vector 1 (nx+ny+nz=1)
+!       (4-2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
+!       (4-3) Cartesian norm to Spherical angle
+!       (4-4) Spherical angle to Cartesian norm
+!       (4-5) Anvance of angle
 !-----------------
 ! Author: Zhouteng Ye (yzt9zju@gmail.com)
 !-----------------
@@ -48,6 +49,7 @@ Module ModVOFFunc
   ! Real(sp), Parameter :: GaussNewtonTol = 1e-13
   Real(sp), Parameter :: MOF_Pi = 3.1415926535897932d0
   Real(sp), Parameter :: epsc = 1.0e-12
+  Real(sp) :: mof_niter
 
   PROCEDURE(InterfaceMOF), POINTER :: MOFNorm => NormMOF
   Interface
@@ -63,7 +65,7 @@ Module ModVOFFunc
 Contains
 
   !=======================================================
-  ! (1.1) Normal vector Youngs (1992)
+  ! (1-1) Normal vector Youngs (1992)
   !-------------------------------------------------------
   ! Input: f (vof function, 3*3*3 stencil)
   ! Output: norm (normal vector)
@@ -101,7 +103,7 @@ Contains
   End Subroutine NormParkerYoungs
 
   !=======================================================
-  ! (1.2) Normal vector Central Scheme
+  ! (1-2) Normal vector Central Scheme
   ! * returns normal normalized so that |mx|+|my|+|mz| = 1*
   ! Adopted from Paris Simulator by Zakeski
   !-------------------------------------------------------
@@ -217,7 +219,7 @@ Contains
   End Subroutine NormCS
 
   !=======================================================
-  ! (1.3) Mixed Youngs and Central difference
+  ! (1-3) Mixed Youngs and Central difference
   ! * returns normal normalized so that |mx|+|my|+|mz| = 1*
   ! Adopted from Paris Simulator by Zakeski
   !-------------------------------------------------------
@@ -338,7 +340,7 @@ Contains
   End Subroutine NormMYCS
 
   !===============================================================
-  ! (1.4) Interface for Normal vector MOF
+  ! (1-4) Interface for Normal vector MOF
   !-------------------------------------------------------
   ! Input: f (vof function, only 1 element)
   ! Input: c (centroid, x,y,z)
@@ -361,7 +363,7 @@ Contains
   End Subroutine NormMOF
 
   !=======================================================
-  ! (2.1) Backward flooding algorithm of SZ finding alpha
+  ! (2-1) Backward flooding algorithm of SZ finding alpha
   ! Calculate the cutting plane from the normal vector and
   ! volume function in UNIT CUBE. Calculate alpha in
   !    m1 x1 + m2 x2 + m3 x3 = alpha
@@ -590,7 +592,7 @@ Contains
   END SUBROUTINE FloodSZ_BackwardC
 
   !=======================================================
-  ! (2.3) Forward flooding algorithm of SZ finding f
+  ! (2-3) Forward flooding algorithm of SZ finding f
   ! FIND THE "CUT VOLUME" V0
   ! for GIVEN
   !    r0, dr0
@@ -677,7 +679,7 @@ Contains
   end FUNCTION FloodSZ_Forward
 
   !=======================================================
-  ! (2.4) Forward flooding algorithm of SZ finding f and centroid
+  ! (2-4) Forward flooding algorithm of SZ finding f and centroid
   ! FIND THE "CUT VOLUME" V0
   ! for GIVEN
   !    r0, dr0
@@ -840,7 +842,7 @@ Contains
   End Subroutine FloodSZ_forwardC
 
   !=======================================================
-  ! (3.1) MOF reconstruction using Gauss-Newton iteration
+  ! (3-1) MOF reconstruction using Gauss-Newton iteration
   !     For given vof and centroid, find the best norm
   ! Key steps:
   !   - shift the angle positive/negative in each direction (4 values)
@@ -885,7 +887,7 @@ Contains
     Real(sp) :: err, err_local_min
     Real(sp) :: scale
     Integer :: singular_flag
-    Integer :: i_angle, j_angle, dir, iter, niter
+    Integer :: i_angle, j_angle, dir, iter
 
     ! Initialize angle
     If(present(Init_Norm))then
@@ -1112,11 +1114,11 @@ Contains
       iter=iter+1
     End Do
 
-    niter = iter+1
+    mof_niter = iter+1
 #if defined(DEBUG)
     Block
       Integer :: ii
-      Do ii = 1, niter
+      Do ii = 1, mof_niter
         print *, '=====step',ii-1,'=========='
         print *, cen_array(:,ii)
         print *, angle_array(:,ii)
@@ -1125,6 +1127,8 @@ Contains
       End Do
     End Block
 #endif
+
+    ! print *, niter
 
     do dir=1,2
       new_angle(dir)=angle_array(dir,iter+1)
@@ -1141,7 +1145,168 @@ Contains
   End Subroutine MOFZY
 
   !=======================================================
-  ! (3.2) Find the centroid for MOF iteration
+  ! (3-2) MOF reconstruction using Analytic Solution
+  !-------------------------------------------------------
+  ! Input:
+  !      f: vof function
+  !      c: centroid (cx, cy, cz)
+  ! Optional Input:
+  !      init_norm: Initial guess of the normal vector
+  ! Output:
+  !      norm: vof function
+  !=======================================================
+  Subroutine MOFLemoine(f, c, norm, Init_Norm)
+    Use mod_mof3d_analytic_centroid
+    Implicit None
+    Real(sp), Intent(In)  :: f
+    Real(sp), Intent(In)  :: c(3)
+    Real(sp), Intent(Out) :: norm(3)
+    Real(sp), Optional, Intent(In) :: Init_Norm(3)
+
+    Real(sp), Dimension(3)   :: norm_2
+    Real(sp) :: delta_theta
+    Real(sp) :: delta_theta_max
+    Real(sp), Dimension(2)   :: delangle, angle_init, angle_previous, new_angle
+    Real(sp), Dimension(2)   :: angle_base, angle_plus, angle_minus
+    Real(sp), Dimension(2)   :: err_plus, err_minus
+    Real(sp), Dimension(3)   :: dbase, dopt, dp, dm
+    Real(sp), Dimension(3,2) :: d_plus, d_minus
+    Real(sp), Dimension(3)   :: cenopt, cenp, cenm, cen_init
+    Real(sp), Dimension(3,2) :: cen_plus, cen_minus
+    Real(sp), Dimension(3,2) :: dgrad
+    Real(sp), Dimension(2,2) :: JTJ, JTJINV
+    Real(sp), Dimension(2)   :: RHS
+    Real(sp) :: DET
+    Real(sp), Dimension(3,MOFITERMAX+1) :: d_array, cen_array
+    Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
+    Real(sp), Dimension(MOFITERMAX+1)   :: err_array
+
+    Real(sp) :: err, err_local_min
+    Real(sp) :: scale
+    Integer :: singular_flag
+    Integer :: i_angle, j_angle, dir, iter, i, j
+    Real(sp) :: dxs(3)
+    Real(sp) :: c_diff(3)
+    Real(sp) :: gradient(2)
+    Real(sp) :: Jacobian(3,2)
+    Real(sp) :: Hessian(2,2)
+    Real(sp) :: HessianT(2,2)
+
+    dxs = 1.0_sp
+    delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+
+    ! Initialize angle
+    If(present(Init_Norm))then
+      norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
+    Else
+      scale = 1.0_sp / sqrt(c(1)**2.0_sp + c(2)**2.0_sp +c(3)**2.0_sp)
+      If (scale> epsc) Then
+        Norm_2(1) = c(1) * scale
+        Norm_2(2) = c(2) * scale
+        Norm_2(3) = c(3) * scale
+      Else
+        Norm_2 = 1.0/3.0_sp
+      EndIf
+    EndIf
+    Call Norm2Angle(angle_init,norm_2)
+    ! Initialize other data
+    do dir=1,2
+      angle_array(dir,1)= angle_init(dir)
+    enddo
+    ! print *, angle_init
+    ! print *, c
+    ! print *, f
+    ! print *, dxs
+    Call mof3d_compute_analytic_gradient(angle_base, c, f, dxs, c_diff, Jacobian)
+    err = dot_product(c_diff, c_diff)
+    do dir=1,3
+      err_array(1) = err
+    enddo
+
+    iter = 0
+    err = err_array(1)
+    ! print *, iter, err, err_local_min
+    Do While ((iter.lt.MOFITERMAX).and. (err.gt.tol))
+
+      Do i_angle=1,2
+        angle_base(i_angle) = angle_array(i_angle, iter+1)
+      End Do
+
+      Call mof3d_compute_analytic_gradient(angle_base, c, f, dxs, c_diff, Jacobian)
+
+      gradient = 0.0_sp
+      hessian = 0.0_sp
+      Do i=1,2
+        Do j=1,2
+          Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
+        EndDo
+        gradient(i) = 2.0_sp * dot_product(c_diff, Jacobian(:,i))
+      EndDo
+      err = dot_product(c_diff, c_diff)
+      ! print *, err
+
+      DET=Hessian(1,1)*Hessian(2,2)-Hessian(1,2)*Hessian(2,1)
+      ! DET has dimensions of length squared
+      if (abs(DET).ge.CENTOL) then 
+        singular_flag=0
+      else if (abs(DET).le.CENTOL) then
+        singular_flag=1
+      else
+        print *,"DET bust"
+        stop
+      endif
+
+      ! Find delta angle
+      if (singular_flag.eq.0) then
+        HessianT(1,1) =   Hessian(2,2)
+        HessianT(2,2) =   Hessian(1,1)
+        HessianT(1,2) = - Hessian(1,2)
+        HessianT(2,1) = - Hessian(2,1)
+
+        do j=1,2
+          do i=1,2
+            HessianT(i,j) = Hessian(i,j) / DET
+          enddo
+        enddo
+
+        Do i=1,2
+          delangle(i) = - dot_product(HessianT(:,i), gradient)
+          if (delangle(i).gt.delta_theta_max) then
+            delangle(i)=delta_theta_max
+          else if (delangle(i).lt.-delta_theta_max) then
+            delangle(i)=-delta_theta_max
+          endif
+        End Do
+
+      else if (singular_flag.eq.1) then
+        delangle(i)=0.0_sp
+      End If
+
+
+      do i_angle=1,2
+        call advance_angle(angle_base(i_angle),delangle(i_angle))
+        angle_array(i_angle,iter+2)=angle_base(i_angle)
+      enddo
+
+      call Angle2Norm(angle_base,norm)
+      Call Normalization1(norm)
+      ! print *, norm
+      err_array(iter+2)=err
+      iter=iter+1
+    End Do
+    mof_niter = iter+1
+
+    do dir=1,2
+      new_angle(dir)=angle_array(dir,iter+1)
+    enddo
+    call Angle2Norm(new_angle,norm)
+    Call Normalization1(norm)
+
+  End Subroutine MOFLemoine
+
+  !=======================================================
+  ! (3-3) Find the centroid for MOF iteration
   !  shift the angle to Cartesian norm, then calculate
   !  the norm, finally shift the origin by -0.5 in each
   !  direction
@@ -1168,7 +1333,7 @@ Contains
   End Subroutine FindCentroid
 
   !=======================================================
-  ! (4.1) Normalize the normal vector that satisfies
+  ! (4-1) Normalize the normal vector that satisfies
   !    sigma norm(i) = 1
   ! and
   !    all norm(i) > 0
@@ -1190,7 +1355,7 @@ Contains
   End Subroutine Normalization1
 
   !=======================================================
-  ! (4.2) Normalize the normal vector that is a unit vector
+  ! (4-2) Normalize the normal vector that is a unit vector
   !     sigma norm(i)^2 = 1
   !-------------------------------------------------------
   ! Input: norm (normal vector)
@@ -1211,7 +1376,7 @@ Contains
   End Subroutine Normalization2
 
   !=======================================================
-  ! (4.3) Convert the Cartesian norm to spherical angle
+  ! (4-3) Convert the Cartesian norm to spherical angle
   !-------------------------------------------------------
   ! Input:  angle (angle, theta, phi)
   ! Output: norm (normalized normal vector, nx, ny, nz)
@@ -1243,7 +1408,7 @@ Contains
   End Subroutine Norm2Angle
 
   !=======================================================
-  ! (4.4) Convert the spherical angle to to Caetesian Norm
+  ! (4-4) Convert the spherical angle to to Caetesian Norm
   !-------------------------------------------------------
   ! Input:  norm (normalized normal vector, nx, ny, nz)
   ! Output: angle (angle, theta, phi)
@@ -1259,7 +1424,7 @@ Contains
   End Subroutine Angle2Norm
 
   !=======================================================
-  ! (4.5) Advance angle with delta angle
+  ! (4-5) Advance angle with delta angle
   !       limit in between - pi and pi
   !-------------------------------------------------------
   ! Input:  norm (normalized normal vector, nx, ny, nz)
