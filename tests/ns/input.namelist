@@ -1,6 +1,6 @@
 &mpivar
-px = 1
-py = 1
+px = 2
+py = 2
 /
 
 &gridvar
@@ -39,3 +39,12 @@ output_path = ''
 output_name = ''
 /
 
+&ns
+rho_l = 1000.0
+rho_g = 1.0
+mu_l  = 1.0e-3
+mu_g  = 1.0e-6
+iter_tolerance = 1e-3
+iter_max = 10
+rk_order = 3
+/

@@ -1,4 +1,4 @@
-EXEC       = MOF
+EXEC       = ns
 FC         = mpif90
 DEBUG      = true
 VERBOSE    = false
@@ -6,9 +6,10 @@ TEST_NUM   = 1
 PRECISION  = DOUBLE_PRECISION
 # HDF5_DIR   = $(HOME)/hdf5/gnu
 HDF5_DIR = $(HOME)/HPC/gnu/hdf5
+HYPRE_DIR = $(HOME)/HPC/gnu/hypre
 
 SRC_DIR = ../../src
-SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/mof_lemoine.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
+SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/mof_lemoine.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 $(SRC_DIR)/hypre.f90 $(SRC_DIR)/ns.f90 test.f90
 CPP = -cpp -D$(PRECISION) -DTEST$(TEST_NUM)
 ifeq ($(DEBUG), true)
         FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
@@ -22,8 +23,8 @@ ifeq ($(VERBOSE), true)
 	CPP := $(CPP) -DVERBOSE
 endif
 
-LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm 
-INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) 
+LIBS =  -L$(HYPRE_DIR)/lib -lHYPRE -lm -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm 
+INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) -I$(HYPRE_DIR)
 
 # rule for *.f90 to *.o
 .SUFFIXES: .o .f90

@@ -1,18 +1,23 @@
 !=================
 ! Includes:
 !     (1) VOF/MOF Advection
-!       (1.1) VOF-CIAM (Lagrangian)
-!       (1.2) VOF-WY (Eulerian)
-!       (1.3) MOF-CIAM (Lanrangian)
-!       (1.4) MOF-WY (Eulerian) (!!! NOT WORKING)
+!       (1-1) VOF-CIAM (Lagrangian)
+!       (1-2) VOF-WY (Eulerian)
+!       (1-3) MOF-CIAM (Lanrangian)
+!       (1-4) MOF-WY (Eulerian) 
 !     (2) Directional split VOF/MOF advection
-!       (1.1) VOF-CIAM (Lagrangian)
-!       (1.2) VOF-WY (Eulerian)
-!       (1.3) MOF-CIAM (Lanrangian)
-!       (1.4) MOF-WY (Eulerian) (!!! NOT WORKING)
+!       (1-1) VOF-CIAM (Lagrangian)
+!       (1-2) VOF-WY (Eulerian)
+!       (1-3) MOF-CIAM (Lanrangian) (!!! NOT WORKING FOR NON-UNIFORM VELOCITY FIELD)
+!       (1-4) MOF-WY (Eulerian)
 !     (3) Advection of centroid
-!       (3.1) Langrangian advection
-!       (3.2) Eulerian advection
+!       (3-1) Langrangian advection
+!       (3-2) Eulerian advection
+!
+!  Module procedure:
+!    The vof subroutine can be called with VOFAdvection,
+!        if centroid appears, MOFWY is used
+!        if centroid not appear, VOFCIAM is used
 !-----------------
 ! Author: Zhouteng Ye (yzt9zju@gmail.com)
 !=================
@@ -25,9 +30,14 @@ Module ModVOF
   Use ModTools
 #endif
 
+  Interface VOFAdvection
+    Module Procedure VOFCIAM
+    Module Procedure MOFWY
+  End Interface VOFAdvection
+
 Contains
 
-  Subroutine VOFWY(Phi, u, v, w, nl, dl, dt)
+  Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt, rank)
     Implicit None
     Real(sp) :: dt
     Integer,Intent(In)     :: nl(3)
@@ -36,12 +46,48 @@ Contains
     Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    call AdvWY(u, phi, nl, dl, dt, 1)
-    call AdvWY(v, phi, nl, dl, dt, 2)
-    call AdvWY(w, phi, nl, dl, dt, 3)
+    Integer :: rank
+    if (rank == 1) Then
+      call AdvCIAM(u, phi, nl, dl, dt, 1)
+      call AdvCIAM(v, phi, nl, dl, dt, 2)
+      call AdvCIAM(w, phi, nl, dl, dt, 3)
+    else if (rank == 2) Then
+      call AdvCIAM(u, phi, nl, dl, dt, 2)
+      call AdvCIAM(v, phi, nl, dl, dt, 3)
+      call AdvCIAM(w, phi, nl, dl, dt, 1)
+    else if (rank == 3) Then
+      call AdvCIAM(u, phi, nl, dl, dt, 3)
+      call AdvCIAM(v, phi, nl, dl, dt, 1)
+      call AdvCIAM(w, phi, nl, dl, dt, 2)
+    endif
+  End Subroutine VOFCIAM
+
+  Subroutine VOFWY(Phi, u, v, w, nl, dl, dt, rank)
+    Implicit None
+    Real(sp) :: dt
+    Integer,Intent(In)     :: nl(3)
+    Real(sp),Intent(In)    :: dl(3)
+    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Integer :: rank
+    if (rank == 1) Then
+      call AdvWY(u, phi, nl, dl, dt, 1)
+      call AdvWY(v, phi, nl, dl, dt, 2)
+      call AdvWY(w, phi, nl, dl, dt, 3)
+    else if (rank == 2) Then
+      call AdvWY(u, phi, nl, dl, dt, 2)
+      call AdvWY(v, phi, nl, dl, dt, 3)
+      call AdvWY(w, phi, nl, dl, dt, 1)
+    else if (rank == 3) Then
+      call AdvWY(u, phi, nl, dl, dt, 3)
+      call AdvWY(v, phi, nl, dl, dt, 1)
+      call AdvWY(w, phi, nl, dl, dt, 2)
+    endif
   End Subroutine VOFWY
 
-  Subroutine MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+  Subroutine MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Implicit None
     Real(sp) :: dt
     Integer,Intent(In)     :: nl(3)
@@ -53,12 +99,23 @@ Contains
     Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-    call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-    call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    Integer :: rank
+    if (rank == 1) Then
+      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    else  if (rank == 2) Then
+      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    else  if (rank == 0) Then
+      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    end if
   End Subroutine MOFCIAM
 
-  Subroutine MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+  Subroutine MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Implicit None
     Real(sp) :: dt
     Integer,Intent(In)     :: nl(3)
@@ -72,64 +129,19 @@ Contains
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: rank
     if (rank == 1) Then
-      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
     else  if (rank == 2) Then
-      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
-      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
     else  if (rank == 0) Then
-      call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-      call AdvCIAM_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
-      call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     end if
-  End Subroutine MOFCIAM2
-
-  Subroutine MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    Implicit None
-    Real(sp) :: dt
-    Integer,Intent(In)     :: nl(3)
-    Real(sp),Intent(In)    :: dl(3)
-    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(InOut)    :: cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(InOut)    :: cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(InOut)    :: cz(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-    call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-    call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
   End Subroutine MOFWY
-
-  Subroutine MOFWY2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
-    Implicit None
-    Real(sp) :: dt
-    Integer,Intent(In)     :: nl(3)
-    Real(sp),Intent(In)    :: dl(3)
-    Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(InOut)    :: cx(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(InOut)    :: cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(InOut)    :: cz(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Integer :: rank
-    if (rank == 1) Then
-      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
-    else  if (rank == 2) Then
-      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
-      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-    else  if (rank == 0) Then
-      call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
-      call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
-      call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
-    end if
-  End Subroutine MOFWY2
 
 
 !=======================================================
@@ -360,12 +372,11 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c1x, c1y, c1z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c2x, c2y, c2z
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
-  Real(sp) :: f_block(3,3,3), init_norm(3)
+  ! Real(sp) :: f_block(3,3,3), init_norm(3)
   Real(sp) :: norm(3)
   Real(sp) :: c3(3)
   ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
-  Real(sp) :: ddl
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -414,7 +425,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c3(1) = cx(i,j,k)
           c3(2) = cy(i,j,k)
           c3(3) = cz(i,j,k)
-          f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
+          ! f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           ! Call NormMYCS(f_block, norm)
           ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
           Call MOFNorm(f(i,j,k), c3, norm)
@@ -559,8 +570,6 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
   Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
-  Real(sp) :: c3(3)
-  ! Real(sp) :: FloodSZ_Backward
   Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
@@ -632,14 +641,14 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
         If (vof1(i,j,k) > epsc) Then
-          Call Centroid_Eulerian_Adv(c1xyz, c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c1xyz(dir) = c1xyz(dir) + 1.0_sp
         End If
         If (vof2(i,j,k) > epsc) Then
-          Call Centroid_Eulerian_Adv(c2xyz, c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         End If
         If (vof3(i,j,k) > epsc) Then
-          Call Centroid_Eulerian_Adv(c3xyz, c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c3xyz(dir) = c3xyz(dir) - 1.0_sp
         End If
 
@@ -742,27 +751,25 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   return
 End Subroutine AdvWY_MOF
 
-Subroutine Centroid_Lagrangian_Adv(c, cout, ul, ur, xl, xr, dir)
+Subroutine Centroid_Lagrangian_Adv(c, ul, ur, xl, xr, dir)
   Implicit None
-  Real(sp), Intent(In)  :: c(3)
-  Real(sp), Intent(In)  :: ul, ur
-  Real(sp), Intent(In)  :: xl, xr
-  Integer,  Intent(In)  :: dir
-  Real(sp), Intent(Out) :: cout(3)
+  Real(sp), Intent(InOut) :: c(3)
+  Real(sp), Intent(In)    :: ul, ur
+  Real(sp), Intent(In)    :: xl, xr
+  Integer,  Intent(In)    :: dir
 
-  cout(dir) = (1.0_sp + ur - ul) * c(dir) - (ur * xl - ul * xr)
+  c(dir) = (1.0_sp + ur - ul) * c(dir) - (ur * xl - ul * xr)
 
 End Subroutine Centroid_Lagrangian_Adv
 
-Subroutine Centroid_Eulerian_Adv(c, cout, ul, ur, xl, xr, dir)
+Subroutine Centroid_Eulerian_Adv(c, ul, ur, xl, xr, dir)
   Implicit None
-  Real(sp), Intent(In)  :: c(3)
-  Real(sp), Intent(In)  :: ul, ur
-  Real(sp), Intent(In)  :: xl, xr
-  Integer,  Intent(In)  :: dir
-  Real(sp), Intent(Out) :: cout(3)
+  Real(sp), Intent(InOut) :: c(3)
+  Real(sp), Intent(In)    :: ul, ur
+  Real(sp), Intent(In)    :: xl, xr
+  Integer,  Intent(In)    :: dir
 
-  cout(dir) =  (c(dir) - (ur * xl - ul * xr)) / (1.0_sp - ur + ul)
+  c(dir) =  (c(dir) - (ur * xl - ul * xr)) / (1.0_sp - ur + ul)
 
 End Subroutine Centroid_Eulerian_Adv
 
