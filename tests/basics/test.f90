@@ -118,7 +118,7 @@ Subroutine test2
 
   Call InitMPI(n)
 
-  Allocate(p(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+  Allocate(phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
 
   if (myid .eq. 0) print *, '======local computaional grid======'
   Call MPI_Barrier(MPI_COMM_WORLD, ierr)
@@ -131,23 +131,25 @@ Subroutine test2
   Call MPI_Barrier(MPI_COMM_WORLD, ierr)
 
   Call H5Init(inputfield=.true.)
-  Call HDF5OpenGroup(h5_input, h5_input_field(1))
 
-  data_name = 'test'
-  Call HDF5ReadData(h5_input_field(1), p, data_name)
+  !!  Now no longer needed as it is a part of H5Init
+  ! Call HDF5OpenGroup(h5_input, h5_input_field(1))
 
-  block
-    real(sp) :: out_p(nl(1),nl(2),nl(3))
-    integer :: i
-    out_p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3))
-    do i = 1,4
-      if (myid .eq. i-1) then
-        print *, myid
-        print *,out_p
-      end if
-      call MPI_Barrier(MPI_COMM_WORLD, ierr)
-    end do
-  end block
+  ! data_name = 'test'
+  ! Call HDF5ReadData(h5_input_field(1), p, data_name)
+
+  ! block
+  !   real(sp) :: out_p(nl(1),nl(2),nl(3))
+  !   integer :: i
+  !   out_p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3))
+  !   do i = 1,4
+  !     if (myid .eq. i-1) then
+  !       print *, myid
+  !       print *,out_p
+  !     end if
+  !     call MPI_Barrier(MPI_COMM_WORLD, ierr)
+  !   end do
+  ! end block
 
   ! data_name = 'test'
   ! Call HDF5WriteData(h5_output_phi, p, data_name)

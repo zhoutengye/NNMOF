@@ -1164,27 +1164,17 @@ Contains
     Real(sp), Optional, Intent(In) :: Init_Norm(3)
 
     Real(sp), Dimension(3)   :: norm_2
-    Real(sp) :: delta_theta
     Real(sp) :: delta_theta_max
-    Real(sp), Dimension(2)   :: delangle, angle_init, angle_previous, new_angle
-    Real(sp), Dimension(2)   :: angle_base, angle_plus, angle_minus
-    Real(sp), Dimension(2)   :: err_plus, err_minus
-    Real(sp), Dimension(3)   :: dbase, dopt, dp, dm
-    Real(sp), Dimension(3,2) :: d_plus, d_minus
-    Real(sp), Dimension(3)   :: cenopt, cenp, cenm, cen_init
-    Real(sp), Dimension(3,2) :: cen_plus, cen_minus
-    Real(sp), Dimension(3,2) :: dgrad
-    Real(sp), Dimension(2,2) :: JTJ, JTJINV
-    Real(sp), Dimension(2)   :: RHS
+    Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
+    Real(sp), Dimension(2)   :: angle_base
     Real(sp) :: DET
-    Real(sp), Dimension(3,MOFITERMAX+1) :: d_array, cen_array
     Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
     Real(sp), Dimension(MOFITERMAX+1)   :: err_array
 
-    Real(sp) :: err, err_local_min
+    Real(sp) :: err
     Real(sp) :: scale
     Integer :: singular_flag
-    Integer :: i_angle, j_angle, dir, iter, i, j
+    Integer :: i_angle, dir, iter, i, j
     Real(sp) :: dxs(3)
     Real(sp) :: c_diff(3)
     Real(sp) :: gradient(2)

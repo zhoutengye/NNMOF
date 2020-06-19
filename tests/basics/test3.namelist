@@ -24,12 +24,14 @@ startframe = 0
 /
 
 &iofield
-n_vars = 3
+n_vars = 4
 io_phi = .true.
-io_u   = .false.
-io_v   = .false.
+io_u   = .true.
+io_v   = .true.
+io_w   = .true.
 io_cx  = .false.
 io_cy  = .false.
+io_cz  = .false.
 output_path = ''
 output_name = ''
 /

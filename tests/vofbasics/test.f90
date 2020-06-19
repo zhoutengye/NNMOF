@@ -25,7 +25,7 @@ end program test
 Subroutine test1
   Use ModGlobal
   Use ModTools
-  Use Mod_VOF
+  Use ModVOF
   Implicit None
   Character(80) :: data_name
 
@@ -101,14 +101,13 @@ end Subroutine test1
 !===============
 Subroutine test2
   Use ModGlobal
-  Use Mod_VOF
+  Use ModVOF
   Use Modtools
   Implicit None
   Real(sp), allocatable, Dimension(:,:,:) :: f_beg
   Real(sp), allocatable, Dimension(:,:,:) :: f_end
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
-  Integer :: nexch(2)
 
   call init(inputfield=.true.)
   u = 0.0
@@ -137,7 +136,6 @@ Subroutine test2
   !     end do
   !   end if
   ! end block
-  nexch = nl(1:2)
   ! call updthalo(nexch,1,u)
   ! call updthalo(nexch,2,u)
   ! call updthalo(nexch,1,v)
@@ -166,10 +164,12 @@ Subroutine test2
 
   ! VOF advection
   Do While (time < tend)
-    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt)
-    ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
-    Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
+    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,1)
+    ! Call VOFWY(Phi, u, v, w, nl, dl, dt,1)
+    ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,1, cx, cy, cz)
+    ! Call MOFWY(Phi, u, v, w, nl, dl, dt, 1, cx, cy, cz)
+    Call VOFAdvection(Phi, u, v, w, nl, dl, dt, 1)
+    ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, 1, cx, cy, cz)
     time =  time + dt
   End Do
 
