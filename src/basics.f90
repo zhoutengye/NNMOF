@@ -151,6 +151,7 @@ Contains
       h5_input%filename = trim(input_name)//'.h5'
     endif
 
+
     ! Read at processor 0
     if (myid .eq. 0) then
       Open(10, file=file_name)
@@ -170,6 +171,7 @@ Contains
       periods(1) = periodx
       periods(2) = periody
       periods(3) = periodz
+      close(10)
     end if
 
     ! Broad values to all processors
@@ -287,6 +289,7 @@ Contains
     h5_offset(3) = 0
 
     Call MPI_barrier(MPI_COMM_WORLD, h5error)
+
 
     if ( inputfield ) then 
       !   1. Open input file
