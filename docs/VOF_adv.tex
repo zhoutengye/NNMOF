@@ -27,9 +27,13 @@ Three intercepts on the coordcates are
   \end{aligned}
 \end{equation}
 
-where $h_{1} < h_{2} < h_{3}$.
+where $h_{1} > h_{2} > h_{3}$.
+
+Based on the 
 
 \subsection{Cut 1}
+
+In this case, $\alpha < m_{1}$, so that $h_{i}<1$, the cutting polyhedron ia a tetrahedron.
 
 \begin{equation}
 \begin{aligned}
@@ -42,21 +46,56 @@ V &= \frac{1}{6}h_{1}h_{2}h_{3} \\
 \begin{equation}
 \begin{aligned}
 \label{eq:cut1}
-  c_{x1} = \frac{1}{4}m_{1} \\
-  c_{x2} = \frac{1}{4}m_{2} \\
-  c_{x3} = \frac{1}{4}m_{3}
+  c_{i}= \frac{1}{4}h_{i} = \frac{\alpha}{m_{i}}\\
 \end{aligned}
 \end{equation}
 
+\subsection{Cut 2}
+
+In this case, $m_{1} \le \alpha < m_{2}$, $h_{1}>1$, $h_{2}<1$ and $h_{3}<1$.
+The cutting  plane is a quadrilateral and the polyhedron can be expressed
+as a larger tetrahedron minus a smaller tetrahedron
+
+\begin{equation}
+\begin{aligned}
+\label{eq:cut1}
+V &= \frac{1}{6}h_{1}h_{2}h_{3} \left ( 1 - \frac{(h_{1}-1)^{3}}{h_{1}^{3}} \right )\\
+&= \frac{1}{6}h_{1}h_{2}h_{3} \frac{3h_{1}^{2} - 3h_{1} + 1}{h_{1}^{3}} \right )\\
+& = \frac{h_{2}h_{3}}{6h_{2}^{2}} + \frac{(h_{1}-1)h_{2}h_{3}}{h_{1}}\\
+& = \frac{\alpha}{6m_{1}m_{2}m_{3}}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\begin{aligned}
+\label{eq:cut1}
+V &= \frac{1}{6}h_{1}h_{2}h_{3} \left ( 1 - \frac{(h_{1}-1)^{3}}{h_{1}^{3}} \right )\\
+&= \frac{1}{6}h_{1}h_{2}h_{3} \frac{3h_{1}^{2} - 3h_{1} + 1}{h_{1}^{3}} \right )\\
+& = \frac{h_{2}h_{3}}{6h_{1}^{2}} + \frac{(h_{1}-1)h_{2}h_{3}}{h_{1}}\\
+& = \frac{m_{1}}{6m_{2}m_{3}} + \frac{\alpha(\alpha-m_{1})}{m_{2}m_{3}}\\
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\begin{aligned}
+\label{eq:cut1}
+V &= \frac{1}{6}h_{1}h_{2}h_{3} \left ( 1 - \frac{(h_{1}-1)^{3}}{h_{1}^{3}} \right )\\
+&= \frac{1}{6}h_{1}h_{2}h_{3} \frac{3h_{1}^{2} - 3h_{1} + 1}{h_{1}^{3}} \right )\\
+& = \frac{h_{2}h_{3}}{6h_{1}^{2}} + \frac{(h_{1}-1)h_{2}h_{3}}{h_{1}}\\
+& = \frac{m_{1}}{6m_{2}m_{3}} + \frac{\alpha(\alpha-m_{1})}{m_{2}m_{3}}\\
+\end{aligned}
+\end{equation}
 
 \section{Advection of Volume function}
 Use a simple 3 stencil 1D grid as an example:
 
+\begin{figure}
 \begin{tikzpicture}
 \pgfmathsetmacro{\xo}{0}
 \pgfmathsetmacro{\yo}{0}
 \draw[step=1, gray, very thin, xshift = \xo cm, yshift= \yo cm] (0,0) grid (3,1);
 \end{tikzpicture}
+\end{fugire}
 
 
 \subsection{Weymouth-Yue}
