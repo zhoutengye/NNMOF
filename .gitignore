@@ -12,3 +12,9 @@ docs/ltximg/
 *TEST-3
 *TEST-3
 *.exec
+
+*.aux
+*.fdb_latexmk
+*.log
+*.synctex.gz
+
