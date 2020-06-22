@@ -91,8 +91,9 @@ Subroutine test1
   init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /)
 
   f = 1.0/6.0_sp
-  c = (/ 1.0/12.0_sp, 1.0/2.0_sp, 1.0/2.0_sp /)
-  init_norm = (/ 1.0/1.0_sp, 1.0/8.0_sp, 1.0/8.0_sp /)
+  c = (/ 1.0/4.0_sp, 1.0/4.0_sp, 1.0/4.0_sp /)
+  ! init_norm = (/ 1.0/1.0_sp, 1.0/8.0_sp, 1.0/8.0_sp /)
+  init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /)
 
   !  --------------Different initial guess
   ! init_norm = (/ -1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
@@ -109,7 +110,7 @@ Subroutine test1
     real(8) :: nnn1, nnn2
     Call cpu_time(tt1)
     Do ii = 1, nnn
-      ! init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /) + 0.00001_sp
+      init_norm = init_norm + 0.001
       Call MOFLemoine(f,c,norm, init_norm)
       nnn1 = nnn1 + mof_niter
     End Do
@@ -122,7 +123,7 @@ Subroutine test1
     Call cpu_time(ttt1)
     c = c - 0.5_sp
     Do ii = 1, nnn
-      ! init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /) + 0.00001_sp
+      init_norm = init_norm + 0.001
       Call MOFZY(f,c,norm,init_norm)
       nnn2 = nnn2 + mof_niter
     End Do
