@@ -34,8 +34,11 @@ Subroutine test1
   Real(sp) :: norm(3)
   Real(sp) :: init_norm(3)
   Real(sp) :: angle(2)
+  type(t_polyhedron) :: poly
+  Real(sp) :: ddx(3)
 
   Call Init(inputfield=.false.)
+
 
   ! ! ==================Test norm2angle and angle2norm
   ! f = 1.0/6.0_sp
@@ -105,7 +108,7 @@ Subroutine test1
   print *, norm
   block
     integer :: ii
-    integer :: nnn = 1
+    integer :: nnn = 100000
     real(8) :: tt1, tt2
     real(8) :: ttt1, ttt2
     real(8) :: nnn1, nnn2
@@ -134,6 +137,24 @@ Subroutine test1
     print *, "CPU time", ttt2-ttt1
     print *, "Averaged iteration", dble(nnn2/dble(nnn))
     print *, ""
+
+    ddx = 1.0_sp
+    Call create_cuboid(ddx, poly)
+
+    Call cpu_time(ttt1)
+    c = c + 0.5_sp
+    Do ii = 1, nnn
+      init_norm = init_norm + 0.001
+      Call MOFLemoine_BFGS(poly,f,c,norm,init_norm)
+      nnn1 = nnn1 + mof_niter
+    End Do
+    Call cpu_time(ttt2)
+    print *, "===Lemoine BFGS================="
+    print *, "Norm", norm
+    print *, "CPU time", ttt2-ttt1
+    print *, "Averaged iteration", dble(nnn1/dble(nnn))
+    print *, ""
+
   End block
 
   ! Call MOFLemoine(f,c,norm, init_norm)
