@@ -27,6 +27,7 @@ Subroutine test1
   Use ModGlobal
   Use ModTools
   Use ModVOF
+  use mod_cg3_polyhedron
   Implicit None
   Real(sp) :: f
   Real(sp) :: c(3)
@@ -263,4 +264,54 @@ Subroutine test3
 
 
 end Subroutine test3
+
+subroutine create_cuboid(c, poly)
+  use mod_cg3_polyhedron
+  use mod_cg3_complete_polyhedron_structure
+  double precision, dimension(3), intent(in) :: c
+  type(t_polyhedron), intent(out) :: poly
+  integer :: error_id
+
+  poly%nb_points = 8
+  poly%nb_faces = 6
+
+  allocate(poly%point(3, poly%nb_points))
+
+  poly%point(:,1) = [0.0d0, 0.0d0, 0.0d0]
+  poly%point(:,2) = [0.0d0, 0.0d0, c(3) ]
+  poly%point(:,3) = [0.0d0, c(2) , 0.0d0]
+  poly%point(:,4) = [0.0d0, c(2) , c(3) ]
+  poly%point(:,5) = [c(1) , 0.0d0, 0.0d0]
+  poly%point(:,6) = [c(1) , 0.0d0, c(3) ]
+  poly%point(:,7) = [c(1) , c(2) , 0.0d0]
+  poly%point(:,8) = [c(1) , c(2) , c(3) ]
+
+  allocate(poly%face(poly%nb_faces))
+
+  poly%face(1)%size = 4
+  allocate(poly%face(1)%id(poly%face(1)%size))
+  poly%face(1)%id = [8, 4, 2, 6]
+
+  poly%face(2)%size = 4
+  allocate(poly%face(2)%id(poly%face(2)%size))
+  poly%face(2)%id= [8, 6, 5, 7]
+
+  poly%face(3)%size = 4
+  allocate(poly%face(3)%id(poly%face(3)%size))
+  poly%face(3)%id = [8, 7, 3, 4]
+
+  poly%face(4)%size = 4
+  allocate(poly%face(4)%id(poly%face(4)%size))
+  poly%face(4)%id = [4, 3, 1, 2]
+
+  poly%face(5)%size = 4
+  allocate(poly%face(5)%id(poly%face(5)%size))
+  poly%face(5)%id = [1, 3, 7, 5]
+
+  poly%face(6)%size = 4
+  allocate(poly%face(6)%id(poly%face(6)%size))
+  poly%face(6)%id = [2, 1, 5, 6]
+
+  call cg3_complete_polyhedron_structure(poly, error_id)
+end subroutine create_cuboid
 
