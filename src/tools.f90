@@ -490,8 +490,5 @@ Contains
    End If
  End Function Heaviside
 
- ! Function VOF2LS(vof,h)
- !   Implicit None
- ! End Function VOF2LS
 
 End Module ModTools

@@ -1,14 +1,15 @@
 EXEC       = MOF
 FC         = mpif90
-DEBUG      = false
+DEBUG      = true
 VERBOSE    = false
 TEST_NUM   = 1
 PRECISION  = DOUBLE_PRECISION
-# HDF5_DIR   = $(HOME)/hdf5/gnu
-HDF5_DIR = $(HOME)/HPC/intel/hdf5
+HDF5_DIR   = $(HOME)/hdf5/gnu
+HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 SRC_DIR = ../../src
-SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/optimizer.f90 $(SRC_DIR)/mof_lemoine.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
+LEMOINE_DIR = ../../src/MOFLemoine
+SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90  $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
 CPP = -cpp -D$(PRECISION) -DTEST$(TEST_NUM)
 ifeq ($(DEBUG), true)
         FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
@@ -23,8 +24,11 @@ ifeq ($(VERBOSE), true)
 	CPP := $(CPP) -DVERBOSE
 endif
 
-LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm 
-INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) 
+MOFLIB = $(LEMOINE_DIR)/lemoinemof.a
+LIBS =  -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm  
+INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR)  -I$(LEMOINE_DIR)
+MOFS = -J$(SRC_DIR)
+
 
 # rule for *.f90 to *.o
 .SUFFIXES: .o .f90
@@ -35,7 +39,7 @@ OBJS_TESTS = $(SRCS_TESTS:.f90=.o)
 
 # after all .o is gathered, link and generate the executable
 $(EXEC): $(OBJS)
-	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  *.o $(LIBS)
+	$(FC)  $(FC_OPT) $(MODS) -o $(EXEC) $(INCS) *.o $(MOFLIB) $(LIBS) 
 
 clean:
 	rm -f *.o

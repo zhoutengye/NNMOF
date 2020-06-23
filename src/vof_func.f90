@@ -860,6 +860,7 @@ Contains
   !      norm: vof function
   !=======================================================
   Subroutine MOFZY(f, c, norm, Init_Norm)
+    ! Use ModOptimizer
     Implicit None
     Real(sp), Intent(In)  :: f
     Real(sp), Intent(In)  :: c(3)
@@ -876,10 +877,10 @@ Contains
     Real(sp), Dimension(3,2) :: d_plus, d_minus
     Real(sp), Dimension(3)   :: cenopt, cenp, cenm, cen_init
     Real(sp), Dimension(3,2) :: cen_plus, cen_minus
-    Real(sp), Dimension(3,2) :: dgrad
-    Real(sp), Dimension(2,2) :: JTJ, JTJINV
-    Real(sp), Dimension(2)   :: RHS
-    Real(sp) :: DET
+    Real(sp), Dimension(3,2) :: Jacobian
+    Real(sp), Dimension(2,2) :: Hessian, HessianT
+    Real(sp), Dimension(2)   :: gradient
+    Real(sp)   :: det
     Real(sp), Dimension(3,MOFITERMAX+1) :: d_array, cen_array
     Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
     Real(sp), Dimension(MOFITERMAX+1)   :: err_array
@@ -887,7 +888,7 @@ Contains
     Real(sp) :: err, err_local_min
     Real(sp) :: scale
     Integer :: singular_flag
-    Integer :: i_angle, j_angle, dir, iter
+    Integer :: i_angle, j_angle, dir, iter, i, j
 
     ! Initialize angle
     If(present(Init_Norm))then
@@ -933,6 +934,7 @@ Contains
       enddo
 
       ! theta phi shift angle
+      ! to calculate the numerical gradient
       Do i_angle=1,2
         Do j_angle=1,2
           angle_plus(j_angle)=angle_base(j_angle)
@@ -959,73 +961,48 @@ Contains
         enddo
         err_minus(i_angle)=sqrt(err_minus(i_angle))
 
-        ! jacobian matrix:
+        ! jacobian matrix (numerical partial gradient):
         do dir=1,3
-          dgrad(dir,i_angle)=(dp(dir)-dm(dir))/(2.0_sp*delta_theta)
+          Jacobian(dir,i_angle)=(dp(dir)-dm(dir))/(2.0_sp*delta_theta)
         enddo
 
       End Do ! end theta phi shift angle
 
-      ! Solve jacobian matrix
+      ! JT * X
       Do i_angle=1,2
-        Do j_angle=1,2
-          JTJ(i_angle,j_angle)= 0.0_sp
-          Do dir=1,3
-            JTJ(i_angle,j_angle)=JTJ(i_angle,j_angle)+ &
-                dgrad(dir,i_angle)*dgrad(dir,j_angle)
-          EndDo
+        gradient(i_angle) = 2.0_sp * dot_product(dbase, Jacobian(:,i_angle))
+      EndDo
+
+
+      !! Begin Gauss Newton
+      Singular_flag = 0
+      Do i=1,2
+        Do j=1,2
+          Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
         EndDo
       EndDo
 
-      DET=JTJ(1,1)*JTJ(2,2)-JTJ(1,2)*JTJ(2,1)
-      ! DET has dimensions of length squared
-      if (abs(DET).ge.CENTOL) then 
-        singular_flag=0
-      else if (abs(DET).le.CENTOL) then
-        singular_flag=1
-      else
-        print *,"DET bust"
-        stop
-      endif
+      det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
+      ! Calculate the inverse of the matrix
+      HessianT(1,1) = +Hessian(2,2) / det
+      HessianT(2,1) = -Hessian(2,1) / det
+      HessianT(1,2) = -Hessian(1,2) / det
+      HessianT(2,2) = +Hessian(1,1) / det
+
+      ! Call matinv2(Hessian, HessianT, det)
+      If (det .lt. 1.0e-10) Then
+        Singular_flag = 1
+      End If
+
+      ! Delta angle
+      Do i=1,2
+        delangle(i) = - dot_product(HessianT(:,i), gradient)
+      End Do
+      !! End Gauss Newton
+      ! call GaussNewton(Jacobian, gradient, 3, 2, delangle, Singular_flag)
 
       ! Find delta angle
       if (singular_flag.eq.0) then
-        JTJINV(1,1)=JTJ(2,2)
-        JTJINV(2,2)=JTJ(1,1)
-        JTJINV(1,2)=-JTJ(1,2)
-        JTJINV(2,1)=-JTJ(2,1)
-
-        do i_angle=1,2
-          do j_angle=1,2
-            JTJINV(i_angle,j_angle)=JTJINV(i_angle,j_angle)/DET
-          enddo
-        enddo
-
-        do i_angle=1,2  ! compute -JT * r
-          RHS(i_angle)= 0.0_sp
-          do dir=1,3
-            RHS(i_angle)=RHS(i_angle)-dgrad(dir,i_angle)*dbase(dir)
-          enddo
-        enddo
-
-        err_local_min= 0.0_sp
-        do i_angle=1,2
-          err_local_min=err_local_min+RHS(i_angle)**2
-        enddo
-        err_local_min=sqrt(err_local_min)
-
-        do i_angle=1,2  ! compute JTJ^-1 (RHS)
-          delangle(i_angle)= 0.0_sp
-          do j_angle=1,2
-            delangle(i_angle)=delangle(i_angle)+ &
-                JTJINV(i_angle,j_angle)*RHS(j_angle)
-          enddo
-          if (delangle(i_angle).gt.delta_theta_max) then
-            delangle(i_angle)=delta_theta_max
-          else if (delangle(i_angle).lt.-delta_theta_max) then
-            delangle(i_angle)=-delta_theta_max
-          endif
-        enddo
         ! -pi<angle<pi
         do i_angle=1,2
           angle_previous(i_angle)=angle_base(i_angle)
@@ -1155,7 +1132,8 @@ Contains
   ! Output:
   !      norm: vof function
   !=======================================================
-  Subroutine MOFLemoine(f, c, norm, Init_Norm)
+  Subroutine MOFLemoine_GaussNewton(f, c, norm, Init_Norm)
+    ! Use ModOptimizer
     Use mod_mof3d_analytic_centroid
     Implicit None
     Real(sp), Intent(In)  :: f
@@ -1167,7 +1145,6 @@ Contains
     Real(sp) :: delta_theta_max
     Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
     Real(sp), Dimension(2)   :: angle_base
-    Real(sp) :: DET
     Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
     Real(sp), Dimension(MOFITERMAX+1)   :: err_array
 
@@ -1181,6 +1158,7 @@ Contains
     Real(sp) :: Jacobian(3,2)
     Real(sp) :: Hessian(2,2)
     Real(sp) :: HessianT(2,2)
+    Real(sp) :: det
 
     dxs = 1.0_sp
     delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
@@ -1208,7 +1186,7 @@ Contains
     ! print *, c
     ! print *, f
     ! print *, dxs
-    Call mof3d_compute_analytic_gradient(angle_base, c, f, dxs, c_diff, Jacobian)
+    Call mof3d_compute_analytic_gradient_GN(angle_base, c, f, dxs, c_diff, Jacobian)
     err = dot_product(c_diff, c_diff)
     do dir=1,3
       err_array(1) = err
@@ -1223,8 +1201,7 @@ Contains
         angle_base(i_angle) = angle_array(i_angle, iter+1)
       End Do
 
-      Call mof3d_compute_analytic_gradient(angle_base, c, f, dxs, c_diff, Jacobian)
-
+      Call mof3d_compute_analytic_gradient_GN(angle_base, c, f, dxs, c_diff, Jacobian)
       gradient = 0.0_sp
       hessian = 0.0_sp
       Do i=1,2
@@ -1233,46 +1210,46 @@ Contains
         EndDo
         gradient(i) = 2.0_sp * dot_product(c_diff, Jacobian(:,i))
       EndDo
-      err = dot_product(c_diff, c_diff)
-      ! print *, err
+      err = 0.5_sp * dot_product(c_diff, c_diff)
 
-      DET=Hessian(1,1)*Hessian(2,2)-Hessian(1,2)*Hessian(2,1)
-      ! DET has dimensions of length squared
-      if (abs(DET).ge.CENTOL) then 
-        singular_flag=0
-      else if (abs(DET).le.CENTOL) then
-        singular_flag=1
-      else
-        print *,"DET bust"
-        stop
-      endif
 
-      ! Find delta angle
-      if (singular_flag.eq.0) then
-        HessianT(1,1) =   Hessian(2,2)
-        HessianT(2,2) =   Hessian(1,1)
-        HessianT(1,2) = - Hessian(1,2)
-        HessianT(2,1) = - Hessian(2,1)
+      !! Begin Gauss Newton
+      Singular_flag = 0
+      Do i=1,2
+        Do j=1,2
+          Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
+        EndDo
+      EndDo
 
-        do j=1,2
-          do i=1,2
-            HessianT(i,j) = Hessian(i,j) / DET
-          enddo
-        enddo
+      det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
+      ! Calculate the inverse of the matrix
+      HessianT(1,1) = +Hessian(2,2) / det
+      HessianT(2,1) = -Hessian(2,1) / det
+      HessianT(1,2) = -Hessian(1,2) / det
+      HessianT(2,2) = +Hessian(1,1) / det
 
-        Do i=1,2
-          delangle(i) = - dot_product(HessianT(:,i), gradient)
-          if (delangle(i).gt.delta_theta_max) then
-            delangle(i)=delta_theta_max
-          else if (delangle(i).lt.-delta_theta_max) then
-            delangle(i)=-delta_theta_max
-          endif
-        End Do
-
-      else if (singular_flag.eq.1) then
-        delangle(i)=0.0_sp
+      ! Call matinv2(Hessian, HessianT, det)
+      If (det .lt. 1.0e-10) Then
+        Singular_flag = 1
       End If
 
+      ! Delta angle
+      Do i=1,2
+        delangle(i) = - dot_product(HessianT(:,i), gradient)
+      End Do
+      !! End Gauss Newton
+
+      If (singular_flag.eq.1) then
+        delangle(1:2)=0.0_sp
+      Else
+        Do i_angle = 1,2
+          If (delangle(i_angle).gt.delta_theta_max) then
+            delangle(i_angle)=delta_theta_max
+          Else If (delangle(i_angle).lt.-delta_theta_max) then
+            delangle(i_angle)=-delta_theta_max
+          End If
+        End Do
+      End If
 
       do i_angle=1,2
         call advance_angle(angle_base(i_angle),delangle(i_angle))
@@ -1293,7 +1270,165 @@ Contains
     call Angle2Norm(new_angle,norm)
     Call Normalization1(norm)
 
-  End Subroutine MOFLemoine
+  End Subroutine MOFLemoine_GaussNewton
+
+
+ Subroutine MOFLemoine_BFGS(f, c, norm, Init_Norm)
+    ! Use ModOptimizer
+    Use mod_mof3d_bfgs
+    Implicit None
+    Real(sp), Intent(In)  :: f
+    Real(sp), Intent(In)  :: c(3)
+    Real(sp), Intent(Out) :: norm(3)
+    Real(sp), Optional, Intent(In) :: Init_Norm(3)
+
+    Real(sp), Dimension(3)   :: norm_2
+    Real(sp) :: delta_theta_max
+    Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
+    Real(sp), Dimension(2)   :: angle_base
+    Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
+    Real(sp), Dimension(MOFITERMAX+1)   :: err_array
+
+    Real(sp) :: err
+    Real(sp) :: scale
+    Integer :: singular_flag
+    Integer :: i_angle, dir, iter, i, j
+    Real(sp) :: dxs(3)
+    Real(sp) :: c_diff(3)
+    Real(sp) :: gradient(2)
+    Real(sp) :: Jacobian(3,2)
+    Real(sp) :: Hessian(2,2)
+    Real(sp) :: HessianT(2,2)
+    Real(sp) :: det
+
+    dxs = 1.0_sp
+    delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+
+    ! Initialize angle
+    If(present(Init_Norm))then
+      norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
+    Else
+      scale = 1.0_sp / sqrt(c(1)**2.0_sp + c(2)**2.0_sp +c(3)**2.0_sp)
+      If (scale> epsc) Then
+        Norm_2(1) = c(1) * scale
+        Norm_2(2) = c(2) * scale
+        Norm_2(3) = c(3) * scale
+      Else
+        Norm_2 = 1.0/3.0_sp
+      EndIf
+    EndIf
+    Call Norm2Angle(angle_init,norm_2)
+    ! Initialize other data
+    do dir=1,2
+      angle_array(dir,1)= angle_init(dir)
+    enddo
+
+    ! Initialize the Hessian approximation to the identity
+    Hessian(1,1) = 1.0_sp
+    Hessian(2,1) = 0.0_sp
+    Hessian(1,2) = 0.0_sp
+    Hessian(2,2) = 1.0_sp
+
+    ! pure subroutine mof3d_bfgs(polyhedron, ref_centroid1, ref_centroid2, ref_volume, angles, normal, stat, residual)
+
+    ! Call mof3d_compute_analytic_gradient_GN(angle_base, c, f, dxs, c_diff, Jacobian)
+    err = dot_product(c_diff, c_diff)
+    do dir=1,3
+      err_array(1) = err
+    enddo
+
+    iter = 0
+    err = err_array(1)
+    ! print *, iter, err, err_local_min
+    Do While ((iter.lt.MOFITERMAX).and. (err.gt.tol))
+
+      Do i_angle=1,2
+        angle_base(i_angle) = angle_array(i_angle, iter+1)
+      End Do
+
+
+      ! determinant = hessian(1,1)*hessian(2,2) - hessian(1,2)*hessian(2,1)
+      ! if (abs(determinant) <= tiny(determinant)) exit
+      ! direction = [hessian(1,2)*gradient(2) - hessian(2,2)*gradient(1), &
+      !     &         hessian(2,1)*gradient(1) - hessian(1,1)*gradient(2)]/determinant
+
+      ! call mof3d_line_search(polyhedron, cell_volume, cell_centroid, ref_centroid1, ref_centroid2, ref_volume, angles, &
+      !     &                   direction, objective, gradient, delta_objective, mof3d_tol_derivative, step, stat         )
+
+      ! angles_next = angles + step
+
+      ! Call mof3d_compute_analytic_gradient(angle_next, c, f, dxs, c_diff, Jacobian)
+      ! gradient = 0.0_sp
+      ! hessian = 0.0_sp
+      ! Do i=1,2
+      !   gradient_next(i) = 2.0_sp * dot_product(c_diff, Jacobian(:,i))
+      ! EndDo
+      ! err = 0.5_sp * dot_product(c_diff, c_diff)
+
+      ! delta_gradient = gradient_next - gradient
+
+      ! dot_delta = dot_product(delta_gradient, step)
+
+      ! !! Begin BFGS
+      ! Singular_flag = 0
+      ! Do i=1,2
+      !   Do j=1,2
+      !     Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
+      !   EndDo
+      ! EndDo
+
+      ! det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
+      ! ! Calculate the inverse of the matrix
+      ! HessianT(1,1) = +Hessian(2,2) / det
+      ! HessianT(2,1) = -Hessian(2,1) / det
+      ! HessianT(1,2) = -Hessian(1,2) / det
+      ! HessianT(2,2) = +Hessian(1,1) / det
+
+      ! ! Call matinv2(Hessian, HessianT, det)
+      If (det .lt. 1.0e-10) Then
+        Singular_flag = 1
+      End If
+
+      ! Delta angle
+      Do i=1,2
+        delangle(i) = - dot_product(HessianT(:,i), gradient)
+      End Do
+      !! End BFGS
+
+      If (singular_flag.eq.1) then
+        delangle(1:2)=0.0_sp
+      Else
+        Do i_angle = 1,2
+          If (delangle(i_angle).gt.delta_theta_max) then
+            delangle(i_angle)=delta_theta_max
+          Else If (delangle(i_angle).lt.-delta_theta_max) then
+            delangle(i_angle)=-delta_theta_max
+          End If
+        End Do
+      End If
+
+      do i_angle=1,2
+        call advance_angle(angle_base(i_angle),delangle(i_angle))
+        angle_array(i_angle,iter+2)=angle_base(i_angle)
+      enddo
+
+      call Angle2Norm(angle_base,norm)
+      Call Normalization1(norm)
+      ! print *, norm
+      err_array(iter+2)=err
+      iter=iter+1
+    End Do
+    mof_niter = iter+1
+
+    do dir=1,2
+      new_angle(dir)=angle_array(dir,iter+1)
+    enddo
+    call Angle2Norm(new_angle,norm)
+    Call Normalization1(norm)
+
+  End Subroutine MOFLemoine_BFGS
+
 
   !=======================================================
   ! (3-3) Find the centroid for MOF iteration
@@ -1432,6 +1567,53 @@ Contains
       angle=angle-2.0_sp*MOF_Pi
     end if
   End Subroutine advance_angle
+  Subroutine GaussNewton(Jacobian, gradient, njx, njy, dp, Singular_flag)
+    Implicit None
+    Integer,  Intent(In)  :: njx, njy
+    Real(SP), Intent(In)  :: Jacobian(njx,njy)
+    ! Real(SP), Intent(In)  :: objective(njy)
+    Real(SP), Intent(In)  :: gradient(njy)
+    Real(SP), Intent(Out) :: dp(njy)
+
+    Real(SP), Dimension(njy, njy)  :: Hessian, HessianT
+    Real(SP) :: det
+    Integer :: Singular_flag
+    integer :: i,j
+
+    Singular_flag = 0
+    Do i=1,njy
+      Do j=1,njy
+        Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
+      EndDo
+    EndDo
+
+    Call matinv2(Hessian, HessianT, det)
+    If (abs(1.0/det) .lt. 1.0e-10) Then
+      Singular_flag = 1
+      return
+    End If
+
+    Do i=1,njy
+      dp(i) = - dot_product(HessianT(:,i), gradient)
+    End Do
+
+  End Subroutine GaussNewton
+
+  subroutine matinv2(A,B,detinv)
+    !! Performs a direct calculation of the inverse of a 2×2 matrix.
+    Real(sp), Intent(In)  :: A(2,2)   !! Matrix
+    Real(sp), Intent(Out) :: B(2,2)   !! Inverse matrix
+    Real(sp), Intent(Out) :: detinv
+
+    ! Calculate the inverse determinant of the matrix
+    detinv = 1.0_sp/(A(1,1)*A(2,2) - A(1,2)*A(2,1))
+
+    ! Calculate the inverse of the matrix
+    B(1,1) = +detinv * A(2,2)
+    B(2,1) = -detinv * A(2,1)
+    B(1,2) = -detinv * A(1,2)
+    B(2,2) = +detinv * A(1,1)
+  end subroutine matinv2
 
 End Module ModVOFFunc
 

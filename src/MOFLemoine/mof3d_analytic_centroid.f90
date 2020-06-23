@@ -3,87 +3,6 @@
 !Copyright Bordeaux-INP, Université de Bordeaux, CNRS
 !
 !Contributors:
-!Antoine Lemoine, 16-02-2016, antoine.lemoine@bordeaux-inp.fr
-
-!This software is a computer program whose purpose is to simulate fluid flows.
-
-!This software is governed by the CeCILL license under French law and
-!abiding by the rules of distribution of free software.  You can  use,
-!modify and/ or redistribute the software under the terms of the CeCILL
-!license as circulated by CEA, CNRS and INRIA at the following URL
-!"http://www.cecill.info".
-
-!As a counterpart to the access to the source code and  rights to copy,
-!modify and redistribute granted by the license, users are provided only
-!with a limited warranty  and the software's author,  the holder of the
-!economic rights,  and the successive licensors  have only  limited
-!liability.
-
-!In this respect, the user's attention is drawn to the risks associated
-!with loading,  using,  modifying and/or developing or reproducing the
-!software by the user in light of its specific status of free software,
-!that may mean  that it is complicated to manipulate,  and  that  also
-!therefore means  that it is reserved for developers  and  experienced
-!professionals having in-depth computer knowledge. Users are therefore
-!encouraged to load and test the software's suitability as regards their
-!requirements in conditions enabling the security of their systems and/or
-!data to be ensured and,  more generally, to use and operate it in the
-!same conditions as regards security.
-
-!The fact that you are presently reading this means that you have had
-!knowledge of the CeCILL license and that you accept its terms.
-
-!> @defgroup point_3d Points formula in 3D
-!! @brief Geometric tools relative to points
-!! @ingroup computational_geometry_3d
-
-module mod_cg3_points
-   implicit none
-
-contains
-
-   !> Compute the cross product of two points
-   !!
-   !! @param[in] p1, p2: coordinates of two points of the space
-   !! @ingroup point_3d
-   pure function cg3_cross_product(p1, p2) result(r)
-      double precision, dimension(3), intent(in) :: p1, p2
-      double precision, dimension(3) :: r
-
-      r(1) = p1(2)*p2(3) - p1(3)*p2(2)
-      r(2) = p1(3)*p2(1) - p1(1)*p2(3)
-      r(3) = p1(1)*p2(2) - p1(2)*p2(1)
-   end function cg3_cross_product
-
-   !> Compute the spherical angles from a direction in Cartesian coordinates
-   !!
-   !! @param[in]  direction: unit vector
-   !! @param[out] angles: spherical angles (θ,φ)
-   pure subroutine cg3_direction_to_spherical_angles(direction, angles)
-      double precision, dimension(3), intent(in) :: direction
-      double precision, dimension(2), intent(out) :: angles
-
-      double precision, parameter :: PI = 2d0*acos(0d0)
-
-      if ((abs(direction(3)) - 1d0) < epsilon(1d0)) then
-         angles = [atan2(direction(2), direction(1)), acos(direction(3))]
-      else
-         if (direction(3) > 0d0) then
-            angles = [0d0, 0d0]
-         else
-            angles = [0d0, PI]
-         end if
-      end if
-   end subroutine cg3_direction_to_spherical_angles
-
-end module mod_cg3_points
-
-
-!This file is part of Notus 0.4.0
-
-!Copyright Bordeaux-INP, Université de Bordeaux, CNRS
-!
-!Contributors:
 !Antoine Lemoine, 14-06-2017, antoine.lemoine@bordeaux-inp.fr
 
 !This software is a computer program whose purpose is to simulate fluid flows.
@@ -127,7 +46,10 @@ module mod_mof3d_analytic_centroid
    integer, parameter :: C_PHI   = 3
    integer, parameter :: S_PHI   = 4
 
-   public :: mof3d_compute_analytic_gradient, mof3d_compute_analytic_gradient_symmetric, mof3d_debug_analytic_gradient
+   public :: mof3d_compute_analytic_gradient_GN
+   public :: mof3d_compute_analytic_gradient
+   public :: mof3d_compute_analytic_gradient_symmetric
+   public :: mof3d_debug_analytic_gradient
 
    ! Routines hierarchy
    ! ------------------
@@ -146,24 +68,24 @@ module mod_mof3d_analytic_centroid
 
 contains
 
-   !> Compute the centroid and the gradient of the objective function in rectangular hexahedral cell.
-   !!
-  ! Modified By  Zhouteng Ye
-  !! Returns diff and Jacobian insteadt of objective and gradient 
+  !> Compute the centroid and the gradient of the objective function in rectangular hexahedral cell.
+  !> This version return Jacobian -- By Zhouteng Ye
+  !!
   !! @param[in]  angles:        Spherical angles.
-   !! @param[in]  ref_centroid:  Coordinates of the reference centroid.
-   !! @param[in]  ref_volume:    Reference volume.
-   !! @param[in]  c:             Dimensions of the cell.
-   !! @param[out] objective:     Objective function.
-   !! @param[out] gradient:      Gradient of the objective function.
-   !! @ingroup moment_of_fluid
-    subroutine mof3d_compute_analytic_gradient(angles, ref_centroid, volume, c, diff, Jacobian)
+  !! @param[in]  ref_centroid:  Coordinates of the reference centroid.
+  !! @param[in]  ref_volume:    Reference volume.
+  !! @param[in]  c:             Dimensions of the cell.
+  !! @param[out] objective:     Jacobian
+  !! @param[out] gradient:      Gradient of the objective function.
+  !! @ingroup moment_of_fluid
+  pure subroutine mof3d_compute_analytic_gradient_GN(angles, ref_centroid, volume, c, diff, Jacobian)
       double precision, dimension(2), intent(in) :: angles
       double precision, dimension(3), intent(in) :: ref_centroid
       double precision, intent(in) :: volume
       double precision, dimension(3), intent(in) :: c
-      double precision, dimension(3), intent(out) :: diff
+      ! double precision, intent(out) :: objective
       ! double precision, dimension(2), intent(out) :: gradient
+      double precision, dimension(3), intent(out) :: diff
       double precision, dimension(3,2), intent(out) :: Jacobian
 
       double precision, dimension(3,2) :: t_partial_derivative
@@ -183,17 +105,54 @@ contains
       ! Transform the reference centroid to the local chart.
       call mof3d_transform_point_to_local_chart(sign_permutation, t_c, ref_centroid, t_ref_centroid)
 
-      ! Compute the difference between the centroid and the reference centroid in the local chart.
       diff = t_centroid - t_ref_centroid
       Jacobian(:,1) = t_partial_derivative(:,1)
       Jacobian(:,2) = t_partial_derivative(:,2) * sign_permutation(3)
+   end subroutine mof3d_compute_analytic_gradient_GN
+
+   !> Compute the centroid and the gradient of the objective function in rectangular hexahedral cell.
+   !!
+   !! @param[in]  angles:        Spherical angles.
+   !! @param[in]  ref_centroid:  Coordinates of the reference centroid.
+   !! @param[in]  ref_volume:    Reference volume.
+   !! @param[in]  c:             Dimensions of the cell.
+   !! @param[out] objective:     Objective function.
+   !! @param[out] gradient:      Gradient of the objective function.
+   !! @ingroup moment_of_fluid
+   pure subroutine mof3d_compute_analytic_gradient(angles, ref_centroid, volume, c, objective, gradient)
+      double precision, dimension(2), intent(in) :: angles
+      double precision, dimension(3), intent(in) :: ref_centroid
+      double precision, intent(in) :: volume
+      double precision, dimension(3), intent(in) :: c
+      double precision, intent(out) :: objective
+      double precision, dimension(2), intent(out) :: gradient
+
+      double precision, dimension(3,2) :: t_partial_derivative
+      double precision, dimension(3) :: t_c, t_centroid, t_ref_centroid, diff
+      double precision, dimension(2) :: t_angles
+      integer, dimension(3) :: sign_permutation
+
+      ! Compute transformed angle and permutation.
+      call mof3d_transform_to_local_chart(angles, t_angles, sign_permutation)
+
+      ! Transform the cell coordinates to the local chart.
+      call mof3d_apply_permutation(sign_permutation, c, t_c)
+
+      ! Compute the gradient and the centroid in the local chart.
+      call mof3d_compute_analytic_derivatives_local(t_angles, volume, t_c, t_centroid, t_partial_derivative)
+
+      ! Transform the reference centroid to the local chart.
+      call mof3d_transform_point_to_local_chart(sign_permutation, t_c, ref_centroid, t_ref_centroid)
+
+      ! Compute the difference between the centroid and the reference centroid in the local chart.
+      diff = t_centroid - t_ref_centroid
 
       ! Compute the objective function.
-      ! objective = dot_product(diff, diff)
+      objective = dot_product(diff, diff)
 
       ! Compute the gradient in the local chart.
-      ! gradient = [2d0*dot_product(diff, t_partial_derivative(:,1)),                   &
-         ! &        2d0*dot_product(diff, t_partial_derivative(:,2))*sign_permutation(3)]
+      gradient = [2d0*dot_product(diff, t_partial_derivative(:,1)),                   &
+         &        2d0*dot_product(diff, t_partial_derivative(:,2))*sign_permutation(3)]
    end subroutine mof3d_compute_analytic_gradient
 
    !> Compute the centroid and the gradient of the objective function in rectangular hexahedral cell using

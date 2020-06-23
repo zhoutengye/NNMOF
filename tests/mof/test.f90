@@ -93,7 +93,7 @@ Subroutine test1
   f = 1.0/6.0_sp
   c = (/ 1.0/4.0_sp, 1.0/4.0_sp, 1.0/4.0_sp /)
   ! init_norm = (/ 1.0/1.0_sp, 1.0/8.0_sp, 1.0/8.0_sp /)
-  init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp, 1.0/4.0_sp /)
+  init_norm = (/ 1.0/3.0_sp, 1.0/3.0_sp,  1.0/4.0_sp /)
 
   !  --------------Different initial guess
   ! init_norm = (/ -1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
@@ -111,7 +111,7 @@ Subroutine test1
     Call cpu_time(tt1)
     Do ii = 1, nnn
       init_norm = init_norm + 0.001
-      Call MOFLemoine(f,c,norm, init_norm)
+      Call MOFLemoine_GaussNewton(f,c,norm, init_norm)
       nnn1 = nnn1 + mof_niter
     End Do
     Call cpu_time(tt2)
