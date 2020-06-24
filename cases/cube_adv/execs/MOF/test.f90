@@ -130,7 +130,6 @@ Subroutine test2
   Real(sp), allocatable, Dimension(:,:,:) :: f_exact
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
-  Integer  :: nexch(2)
   Integer  :: nn = 0
   Character(80) :: data_name
   Integer :: i, j, k
@@ -143,7 +142,6 @@ Subroutine test2
   v = 1.0_sp
   w = 1.0_sp
 
-  nexch = nl(1:2)
   Call u_bc%SetBCS(u)
   Call v_bc%SetBCS(v)
   Call w_bc%SetBCS(w)
@@ -168,7 +166,9 @@ Subroutine test2
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt)
     rank = mod(nn+1,3)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+    ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt,rank)
+    Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
     ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)
@@ -256,7 +256,6 @@ Subroutine test3
   Real(sp), allocatable, Dimension(:,:,:) :: f_exact
   Real(sp) :: v1, v2
   Real(sp) :: v11, v12
-  Integer  :: nexch(2)
   Integer  :: nn = 0
   Character(80) :: data_name
   Integer :: i, j, k
@@ -266,7 +265,6 @@ Subroutine test3
 
   Call Init(inputfield=.true.)
 
-  nexch = nl(1:2)
   Call u_bc%SetBCS(u)
   Call v_bc%SetBCS(v)
   Call w_bc%SetBCS(w)
@@ -293,7 +291,11 @@ Subroutine test3
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,3)
     ! Call MOFCIAM(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
-    Call MOFCIAM2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+    ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
+    call AdvWY_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
+    call AdvWY_MOF(w, cx, cy, cz, phi, nl, dl, dt, 3)
+    ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt,rank)
     ! Call MOFWY(Phi, cx, cy, cz, u, v, w, nl, dl, dt)
     ! call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     ! Call Visual3DContour(f1=phi, slice_dir='x',slice_coord=8)

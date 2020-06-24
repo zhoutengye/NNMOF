@@ -47,15 +47,15 @@ Contains
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: rank
-    if (rank == 1) Then
+    if (rank == 0) Then
       call AdvCIAM(u, phi, nl, dl, dt, 1)
       call AdvCIAM(v, phi, nl, dl, dt, 2)
       call AdvCIAM(w, phi, nl, dl, dt, 3)
-    else if (rank == 2) Then
+    else if (rank == 1) Then
       call AdvCIAM(u, phi, nl, dl, dt, 2)
       call AdvCIAM(v, phi, nl, dl, dt, 3)
       call AdvCIAM(w, phi, nl, dl, dt, 1)
-    else if (rank == 3) Then
+    else if (rank == 2) Then
       call AdvCIAM(u, phi, nl, dl, dt, 3)
       call AdvCIAM(v, phi, nl, dl, dt, 1)
       call AdvCIAM(w, phi, nl, dl, dt, 2)
@@ -72,15 +72,15 @@ Contains
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: rank
-    if (rank == 1) Then
+    if (rank == 0) Then
       call AdvWY(u, phi, nl, dl, dt, 1)
       call AdvWY(v, phi, nl, dl, dt, 2)
       call AdvWY(w, phi, nl, dl, dt, 3)
-    else if (rank == 2) Then
+    else if (rank == 1) Then
       call AdvWY(u, phi, nl, dl, dt, 2)
       call AdvWY(v, phi, nl, dl, dt, 3)
       call AdvWY(w, phi, nl, dl, dt, 1)
-    else if (rank == 3) Then
+    else if (rank == 2) Then
       call AdvWY(u, phi, nl, dl, dt, 3)
       call AdvWY(v, phi, nl, dl, dt, 1)
       call AdvWY(w, phi, nl, dl, dt, 2)

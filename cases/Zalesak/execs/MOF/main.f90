@@ -11,6 +11,8 @@ Subroutine zalesak
   Use ModGlobal
   Use ModTools
   Use ModVOF
+  use MODSussman
+
   Implicit None
   Real(sp), allocatable, Dimension(:,:,:) :: f_beg
   Real(sp), allocatable, Dimension(:,:,:) :: f_end
@@ -22,6 +24,8 @@ Subroutine zalesak
   Integer :: i, j, k
   Real(sp) :: err
   Real(sp) :: tt1, tt2
+  Real(sp) :: ddx(3)
+
   Integer :: rank
 
   Call Init(inputfield=.true.)
@@ -44,12 +48,22 @@ Subroutine zalesak
   f_beg = phi
   f_exact = f_beg
 
+ 
+  ! Call MOFInit1d
+  ! MOFNorm => MOFSussmanGaussNewton
+
+  ! MOFNorm => MOFLemoine_BFGS
+  ! ddx = 1.0_sp
+  ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
+
+  ! MOFNorm => MOFLemoine_GaussNewton
+
   ! VOF advection
   Call CPU_Time(tt1)
   Do While (time < tend)
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,3)
-    Call MOFWY2(Phi, cx, cy, cz, u, v, w, nl, dl, dt,rank)
+    Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     nn = nn + 1
     time =  time + dt
   End Do
