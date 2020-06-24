@@ -49,7 +49,7 @@ Subroutine zalesak
   f_exact = f_beg
 
  
-  ! Call MOFInit1d
+  ! Call MOFInit3d
   ! MOFNorm => MOFSussmanGaussNewton
 
   ! MOFNorm => MOFLemoine_BFGS
@@ -58,12 +58,15 @@ Subroutine zalesak
 
   ! MOFNorm => MOFLemoine_GaussNewton
 
+  MOFNorm => MOFZY
+
   ! VOF advection
   Call CPU_Time(tt1)
   Do While (time < tend)
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,3)
     Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
   End Do

@@ -5,8 +5,8 @@ DEBUG      = false
 VERBOSE    = false
 TEST_NUM   = 1
 PRECISION  = DOUBLE_PRECISION
-# HDF5_DIR   = $(HOME)/hdf5/$(compiler)
-HDF5_DIR = $(HOME)/HPC/$(compiler)/hdf5
+HDF5_DIR   = $(HOME)/hdf5/$(compiler)
+# HDF5_DIR = $(HOME)/HPC/$(compiler)/hdf5
 
 SRC_DIR = ../../src
 LEMOINE_DIR = ../../src/MOFLemoine/$(compiler)
@@ -19,8 +19,7 @@ ifeq ($(DEBUG), true)
 	CPP = -cpp -D$(PRECISION) -DTEST$(TEST_NUM) -DDEBUG
         EXEC:= TEST-$(TEST_NUM)
 else
-        FC_OPT = -O2
-        FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
+        FC_OPT = -O3
 endif
 
 ifeq ($(VERBOSE), true)
