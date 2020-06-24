@@ -42,10 +42,9 @@ Module ModVOFFunc
   public
 
   ! MOF iteration parameters
-  Integer, Parameter :: MOFITERMAX = 10
+  Integer, Parameter :: MOFITERMAX = 30
   Real(sp), Parameter :: tol = 1.0e-8
   Real(sp), Parameter :: local_tol = 1.0e-8
-  Real(sp), Parameter :: CenTol = 1e-13
   ! Real(sp), Parameter :: GaussNewtonTol = 1e-13
   Real(sp), Parameter :: MOF_Pi = 3.1415926535897932d0
   Real(sp), Parameter :: epsc = 1.0e-12
@@ -893,9 +892,7 @@ Contains
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
-      Call Normalization2(Norm_2)
     Else
-      scale = 1.0_sp / sqrt(c(1)**2.0_sp + c(2)**2.0_sp +c(3)**2.0_sp)
       If (scale> epsc) Then
         Norm_2(1) = - c(1) * scale
         Norm_2(2) = - c(2) * scale
@@ -904,6 +901,8 @@ Contains
         Norm_2 = 1.0/3.0_sp
       EndIf
     EndIf
+
+    Call Normalization2(Norm_2)
     Call Norm2Angle(angle_init,norm_2)
     ! Initialize other data
     do dir=1,2
@@ -921,6 +920,7 @@ Contains
     iter = 0
     err = err_array(1)
     err_local_min = err_array(1)
+    mof_niter = 0
     Do While ((iter.lt.MOFITERMAX).and. &
         (err.gt.tol).and. &
         (err_local_min.gt.local_tol))
@@ -1087,7 +1087,7 @@ Contains
       do i_angle=1,2
         angle_array(i_angle,iter+2)=angle_base(i_angle)
       enddo
-      err_array(iter+2)=err
+      err_array(iter+2)=err / 2.0_sp
       iter=iter+1
     End Do
 
@@ -1166,17 +1166,13 @@ Contains
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
-      Call Normalization2(Norm_2)
     Else
-      scale = 1.0_sp / sqrt(c(1)**2.0_sp + c(2)**2.0_sp +c(3)**2.0_sp)
-      If (scale> epsc) Then
-        Norm_2(1) = c(1) * scale
-        Norm_2(2) = c(2) * scale
-        Norm_2(3) = c(3) * scale
-      Else
-        Norm_2 = 1.0/3.0_sp
-      EndIf
+      Norm_2(1) = 0.5_sp - c(1)
+      Norm_2(2) = 0.5_sp - c(2)
+      Norm_2(3) = 0.5_sp - c(3)
     EndIf
+
+    Call Normalization2(Norm_2)
     Call Norm2Angle(angle_init,norm_2)
     ! Initialize other data
     do dir=1,2
@@ -1186,7 +1182,7 @@ Contains
     ! print *, c
     ! print *, f
     ! print *, dxs
-    Call mof3d_compute_analytic_gradient_GN(angle_base, c, f, dxs, c_diff, Jacobian)
+    Call mof3d_compute_analytic_gradient_GN(angle_init, c, f, dxs, c_diff, Jacobian)
     err = dot_product(c_diff, c_diff)
     do dir=1,3
       err_array(1) = err
@@ -1194,7 +1190,9 @@ Contains
 
     iter = 0
     err = err_array(1)
+    ! print *, err
     ! print *, iter, err, err_local_min
+    mof_niter = 0
     Do While ((iter.lt.MOFITERMAX).and. (err.gt.tol))
 
       Do i_angle=1,2
@@ -1312,17 +1310,12 @@ Contains
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
-      Call Normalization2(Norm_2)
     Else
-      scale = 1.0_sp / sqrt(c(1)**2.0_sp + c(2)**2.0_sp +c(3)**2.0_sp)
-      If (scale> epsc) Then
-        Norm_2(1) = c(1) * scale
-        Norm_2(2) = c(2) * scale
-        Norm_2(3) = c(3) * scale
-      Else
-        Norm_2 = 1.0/3.0_sp
-      EndIf
+      Norm_2(1) = 0.5_sp - c(1)
+      Norm_2(2) = 0.5_sp - c(2)
+      Norm_2(3) = 0.5_sp - c(3)
     EndIf
+    Call Normalization2(Norm_2)
     ! norm_2 = - norm_2
     ! Call Norm2Angle(angle_init,norm_2)
     Call direction_to_spherical_angles(norm_2, angle_init)
