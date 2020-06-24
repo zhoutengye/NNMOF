@@ -168,7 +168,7 @@ Subroutine test1
     ! sussman%mof_verbose    = 1          ! 0 or 1
     Do ii = 1, nnn
       init_norm = init_norm + 0.001
-      Call MOFSussman(f,c,norm)
+      Call MOFSussmanGaussNewton(f,c,norm)
       ! Call MOFSussman(f,c,norm,init_norm)
       nnn1 = nnn1 + mof_niter
     End Do

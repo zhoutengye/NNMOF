@@ -11,9 +11,11 @@
 !       (2-3) Flooing algorithm forward finding vof
 !       (2-4) Flooding algorithm forward finding vof and centroid
 !     (3) MOF Reconstruction
-!       (3-1) MOF reconstruction using Gauss-Newton
-!       (3-2) MOF reconstruction using Analytic form
-!       (3-2) Find centroid for given norm and volume function
+!       (3-1) MOF reconstruction using quick centroid and Gauss-Newton iteration
+!       (3-2) MOF reconstruction using Lemoine's analytic gradient and Gauss-Newton iteration
+!       (3-3) MOF reconstruction using Lemoine's analytic gradient and BFGS iteration
+!       (3-4) MOF reconstruction using Sussman's computational geometry and Gauss-Newton iteration
+!       (3-5) Find centroid for given norm and volume function
 !     (4) Misc
 !       (4-1) Normalization vector 1 (nx+ny+nz=1)
 !       (4-2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
@@ -30,7 +32,10 @@
 !         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
 !         | Backward flooidng | 0,0,0            | 1,1,1             |
 !         | Forward flooidng  | x0(1),x0(2),x0(3)| dx(1),dx(2),dx(3) |
-!         | MOF               ! -0.5,-0.5,-0.5   | 1,1,1             |
+!         | MOFZY             ! -0.5,-0.5,-0.5   | 1,1,1             |
+!         | MOFSussman        ! -0.5,-0.5,-0.5   | 1,1,1             |
+!         | MOFLemoine-BFGS   ! 0,0,0            | 1,1,1             |
+!         | MOFLemoine-GN     ! 0,0,0            | 1,1,1             |
 !         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
 !    In MOF interface (1.4) shifts the origin.
 !
@@ -1122,8 +1127,10 @@ Contains
   End Subroutine MOFZY
 
   !=======================================================
-  ! (3-2) MOF reconstruction using Analytic Solution
+  ! (3-2) MOF reconstruction using Analytic gradient and Gauss-Newton iteration
   !-------------------------------------------------------
+  ! The algorithm uses analytic slope by Lemoine (2020, JCP)
+  ! Gauss-Newton iteration is used
   ! Input:
   !      f: vof function
   !      c: centroid (cx, cy, cz)
@@ -1271,7 +1278,20 @@ Contains
   End Subroutine MOFLemoine_GaussNewton
 
 
- Subroutine MOFLemoine_BFGS(poly,f, c, norm, Init_Norm)
+  !=======================================================
+  ! (3-3) MOF reconstruction using analytic gradient and BFGS 
+  !     For given vof and centroid, find the best norm
+  !-------------------------------------------------------
+  ! Input:
+  !      poly: the grid polygon, data structure comes from Lemoine's code
+  !      f: vof function
+  !      c: centroid (cx, cy, cz)
+  ! Optional Input:
+  !      init_norm: Initial guess of the normal vector
+  ! Output:
+  !      norm: vof function
+  !=======================================================
+  Subroutine MOFLemoine_BFGS(poly,f, c, norm, Init_Norm)
     ! Use ModOptimizer
    use variables_mof
    Use mod_cg3_polyhedron
@@ -1345,9 +1365,83 @@ Contains
 
   End Subroutine MOFLemoine_BFGS
 
+  !=======================================================
+  ! (3-3) MOF reconstruction using numerical gradient and BFGS 
+  !     For given vof and centroid, find the best norm
+  !    Sussman's original MOF version
+  !    uses computational geometry algorithm to find the centroid
+  !-------------------------------------------------------
+  ! Input:
+  !      vof: vof function
+  !      centroid: centroid (cx, cy, cz)
+  ! Optional Input:
+  !      init_norm: Initial guess of the normal vector
+  ! Output:
+  !      norm: vof function
+  !=======================================================
+  Subroutine MOFSussmanGaussNewton(vof, centroid, norm, init_norm)
+    Use ModSussman
+    Implicit None
+    Real(8), Intent(In)  :: vof
+    Real(8), Intent(In)  :: centroid(3)
+    Real(8), Intent(Out) :: norm(3)
+    Real(8), Intent(In), optional :: init_norm(3)
+
+    Real(8), Dimension(-1:1,-1:1,-1:1,1) :: ls_mof, lsnormal
+    Real(8) :: norm_2(3)
+    Real(8) :: scale
+    Integer :: lsnormal_valid(1)
+    Real(8) :: npredict(3)
+    Real(8) :: intercept
+    Integer :: default_one = 1
+
+    If(present(Init_Norm))then
+      norm_2 = Init_Norm
+    Else
+        Norm_2(1) = centroid(1)
+        Norm_2(2) = centroid(2)
+        Norm_2(3) = centroid(3)
+    EndIf
+
+    norm_2 = norm_2 / norm2(norm_2)
+
+    lsnormal_valid = 1
+
+    npredict = Norm_2
+
+    call find_cut_geom_slope( &
+        ls_mof, &
+        lsnormal, &
+        lsnormal_valid, &
+        sussman%bfact, &
+        sussman%dx, &
+        sussman%xsten0, &
+        sussman%nhalf0, &
+        centroid,&
+        vof, &
+        levelrz, &
+        npredict, &
+        sussman%continuous_mof, &
+        norm, &
+        intercept, &
+        sussman%xtetlist_vof, &
+        default_one, &
+        sussman%xtetlist_cen, &
+        default_one, &
+        sussman%multi_centroidA, &
+        sussman%nmax, &
+        default_one, &
+        default_one, &
+        default_one, &
+        sussman%sdim)
+
+    norm(1:3) = -norm
+
+  End Subroutine MOFSussmanGaussNewton
+
 
   !=======================================================
-  ! (3-3) Find the centroid for MOF iteration
+  ! (3-5) Find the centroid for MOF iteration
   !  shift the angle to Cartesian norm, then calculate
   !  the norm, finally shift the origin by -0.5 in each
   !  direction
