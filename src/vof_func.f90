@@ -1160,7 +1160,6 @@ Contains
       c_mof = c
     endif
 
-
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
@@ -1266,7 +1265,7 @@ Contains
     call Angle2Norm(new_angle,norm)
     Call Normalization1(norm)
 
-    if (vof .ge. 0.5_sp) norm = -norm
+    if (f .gt. 0.5_sp) norm = -norm
 
   End Subroutine MOFLemoine_GaussNewton
 
@@ -1336,6 +1335,9 @@ Contains
       Norm_2(2) = 0.5_sp - c_mof(2)
       Norm_2(3) = 0.5_sp - c_mof(3)
     EndIf
+
+    ! print *, c_mof
+    ! print *, vof
     Call Normalization2(Norm_2)
     ! norm_2 = - norm_2
     ! Call Norm2Angle(angle_init,norm_2)
@@ -1358,13 +1360,11 @@ Contains
     mof_niter = nstat
 
 
-    ! do dir=1,2
-      ! new_angle(dir)=angle_array(dir,iter+1)
-    ! enddo
-    ! call Angle2Norm(new_angle,norm)
     Call Normalization1(norm)
+    ! call Angle2Norm(new_angle,norm)
+    ! print *, norm
 
-    if (vof .ge. 0.5_sp) norm = -norm
+    if (f .ge. 0.5_sp) norm = -norm
 
   End Subroutine MOFLemoine_BFGS
 
@@ -1399,7 +1399,7 @@ Contains
     Real(8) :: intercept
     Integer :: default_one = 1
 
-    c_mof = centroid(3) - 0.5_sp
+    c_mof = centroid - 0.5_sp
 
     If(present(Init_Norm))then
       norm_2 = Init_Norm

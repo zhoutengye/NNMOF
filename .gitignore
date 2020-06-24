@@ -12,7 +12,7 @@ docs/ltximg/
 *TEST-3
 *TEST-3
 *.exec
-.a
+*.a
 
 *.aux
 *.fdb_latexmk

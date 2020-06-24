@@ -6,8 +6,8 @@ VERBOSE    = false
 TEST_NUM   = 3
 DIMENSION  = TWO_DIMENSIONAL
 PRECISION  = DOUBLE_PRECISION
-# HDF5_DIR   = $(HOME)/hdf5/gnu
-HDF5_DIR = $(HOME)/HPC/gnu/hdf5
+HDF5_DIR   = $(HOME)/hdf5/gnu
+# HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 SRC_DIR = ../../../../src
 LEMOINE_DIR = ../../../../src/MOFLemoine/$(compiler)

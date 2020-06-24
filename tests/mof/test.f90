@@ -100,6 +100,9 @@ Subroutine test1
 
   f = 1.0/12.0_sp
   c = (/ 1.0/4.0_sp, 1.0/4.0_sp, 1.0/8.0_sp /)
+  f = 11.0/12.0_sp
+  c = (0.5_sp - (1-f)*c) / f
+
 
   !  --------------Different initial guess
   ! init_norm = (/ -1.0/3.0_sp, -1.0/3.0_sp, -1.0/3.0_sp /)
@@ -110,7 +113,7 @@ Subroutine test1
 
   block
     integer :: ii
-    integer :: nnn = 100000
+    integer :: nnn = 1
     real(8) :: tt1, tt2
     real(8) :: ttt1, ttt2
     real(8) :: nnn1(2), nnn2(2)
@@ -138,8 +141,8 @@ Subroutine test1
     init_norm = (/ 1.0/2.0_sp, 1.0/2.0_sp,  1.0/3.0_sp /)
     Do ii = 1, nnn
       init_norm = init_norm + 0.001
-      ! Call MOFLemoine_GaussNewton(f,c,norm)
-      Call MOFLemoine_GaussNewton(f,c,norm, init_norm)
+      Call MOFLemoine_GaussNewton(f,c,norm)
+      ! Call MOFLemoine_GaussNewton(f,c,norm, init_norm)
       nnn1 = nnn1 + mof_niter
     End Do
     Call cpu_time(tt2)
@@ -160,8 +163,8 @@ Subroutine test1
     init_norm = (/ 1.0/2.0_sp, 1.0/2.0_sp,  1.0/3.0_sp /)
     Do ii = 1, nnn
       init_norm = init_norm + 0.001
-      ! Call MOFLemoine_BFGS(poly,f,c,norm)
-      Call MOFLemoine_BFGS(f,c,norm,init_norm)
+      Call MOFLemoine_BFGS(f,c,norm)
+      ! Call MOFLemoine_BFGS(f,c,norm,init_norm)
       nnn1 = nnn1 + mof_niter
     End Do
     Call cpu_time(ttt2)

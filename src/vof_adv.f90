@@ -622,6 +622,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           f_block(1:3,1:3,1:3) = f(i-1:i+1,j-1:j+1,k-1:k+1)
           ! Call NormMYCS(f_block, norm)
           Call MOFNorm(f(i,j,k), c2xyz, norm)
+          ! norm = 0.5_sp - c2xyz
           Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
