@@ -56,9 +56,9 @@ Subroutine zalesak
   ! ddx = 1.0_sp
   ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
 
-  ! MOFNorm => MOFLemoine_GaussNewton
+  MOFNorm => MOFLemoine_GaussNewton
 
-  MOFNorm => MOFZY
+  ! MOFNorm => MOFZY
 
   ! VOF advection
   Call CPU_Time(tt1)
