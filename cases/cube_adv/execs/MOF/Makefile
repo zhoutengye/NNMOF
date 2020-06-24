@@ -1,3 +1,4 @@
+compiler   = gnu
 EXEC       = CUBE-MOF.exec
 FC         = mpif90
 DEBUG      = false
@@ -9,6 +10,8 @@ PRECISION  = DOUBLE_PRECISION
 HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
 SRC_DIR = ../../../../src
+LEMOINE_DIR = ../../../../src/MOFLemoine/$(compiler)
+SUSSMAN_DIR = ../../../../src/MOFSussman/$(compiler)
 SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
 CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM)
 ifeq ($(DEBUG), true)
@@ -22,8 +25,10 @@ ifeq ($(VERBOSE), true)
 	CPP := $(CPP) -DVERBOSE
 endif
 
+MOFLIB = $(LEMOINE_DIR)/lemoinemof.a $(SUSSMAN_DIR)/libmof.a
+
 LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm 
-INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) 
+INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) -I$(LEMOINE_DIR) -I$(SUSSMAN_DIR)
 
 # rule for *.f90 to *.o
 .SUFFIXES: .o .f90
@@ -34,7 +39,7 @@ OBJS_TESTS = $(SRCS_TESTS:.f90=.o)
 
 # after all .o is gathered, link and generate the executable
 $(EXEC): $(OBJS)
-	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  *.o $(LIBS)
+	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  *.o $(MOFLIB) $(LIBS)
 
 clean:
 	rm -f *.o
