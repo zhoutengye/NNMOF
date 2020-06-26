@@ -65,7 +65,7 @@ module variables_mof
    logical :: mof3d_internal_is_analytic_gradient_enabled = .true.
    !> Flag to activate or deactivate the Navier boundary condition for MoF 
    logical :: mof2d_use_navier_boundary_condition = .false.
-   !> Value of the Navier boundary coefficient (beta) for MoF 
+   !> Value of the Navier boundary coefficient (beta) for MoF
    double precision :: mof2d_navier_boundary_coefficient = 0.75d0
 
    !> Toggle filter

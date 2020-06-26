@@ -410,13 +410,14 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         ! f = 1
         if (f(i,j,k) .GE. 1.0_sp-epsc) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
-          vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
+          ! vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) - DMAX1(-a2,0.0_sp)
+          vof2(i,j,k) = 1.0_sp - DMAX1(-a1,0.0_sp) - DMAX1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
           c1xyz = 0.5_sp
           c2xyz = 0.5_sp
           c3xyz = 0.5_sp
           c1xyz(dir) = - DMAX1(-a1/2.0_sp,0.0_sp)
-          c2xyz(dir) = 0.5_sp + DMAX1(a1/2.0_sp,0.0_sp) - DMIN1(a2/2.0_sp,0.0_sp)
+          c2xyz(dir) = 0.5_sp + DMAX1(a1/2.0_sp,0.0_sp) - DMAX1(a2/2.0_sp,0.0_sp)
           c3xyz(dir) = 1.0_sp + DMAX1(a2/2.0_sp,0.0_sp)
 
           ! 0 < f < 1
@@ -450,8 +451,19 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           deltax(dir) = 1.0_sp - x0(dir) + DMIN1(0.0_sp,a2)
           Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
-        If (vof1(i,j,k) .ge. epsc) c1xyz(dir) = c1xyz(dir) + 1.0_sp
-        If (vof3(i,j,k) .ge. epsc) c3xyz(dir) = c3xyz(dir) - 1.0_sp
+
+        c2xyz(dir) = c2xyz(dir) + a1 - a2
+
+        If (vof1(i,j,k) .ge. epsc) Then
+          ! c1xyz(dir) = c1xyz(dir) - a1
+          ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          c1xyz(dir) = c1xyz(dir) + 1.0_sp
+        End If
+        If (vof3(i,j,k) .ge. epsc) Then
+          ! c3xyz(dir) = c3xyz(dir) + a2
+          ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          c3xyz(dir) = c3xyz(dir) - 1.0_sp
+        End If
 
         c1x(i,j,k) = c1xyz(1)
         c1y(i,j,k) = c1xyz(2)
@@ -484,15 +496,13 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
+
         mx = vof3(i-ii,j-jj,k-kk) * c3x(i-ii,j-jj,k-kk) + &
             vof2(i,j,k) * c2x(i,j,k) + &
             vof1(i+ii,j+jj,k+kk) * c1x(i+ii,j+jj,k+kk)
         my = vof3(i-ii,j-jj,k-kk) * c3y(i-ii,j-jj,k-kk) +&
             vof2(i,j,k) * c2y(i,j,k) + &
             vof1(i+ii,j+jj,k+kk) * c1y(i+ii,j+jj,k+kk)
-        ! mz = vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-j,k-kk) +&
-        !     vof2(i,j,k) * c2z(i,j,k) + &
-        !     vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk)
         mz = vof3(i-ii,j-jj,k-kk) * c3z(i-ii,j-jj,k-kk) +&
             vof2(i,j,k) * c2z(i,j,k) + &
             vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk)
@@ -500,9 +510,9 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         f(i,j,k) = vof3(i-ii,j-jj,k-kk) + &
             vof2(i,j,k) + &
             vof1(i+ii,j+jj,k+kk)
-        cx(i,j,k) = mx / f(i,j,k)
-        cy(i,j,k) = my / f(i,j,k)
-        cz(i,j,k) = mz / f(i,j,k)
+        cx(i,j,k) = mx / ( f(i,j,k) + 1e-30 )
+        cy(i,j,k) = my / ( f(i,j,k) + 1e-30 )
+        cz(i,j,k) = mz / ( f(i,j,k) + 1e-30 )
         if (f(i,j,k) < EPSC) then
           f(i,j,k) = 0.0_sp
           cx(i,j,k) = 0.0_sp
@@ -610,7 +620,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           c2xyz = 0.5_sp
           c3xyz = 0.5_sp
           c1xyz(dir) = DMAX1(-a1/2.0_sp,0.0_sp)
-          c2xyz(dir) = 0.5_sp + DMAX1(a1/2.0_sp,0.0_sp) - DMIN1(a2/2.0_sp,0.0_sp)
+          c2xyz(dir) = 0.5_sp + DMAX1(-a1/2.0_sp,0.0_sp) - DMAX1(a2/2.0_sp,0.0_sp)
           c3xyz(dir) = 1.0_sp - DMAX1(a2/2.0_sp,0.0_sp)
 
         ! 0 < f < 1

@@ -12,6 +12,7 @@ Subroutine zalesak
   Use ModTools
   Use ModVOF
   use MODSussman
+  use variables_mof
 
   Implicit None
   Real(sp), allocatable, Dimension(:,:,:) :: f_beg
@@ -41,9 +42,12 @@ Subroutine zalesak
   Allocate(f_end(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
   Allocate(f_exact(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
 
-  u = -u
-  v = -v
-  w = -w
+  u = - u
+  v = - v
+  w = - w
+  u = u
+  v = v
+  w = w
 
   f_beg = phi
   f_exact = f_beg
@@ -52,8 +56,12 @@ Subroutine zalesak
   ! Call MOFInit3d
   ! MOFNorm => MOFSussmanGaussNewton
 
+  !! For numerical gradient in BFGS
   ! MOFNorm => MOFLemoine_BFGS
   ! ddx = 1.0_sp
+  ! mof_use_symmetric_reconstruction = .false.
+  ! mof3d_internal_is_analytic_gradient_enabled = .false.
+  ! mof3d_use_optimized_centroid = .true.
   ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
 
   MOFNorm => MOFLemoine_GaussNewton
@@ -66,6 +74,7 @@ Subroutine zalesak
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,3)
     Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt

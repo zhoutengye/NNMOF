@@ -5,11 +5,11 @@
 !       (1-2) Norm calculation Central difference
 !       (1-3) Norm calculation Mixed Central difference and Youngs (MYC)
 !       (1-4) Norm calculation MOF interface
-!     (2) Flooding algorithm (VOF Reconstruction)
-!       (2-1) Flooding algorithm backward finding alpha
-!       (2-2) Flooding algorithm backward finding centroid
-!       (2-3) Flooing algorithm forward finding vof
-!       (2-4) Flooding algorithm forward finding vof and centroid
+!     (2) Flood algorithm (VOF Reconstruction)
+!       (2-1) Flood algorithm backward finding alpha
+!       (2-2) Flood algorithm backward finding centroid
+!       (2-3) Flood algorithm forward finding vof
+!       (2-4) Flood algorithm forward finding vof and centroid
 !     (3) MOF Reconstruction
 !       (3-1) MOF reconstruction using quick centroid and Gauss-Newton iteration
 !       (3-2) MOF reconstruction using Lemoine's analytic gradient and Gauss-Newton iteration
@@ -826,6 +826,7 @@ Contains
 
   End Subroutine FloodSZ_forwardC
 
+
   !=======================================================
   ! (3-1) MOF reconstruction using Gauss-Newton iteration
   !     For given vof and centroid, find the best norm
@@ -877,6 +878,7 @@ Contains
     Integer :: i_angle, j_angle, dir, iter, i, j
 
     c_mof = c - 0.5_sp
+
 
     ! Initialize angle
     If(present(Init_Norm))then
@@ -1199,32 +1201,23 @@ Contains
       Call mof3d_compute_analytic_gradient_GN(angle_base, c_mof, vof, dxs, c_diff, Jacobian)
       gradient = 0.0_sp
       hessian = 0.0_sp
-      Do i=1,2
-        Do j=1,2
-          Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
-        EndDo
-        gradient(i) = 2.0_sp * dot_product(c_diff, Jacobian(:,i))
-      EndDo
-      err = 0.5_sp * dot_product(c_diff, c_diff)
-
-
-      !! Begin Gauss Newton
       Singular_flag = 0
       Do i=1,2
         Do j=1,2
-          Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
+          Hessian(i,j) = dot_product(Jacobian(:,i), Jacobian(:,j))
         EndDo
+        gradient(i) = dot_product(c_diff, Jacobian(:,i))
       EndDo
+      err = dot_product(c_diff, c_diff)
 
       det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
       ! Calculate the inverse of the matrix
-      HessianT(1,1) = +Hessian(2,2) / det
-      HessianT(2,1) = -Hessian(2,1) / det
-      HessianT(1,2) = -Hessian(1,2) / det
-      HessianT(2,2) = +Hessian(1,1) / det
+      HessianT(1,1) = + Hessian(2,2) / det
+      HessianT(2,1) = - Hessian(2,1) / det
+      HessianT(1,2) = - Hessian(1,2) / det
+      HessianT(2,2) = + Hessian(1,1) / det
 
-      ! Call matinv2(Hessian, HessianT, det)
-      If (det .lt. 1.0e-10) Then
+      If (det .lt. 1.0e-6) Then
         Singular_flag = 1
       End If
 
@@ -1236,6 +1229,7 @@ Contains
 
       If (singular_flag.eq.1) then
         delangle(1:2)=0.0_sp
+        err = 0.0_sp
       Else
         Do i_angle = 1,2
           If (delangle(i_angle).gt.delta_theta_max) then
@@ -1265,7 +1259,7 @@ Contains
     call Angle2Norm(new_angle,norm)
     Call Normalization1(norm)
 
-    if (f .gt. 0.5_sp) norm = -norm
+    if (f .ge. 0.5_sp) norm = -norm
 
   End Subroutine MOFLemoine_GaussNewton
 
@@ -1340,17 +1334,13 @@ Contains
     ! print *, vof
     Call Normalization2(Norm_2)
     ! norm_2 = - norm_2
-    ! Call Norm2Angle(angle_init,norm_2)
-    Call direction_to_spherical_angles(norm_2, angle_init)
+    Call Norm2Angle(angle_init,norm_2)
+    ! Call direction_to_spherical_angles(norm_2, angle_init)
     ! print *, norm_2
 
     ! volume = vol
     ! ref_centroid = ref_c
     ! angles = ang
-    mof3d_tol_derivative = 1e-10
-    mof3d_max_iter = 20
-    mof_use_symmetric_reconstruction = .false.
-    mof3d_internal_is_analytic_gradient_enabled = .true.
     ! print *, c, f, angle_init
     call mof3d_bfgs(LemoinePoly, c_mof, c_mof, vof, angle_init, norm, nstat, residual)
 
@@ -1369,7 +1359,7 @@ Contains
   End Subroutine MOFLemoine_BFGS
 
   !=======================================================
-  ! (3-3) MOF reconstruction using numerical gradient and BFGS 
+  ! (3-4) MOF reconstruction using numerical gradient and BFGS 
   !     For given vof and centroid, find the best norm
   !    Sussman's original MOF version
   !    uses computational geometry algorithm to find the centroid
@@ -1444,6 +1434,50 @@ Contains
     norm(1:3) = -norm
 
   End Subroutine MOFSussmanGaussNewton
+
+  !=======================================================
+  ! (3-5) MOF reconstruction using Machine Learning
+  !     For given vof and centroid, find the best norm
+  ! Key steps:
+  !   - Convert to local region
+  !   - Calculate the gradient using machine learning
+  !   - Flip the normal vector
+  !-------------------------------------------------------
+  ! Input:
+  !      f: vof function
+  !      c: centroid (cx, cy, cz)
+  ! Optional Input:
+  !      init_norm: Initial guess of the normal vector
+  ! Output:
+  !      norm: vof function
+  !=======================================================
+  ! Subroutine MOFNN(f, c, norm, Init_Norm)
+  !   Implicit None
+  !   Real(sp) :: flip(3)
+  !   Real(sp) :: symmetric
+  !   Real(sp) :: c_mof(3)
+
+  !   c = c - 0.5_sp
+  !   If ( f .ge. 0.5_sp ) Then
+  !     symmetric = - 1.0_sp
+  !   Else
+  !     symmetric = 1.0_sp
+  !   endif
+  !   Do i = 1,3
+  !     If ( c(i) < 0.0_sp ) Then
+  !       flip(i) = .false.
+  !       c_mof(i) = c(i)
+  !     Else
+  !       flip(i) = .true.
+  !       c_mof(i) = - c(i)
+  !     End Do
+  !   End Do
+
+  !   Do i = 1,3
+  !     Norm(i) = Norm(i) * flip(i) * symmetric
+  !   End Do
+
+  ! End Subroutine MOFNN
 
 
   !=======================================================
