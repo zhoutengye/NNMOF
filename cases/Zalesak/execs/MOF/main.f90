@@ -53,9 +53,11 @@ Subroutine zalesak
   f_exact = f_beg
 
  
+  !!! =====Method 1, Sussman numerical gradient, GaussNewton=========
   ! Call MOFInit3d
   ! MOFNorm => MOFSussmanGaussNewton
 
+  !!! =====Method 2, Lemoine numerical gradient, BFGS=========
   !! For numerical gradient in BFGS
   ! MOFNorm => MOFLemoine_BFGS
   ! ddx = 1.0_sp
@@ -64,9 +66,22 @@ Subroutine zalesak
   ! mof3d_use_optimized_centroid = .true.
   ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
 
+  !!! =====Method 3, Lemoine analytic gradient, BFGS=========
+  !! For numerical gradient in BFGS
+  ! MOFNorm => MOFLemoine_BFGS
+  ! ddx = 1.0_sp
+  ! mof_use_symmetric_reconstruction = .false.
+  ! mof3d_internal_is_analytic_gradient_enabled = .true.
+  ! mof3d_use_optimized_centroid = .true.
+  ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
+
+  !!! =====Method 4, Lemoine analytic gradient, Gauss Newton=========
+  !  with little issue. Basically, the singular of det matters
+  !  may chan the det criterion in line 1220
   MOFNorm => MOFLemoine_GaussNewton
 
-  ! MOFNorm => MOFZY
+  !!! =====Method 5, My numerical gradient, Gauss Newton=========
+  MOFNorm => MOFZY
 
   ! VOF advection
   Call CPU_Time(tt1)
