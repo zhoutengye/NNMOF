@@ -1,4 +1,4 @@
-compiler   = intel
+compiler   = gnu
 EXEC       = MOF-zalesak.exec
 FC         = mpif90
 DEBUG      = false

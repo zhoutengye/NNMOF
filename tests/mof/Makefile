@@ -1,4 +1,4 @@
-compiler   = gnu
+compiler   = intel
 EXEC       = MOF
 FC         = mpif90
 DEBUG      = false

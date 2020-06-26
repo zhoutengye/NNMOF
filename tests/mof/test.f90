@@ -99,9 +99,9 @@ Subroutine test1
   ! init_norm = (/ 1.0/1.0_sp, 1.0/8.0_sp, 1.0/8.0_sp /)
 
   f = 1.0/12.0_sp
-  c = (/ 1.0/4.0_sp, 1.0/4.0_sp, 1.0/8.0_sp /)
-  f = 11.0/12.0_sp
-  c = (0.5_sp - (1-f)*c) / f
+  c = (/ 3.0/4.0_sp, 1.0/4.0_sp, 7.0/8.0_sp /)
+  ! f = 11.0/12.0_sp
+  ! c = (0.5_sp - (1-f)*c) / f
 
 
   !  --------------Different initial guess
@@ -124,8 +124,8 @@ Subroutine test1
     init_norm = (/ 1.0/2.0_sp, 1.0/2.0_sp,  1.0/3.0_sp /)
     Do ii = 1, nnn
       init_norm = init_norm + 0.001
-      ! Call MOFZY(f,c,norm)
-      Call MOFZY(f,c,norm,init_norm)
+      Call MOFZY(f,c,norm)
+      ! Call MOFZY(f,c,norm,init_norm)
       nnn2 = nnn2 + mof_niter
     End Do
     Call cpu_time(ttt2)
