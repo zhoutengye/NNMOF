@@ -1152,7 +1152,7 @@ Contains
     Real(sp) :: det
 
     dxs = 1.0_sp
-    delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+    delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
     if (f .ge. 0.5_sp) then
       vof = 1.0_sp - f
@@ -1173,14 +1173,9 @@ Contains
 
     Call Normalization2(Norm_2)
     Call Norm2Angle(angle_init,norm_2)
-    ! Initialize other data
     do dir=1,2
       angle_array(dir,1)= angle_init(dir)
     enddo
-    ! print *, angle_init
-    ! print *, c
-    ! print *, f
-    ! print *, dxs
     Call mof3d_compute_analytic_gradient_GN(angle_init, c_mof, vof, dxs, c_diff, Jacobian)
     err = dot_product(c_diff, c_diff)
     do dir=1,3
@@ -1192,7 +1187,7 @@ Contains
     ! print *, err
     ! print *, iter, err, err_local_min
     mof_niter = 0
-    Do While ((iter.lt.MOFITERMAX).and. (err.gt.tol))
+    Do While ((iter.lt.MOFITERMAX) .and. (err.gt.tol))
 
       Do i_angle=1,2
         angle_base(i_angle) = angle_array(i_angle, iter+1)
@@ -1217,7 +1212,7 @@ Contains
       HessianT(1,2) = - Hessian(1,2) / det
       HessianT(2,2) = + Hessian(1,1) / det
 
-      If (det .lt. 1.0e-6) Then
+      If (det .lt. 1.0e-10) Then
         Singular_flag = 1
       End If
 

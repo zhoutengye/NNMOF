@@ -78,10 +78,10 @@ Subroutine zalesak
   !!! =====Method 4, Lemoine analytic gradient, Gauss Newton=========
   !  with little issue. Basically, the singular of det matters
   !  may chan the det criterion in line 1220
-  MOFNorm => MOFLemoine_GaussNewton
+  ! MOFNorm => MOFLemoine_GaussNewton
 
   !!! =====Method 5, My numerical gradient, Gauss Newton=========
-  MOFNorm => MOFZY
+   MOFNorm => MOFZY
 
   ! VOF advection
   Call CPU_Time(tt1)
