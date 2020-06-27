@@ -1,7 +1,0 @@
-&tree_Parameters
-    node_count = 2043
-    n_features = 3
-    n_outputs = 3
-    max_depth = 10
-/
-
