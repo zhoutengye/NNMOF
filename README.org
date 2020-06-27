@@ -11,9 +11,10 @@ The code need several run-time libraries:
 - hypre
 - Two external MOF libraries (Use to compare with my algorithm)
 
-### Easy installation
+*** Easy installation
 When you work with UNIX based OS, for example, Ubuntu/Linux Mint, 
-with gcc, gfortran, mpi installed from **apt-get**, you should be able to build the essential run-time libraries by
+with =gcc=, =gfortran=, =mpich/openmpi= installed from =apt-get=, 
+you should be able to build the essential run-time libraries by
 
 #+begin_src bash
 bash libs-install.sh
