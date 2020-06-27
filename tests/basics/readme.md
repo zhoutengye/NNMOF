@@ -1,6 +1,3 @@
-you have to copy 'param.h' from the src first
-
-
 make single file with 
 	make
 

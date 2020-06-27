@@ -1,27 +1,19 @@
-TEST_NUM = 4
-MOF_DIR    = ../..
+MOF_DIR    = ../../../../
 compiler   = gnu
-EXEC       = TEST
+EXEC       = Zalesak-mof
 FC         = mpif90
-DEBUG      = true
+DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path
 # HDF5_DIR   = $(HOME)/hdf5/$(compiler)
 # HYPRE_DIR  = $(HOME)/hypre/$(compiler)
 
-CASE_SRCS = test.f90
+CASE_SRCS = main.f90
 
 #-----------Include essential files---------------
 include $(MOF_DIR)/Make-Essential
 
-# Case specific makefile variables
-CPP := $(CPP) -DTEST$(TEST_NUM)
-EXEC       = TEST-$(TEST_NUM)
-
-# If external libraries needed, append after following lines
-LIBS := $(LIBS)
-INCS := $(INCS)
 
 #-----------Make the executable---------------
 $(EXEC): $(OBJS)
@@ -49,5 +41,4 @@ print-%  : ; @echo $* = $($*)
 check-env:
 	mpif90 --version
 	mpirun --version
-
 
