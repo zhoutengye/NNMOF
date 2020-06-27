@@ -28,6 +28,10 @@ There are visualization tool available, which replies on **h5py** and **mayavi**
 ### Makefile
 
 See the Makefile in **test/basics** directory as the example to see how to customize makefile.
+
+The code in ***src** directory does not contain main file, 
+the main file and other extra coe file should be added to the name 
+`CASE_SRCS` and makefile.
  
 
 ### Run the code
@@ -65,7 +69,7 @@ direction, `bound_type` is the type of boundary conditoin, 1 means Dilichlet, 2 
 -   [X] Basic MPI from CaNS
 -   [X] VOF-PLIC
 
-### Basic MOF<code>[6/6]</code>
+### Fast MOF<code>[6/6]</code>
 -   [X] Advection of centroid
 -   [X] MOFSussman
 -   [X] MOFLemoineAnalyticBFGS
@@ -73,23 +77,12 @@ direction, `bound_type` is the type of boundary conditoin, 1 means Dilichlet, 2 
 -   [X] MOFLemoineNumericalBFGS
 -   [X] Efficient MOF
 
-### MOF <code>[0/3]</code>
-
+### NNMOF <code>[0/3]</code>
 -   [ ] Fkeas
 -   [ ] MOF forward data generation
 -   [ ] Parameters optimization
 
-
-### Numerical tests<code>[0/4]</code>
-
--   [ ] Analytic slope
--   [ ] Resoncnstruction
--   [ ] Zalesak
--   [ ] Single vortex
-
-
-### Write paper<code>[0/3]</code>
-
--   [ ] Abstract and introduction
--   [ ] Describe method
--   [ ] Numerical tests
+### Navier-Stokes Solver <code>[1/3]</code>
+-   [X] Flow solver
+-   [ ] Debug flow solver
+-   [ ] FSI
