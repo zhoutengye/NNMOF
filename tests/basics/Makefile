@@ -1,45 +1,53 @@
-EXEC       = VOF
+TEST_NUM = 4
+MOF_DIR    = ../..
+compiler   = gnu
+EXEC       = TEST
 FC         = mpif90
 DEBUG      = true
-VERBOSE    = false
-TEST_NUM   = 4
-DIMENSION  = TWO_DIMENSIONAL
 PRECISION  = DOUBLE_PRECISION
-# HDF5_DIR   = $(HOME)/hdf5/gnu
-HDF5_DIR = $(HOME)/HPC/gnu/hdf5
 
-SRC_DIR = ../../src
-SRCS = $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/mof_lemoine.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90 test.f90
-CPP = -cpp -D$(DIMENSION) -D$(PRECISION) -DTEST$(TEST_NUM)
-ifeq ($(DEBUG), true)
-        FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
-#        FC_OPT = -O3
-        EXEC:= TEST-$(TEST_NUM)
-else
-        EXEC:= $(EXEC)_$(DIMENSION)
-        FC_OPT = -O3
-endif
+# Uncomment to customize the path of HDF5 and hypre path
+# HDF5_DIR   = $(HOME)/hdf5/$(compiler)
+# HYPRE_DIR  = $(HOME)/hypre/$(compiler)
 
-ifeq ($(VERBOSE), true)
-	CPP := $(CPP) -DVERBOSE
-endif
+CASE_SRCS = test.f90
 
-LIBS = -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm 
-INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR) 
+#-----------Include essential files---------------
+include $(MOF_DIR)/Make-Essential
 
-# rule for *.f90 to *.o
-.SUFFIXES: .o .f90
-OBJS = $(SRCS:.f90=.o)
-OBJS_TESTS = $(SRCS_TESTS:.f90=.o)
-.f90.o:
-	$(FC) -c $(CPP) $(FC_OPT) $(FFLAGS) $(INCS) $*.f90
+# Case specific makefile variables
+CPP := $(CPP) -DTEST$(TEST_NUM)
+EXEC       = TEST-$(TEST_NUM)
 
-# after all .o is gathered, link and generate the executable
+# If external libraries needed, append after following lines
+LIBS := $(LIBS)
+INCS := $(INCS)
+
+#-----------Make the executable---------------
 $(EXEC): $(OBJS)
-	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  *.o $(LIBS)
+	$(FC)  $(FC_OPT) $(INCS) -o $(EXEC)  $(OBJS) $(LIBS)
 
+#-----------Clean redundent files---------------
 clean:
 	rm -f *.o
+	rm -f $(SRC_DIR)/*.o
+	rm -f *.mod
+	rm -f *mod.f90
+
+clobber:
+	rm -f *.o
+	rm -f $(SRC_DIR)/*.o
 	rm -f *.mod
 	rm -f *mod.f90
 	rm -f $(EXEC)
+
+
+#--------------Print the value of Make variable-------
+print-%  : ; @echo $* = $($*)
+
+#--------------Check the compiler and mpi version-----
+check-env:
+	mpif90 --version
+	mpirun --version
+
+

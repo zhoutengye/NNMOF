@@ -873,7 +873,6 @@ Contains
     Real(sp), Dimension(MOFITERMAX+1)   :: err_array
 
     Real(sp) :: err, err_local_min
-    Real(sp) :: scale
     Integer :: singular_flag
     Integer :: i_angle, j_angle, dir, iter, i, j
 
@@ -901,7 +900,7 @@ Contains
       cen_array(dir,1)=cen_init(dir)
       err_array(1)=err_array(1) + d_array(dir,1) * d_array(dir,1)
     enddo
-    delta_theta = MOF_Pi / 180.0_sp  ! 1 degree=pi/180
+    delta_theta = MOF_Pi / 1800.0_sp  ! 1 degree=pi/180
     delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
     iter = 0
@@ -985,6 +984,7 @@ Contains
       Do i=1,2
         delangle(i) = - dot_product(HessianT(:,i), gradient)
       End Do
+
       !! End Gauss Newton
       ! call GaussNewton(Jacobian, gradient, 3, 2, delangle, Singular_flag)
 
@@ -1140,7 +1140,6 @@ Contains
     Real(sp), Dimension(MOFITERMAX+1)   :: err_array
 
     Real(sp) :: err
-    Real(sp) :: scale
     Integer :: singular_flag
     Integer :: i_angle, dir, iter, i, j
     Real(sp) :: dxs(3)
@@ -1152,7 +1151,7 @@ Contains
     Real(sp) :: det
 
     dxs = 1.0_sp
-    delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+    delta_theta_max = 4.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
     if (f .ge. 0.5_sp) then
       vof = 1.0_sp - f
@@ -1286,22 +1285,9 @@ Contains
     Real(sp) :: c_mof(3)
     Real(sp), Dimension(3)   :: norm_2
     Real(sp) :: delta_theta_max
-    Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
-    Real(sp), Dimension(2)   :: angle_base
-    Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
-    Real(sp), Dimension(MOFITERMAX+1)   :: err_array
+    Real(sp), Dimension(2)   :: angle_init
 
-    Real(sp) :: err
-    Real(sp) :: scale
-    Integer :: singular_flag
-    Integer :: i_angle, dir, iter, i, j
     Real(sp) :: dxs(3)
-    Real(sp) :: c_diff(3)
-    Real(sp) :: gradient(2)
-    Real(sp) :: Jacobian(3,2)
-    Real(sp) :: Hessian(2,2)
-    Real(sp) :: HessianT(2,2)
-    Real(sp) :: det
     Integer :: nstat(2)
     Real(sp) :: residual(2)
 
@@ -1378,7 +1364,6 @@ Contains
     Real(8)  :: c_mof(3)
     Real(8), Dimension(-1:1,-1:1,-1:1,1) :: ls_mof, lsnormal
     Real(8) :: norm_2(3)
-    Real(8) :: scale
     Integer :: lsnormal_valid(1)
     Real(8) :: npredict(3)
     Real(8) :: intercept
@@ -1537,27 +1522,27 @@ Contains
 
     poly%face(1)%size = 4
     allocate(poly%face(1)%id(poly%face(1)%size))
-    poly%face(1)%id = [8, 4, 2, 6]
+    poly%face(1)%id(1:4) = [8, 4, 2, 6]
 
     poly%face(2)%size = 4
     allocate(poly%face(2)%id(poly%face(2)%size))
-    poly%face(2)%id= [8, 6, 5, 7]
+    poly%face(2)%id(1:4) = [8, 6, 5, 7]
 
     poly%face(3)%size = 4
     allocate(poly%face(3)%id(poly%face(3)%size))
-    poly%face(3)%id = [8, 7, 3, 4]
+    poly%face(3)%id(1:4) = [8, 7, 3, 4]
 
     poly%face(4)%size = 4
     allocate(poly%face(4)%id(poly%face(4)%size))
-    poly%face(4)%id = [4, 3, 1, 2]
+    poly%face(4)%id(1:4) = [4, 3, 1, 2]
 
     poly%face(5)%size = 4
     allocate(poly%face(5)%id(poly%face(5)%size))
-    poly%face(5)%id = [1, 3, 7, 5]
+    poly%face(5)%id(1:4) = [1, 3, 7, 5]
 
     poly%face(6)%size = 4
     allocate(poly%face(6)%id(poly%face(6)%size))
-    poly%face(6)%id = [2, 1, 5, 6]
+    poly%face(6)%id(1:4) = [2, 1, 5, 6]
 
     call cg3_complete_polyhedron_structure(poly, error_id)
   end subroutine Lemoine_create_cuboid

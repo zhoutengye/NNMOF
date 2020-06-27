@@ -13,6 +13,8 @@ docs/ltximg/
 *TEST-3
 *.exec
 *.a
+libs/hypre/*
+libs/hdf5*
 
 *.aux
 *.fdb_latexmk

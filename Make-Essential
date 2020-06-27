@@ -1,0 +1,43 @@
+SRC_DIR = $(MOF_DIR)/src
+
+CPP = -cpp -D$(PRECISION)
+
+LEMOINE_DIR = $(MOF_DIR)/libs/MOFLemoine/$(compiler)
+SUSSMAN_DIR = $(MOF_DIR)/libs/MOFSussman/$(compiler)
+MOFLIBS = $(LEMOINE_DIR)/lemoinemof.a $(SUSSMAN_DIR)/libmof.a
+MOFINCS = -I$(LEMOINE_DIR) -I$(SUSSMAN_DIR)
+
+
+# Hypre library
+ifeq ($(HDF5_DIR),)
+	HDF5_DIR = $(MOF_DIR)/libs/hdf5-1.12.0/hdf5
+endif
+HYPRELIBS = -L$(HYPRE_DIR)/lib -lHYPRE -lm
+HYPREINCS = -I$(HYPRE_DIR)/include
+
+# HDF5 library
+ifeq ($(HYPRE_DIR),)
+	HYPRE_DIR  = $(MOF_DIR)/libs/hypre/src/hypre
+endif
+HDF5LIBS =  -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm
+HDF5INCS = -I$(HDF5_DIR)/include -I$(SRC_DIR)
+
+LIBS = $(HDF5LIBS) $(HYPRELIBS) $(MOFLIBS)
+INCS = $(HDF5INCS) $(HYPREINCS) $(MOFINCS) -I$(SRC_DIR)
+
+ifeq ($(DEBUG), true)
+        FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
+        EXEC:= DEBUG-$(EXEC)
+else
+        FC_OPT = -O3
+endif
+
+CORE_SRCS := $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90  $(SRC_DIR)/hypre.f90 $(SRC_DIR)/ns.f90
+
+SRCS := $(CORE_SRCS) $(CASE_SRCS)
+OBJS := $(patsubst %.f90,%.o,$(SRCS))
+
+.SUFFIXES: .o .f90
+
+%.o : %.f90
+	$(FC) -c $(CPP) $(FC_OPT) $(INCS) $(MODS) $*.f90 -o $*.o
