@@ -1,6 +1,6 @@
-LIB_DIR = intel
-FC = ifort
-FCOPT = -O2
+LIB_DIR = gnu
+FC = gfortran
+FCOPT = -O3
 DIM = 3
 
 OPTFLAG = -g -O3 -fimplicit-none
