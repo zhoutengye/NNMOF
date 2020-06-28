@@ -1,4 +1,4 @@
-git clone git@github.com:LLNL/hypre.git
+git clone https://github.com/hypre-space/hypre.git
 cd hypre/src
 ./configure 
 make install
