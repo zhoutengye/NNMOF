@@ -7,7 +7,7 @@ make all tests with
 Note: the every test may use different HDF5 input file. See the ipynb file
 
 test sctipts:
-	mpirun -np 4 --oversubscribe ./TEST-1 test1
+	mpirun -np 4 --oversubscribe ./TEST-1
 	mpirun -np 4 --oversubscribe ./TEST-2 test2
 	mpirun -np 4 --oversubscribe ./TEST-3 test3
 	mpirun -np 4 --oversubscribe ./TEST-4 test4
