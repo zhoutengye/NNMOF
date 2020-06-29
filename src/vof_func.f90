@@ -828,6 +828,65 @@ Contains
 
 
   !=======================================================
+  ! (2-4) Forward flooding algorithm of SZ finding f and centroid
+  ! FIND THE "CUT VOLUME" V0
+  ! for GIVEN
+  !    r0, dr0
+  !  and
+  !    m1 x1 + m2 x2 + m3 x3 = alpha
+  !
+  ! Adopted from Paris simulator by Zaleski
+  ! Used in:
+  !     MOF advection
+  !-------------------------------------------------------
+  ! Input:
+  !      nr: normal vector(nx, ny, nz)
+  !      alpha: alpha
+  !      x0: the origin (x0,y0,z0)
+  !      dx: dimension of the cell (dx0,dy0,dz0)
+  ! Output:
+  !      f: vof function
+  !      xc0: centroid (cx, cy, cz)
+  !=======================================================
+  SUBROUTINE THINC1DForward(x_center, alpha, beta, udt, dx, flux)
+
+    IMPLICIT NONE
+    REAL(8), INTENT(IN) :: x_center, alpha, beta, ude, dx
+    REAL(8), INTENT(OUT) :: flux
+    REAL(8) :: ctd0(3)
+    REAL(8) :: al,almax,alh,alr,np1,np2,np3,m1,m2,m3,m12,mm,denom
+    REAL(8) :: tmp1,tmp2,tmp3,tmp4,a2,bot1,frac
+    REAL(8), PARAMETER :: eps0=1.d-50
+    INTEGER :: ind(3)
+    INTRINSIC DMAX1,DMIN1,DABS
+
+    x_center = 0.5d0 / beta * dlog( ( a3 * a3 - a1 * a3 ) / ( a1 * a3 - 1.0d0 ) )
+    a4 = dcosh( beta * ( Dble(ksgn) - udt - x_center ) )
+    a5 = dcosh( beta * ( Dble(ksgn) - x_center ) )
+
+    Flux = 0.5d0 * (  - alpha * dx / beta * dlog( a4 / a5 ) )
+
+    Flux(i,j,k) = 0.5d0 * ( udt - alpha * Dx / beta * dlog( a4 / a5 ) )
+
+  End Subroutine THINC1DForward
+
+  SUBROUTINE THINC1DBackward(f, beta, x_center)
+
+    IMPLICIT NONE
+    REAL(8), INTENT(IN) :: f
+    REAL(8), INTENT(IN) :: beta
+    REAL(8), INTENT(OUT) :: x_center
+    Real(8) :: a1, d3, xc
+
+    a1 = dexp( beta * ( 2.0 * f - 1.0d0 ) )
+    a3 = dexp(beta)
+    x_center = 0.5d0 / beta * dlog( ( a3 * a3 - a1 * a3 ) / ( a1 * a3 - 1.0d0 ) )
+
+  End Subroutine THINC1DBackward
+
+
+
+  !=======================================================
   ! (3-1) MOF reconstruction using Gauss-Newton iteration
   !     For given vof and centroid, find the best norm
   ! Key steps:
