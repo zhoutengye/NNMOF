@@ -18,8 +18,9 @@ OBJS = $(SRCS:.f90=.o)
 $(MOFLIB): $(OBJS)
 	mkdir -p $(INSTALL_DIR)
 	ar -crv $(MOFLIB) $(OBJS)
-	cp *.a $(INSTALL_DIR)
-	cp *.mod $(INSTALL_DIR)
+	mv *.a $(INSTALL_DIR)
+	mv *.mod $(INSTALL_DIR)
+	make clean
 
 clean:
 	rm -f *.o

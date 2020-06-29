@@ -13,7 +13,7 @@ docs/ltximg/
 *TEST-4
 *.exec
 *.a
-libs/hypre/*
+libs/hypre
 libs/hdf5*
 
 *.aux
