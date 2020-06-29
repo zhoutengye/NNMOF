@@ -4,12 +4,12 @@
 !       (1-1) VOF-CIAM (Lagrangian)
 !       (1-2) VOF-WY (Eulerian)
 !       (1-3) MOF-CIAM (Lanrangian)
-!       (1-4) MOF-WY (Eulerian) 
-!     (2) Directional split VOF/MOF advection
-!       (1-1) VOF-CIAM (Lagrangian)
-!       (1-2) VOF-WY (Eulerian)
-!       (1-3) MOF-CIAM (Lanrangian) (!!! NOT WORKING FOR NON-UNIFORM VELOCITY FIELD)
 !       (1-4) MOF-WY (Eulerian)
+!     (2) Directional split VOF/MOF advection
+!       (2-1) VOF-CIAM (Lagrangian)
+!       (2-2) VOF-WY (Eulerian)
+!       (2-3) MOF-CIAM (Lanrangian) (!!! NOT WORKING FOR NON-UNIFORM VELOCITY FIELD)
+!       (2-4) MOF-WY (Eulerian)
 !     (3) Advection of centroid
 !       (3-1) Langrangian advection
 !       (3-2) Eulerian advection
@@ -52,13 +52,13 @@ Contains
       call AdvCIAM(v, phi, nl, dl, dt, 2)
       call AdvCIAM(w, phi, nl, dl, dt, 3)
     else if (rank == 1) Then
-      call AdvCIAM(u, phi, nl, dl, dt, 2)
-      call AdvCIAM(v, phi, nl, dl, dt, 3)
-      call AdvCIAM(w, phi, nl, dl, dt, 1)
+      call AdvCIAM(v, phi, nl, dl, dt, 2)
+      call AdvCIAM(w, phi, nl, dl, dt, 3)
+      call AdvCIAM(u, phi, nl, dl, dt, 1)
     else if (rank == 2) Then
-      call AdvCIAM(u, phi, nl, dl, dt, 3)
-      call AdvCIAM(v, phi, nl, dl, dt, 1)
-      call AdvCIAM(w, phi, nl, dl, dt, 2)
+      call AdvCIAM(w, phi, nl, dl, dt, 3)
+      call AdvCIAM(u, phi, nl, dl, dt, 1)
+      call AdvCIAM(v, phi, nl, dl, dt, 2)
     endif
   End Subroutine VOFCIAM
 
@@ -77,13 +77,13 @@ Contains
       call AdvWY(v, phi, nl, dl, dt, 2)
       call AdvWY(w, phi, nl, dl, dt, 3)
     else if (rank == 1) Then
-      call AdvWY(u, phi, nl, dl, dt, 2)
-      call AdvWY(v, phi, nl, dl, dt, 3)
-      call AdvWY(w, phi, nl, dl, dt, 1)
+      call AdvWY(v, phi, nl, dl, dt, 2)
+      call AdvWY(w, phi, nl, dl, dt, 3)
+      call AdvWY(u, phi, nl, dl, dt, 1)
     else if (rank == 2) Then
-      call AdvWY(u, phi, nl, dl, dt, 3)
-      call AdvWY(v, phi, nl, dl, dt, 1)
-      call AdvWY(w, phi, nl, dl, dt, 2)
+      call AdvWY(w, phi, nl, dl, dt, 3)
+      call AdvWY(u, phi, nl, dl, dt, 1)
+      call AdvWY(v, phi, nl, dl, dt, 2)
     endif
   End Subroutine VOFWY
 
@@ -142,6 +142,31 @@ Contains
       call AdvWY_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
     end if
   End Subroutine MOFWY
+
+  Subroutine VOFTHINC(Phi, u, v, w, nl, dl, dt, rank)
+  Implicit None
+  Real(sp) :: dt
+  Integer,Intent(In)     :: nl(3)
+  Real(sp),Intent(In)    :: dl(3)
+  Real(sp),Intent(InOut)    :: Phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Real(sp),Intent(In)       :: u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Integer :: rank
+  if (rank == 0) Then
+    call AdvTHINC(u, phi, nl, dl, dt, 1)
+    call AdvTHINC(v, phi, nl, dl, dt, 2)
+    call AdvTHINC(w, phi, nl, dl, dt, 3)
+  else if (rank == 1) Then
+    call AdvTHINC(v, phi, nl, dl, dt, 2)
+    call AdvTHINC(w, phi, nl, dl, dt, 3)
+    call AdvTHINC(u, phi, nl, dl, dt, 1)
+  else if (rank == 2) Then
+    call AdvTHINC(w, phi, nl, dl, dt, 3)
+    call AdvTHINC(u, phi, nl, dl, dt, 1)
+    call AdvTHINC(v, phi, nl, dl, dt, 2)
+  endif
+End Subroutine VOFTHINC
 
 
 !=======================================================
@@ -348,6 +373,120 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
   !***
   return
 End Subroutine AdvWY
+
+Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
+  ! Use ModVOFFunc
+  Implicit None
+  Integer :: dir
+  Real(sp) :: dt
+  Integer,Intent(In)     :: nl(3)
+  Real(sp),Intent(In)    :: dl(3)
+  Real(sp),Intent(In)    :: us(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Real(sp),Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Integer  :: i, j, k, ii, jj, kk, ic1, ic2, ic3
+  Real(sp) :: a1,a2, beta, gamma, betagamma2, x_center
+  Real(sp) :: x0(3), deltax(3)
+  Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof2,vof3
+  Real(sp) :: norm(3)
+  Real(sp) :: f_block(3,3,3)
+  ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
+  Real(sp) :: EPSC = 1.0e-12
+
+  ! default, f = 0
+  vof1 = 0.0_sp
+  vof2 = 0.0_sp
+  vof3 = 0.0_sp
+
+  if (dir.eq.1)  then
+    ii  = 1; ic1 = 1; ic2 = 2; ic3 = 3
+  else
+    ii = 0
+  end if
+  if (dir.eq.2)  then
+    jj  = 1; ic1 = 2; ic2 = 3; ic3 = 1
+  else; jj = 0
+  end if
+  if (dir.eq.3)  then
+    kk  = 1; ic1 = 3; ic2 = 1; ic3 = 2
+  else; kk = 0
+  end if
+
+  !***
+  do k=1,nl(3)
+    do j=1,nl(2)
+      do i=1,nl(1)
+        a1 = us(i,j,k) *dt/dl(1)
+        a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
+
+        ! f = 1
+        if (f(i,j,k) .GE. 1.0_sp-epsc) then
+          vof1(i,j,k) = DMAX1(-a1,0.0_sp)
+          vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
+          vof3(i,j,k) = DMAX1(a2,0.0_sp)
+
+        ! 0 < f < 1
+        else if (f(i,j,k) .GT. 0.0_sp) then
+          !*(1)* normal vector
+          f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
+          Call NormMYCS(f_block, norm)
+          Call Normalization2(norm)
+          !*(2) determine gamma
+          if (norm(dir) .gt. 0) Then
+            gamma = 1.0_sp
+          else
+            gamma = -1.0_sp
+          endif
+          ! beta = 2.3_sp * dabs(norm(1)) + 0.01_sp
+          beta = 3.5_sp
+          betagamma2 = 2.0_sp * beta * gamma
+          x_center = THINC1DBackward(f(i,j,k), betagamma2)
+          ! print *, betagamma2, x_center
+          !*(3) get fluxes
+          x0=0.0_sp; deltax=1.0_sp
+          if (a1 .LT. 0.0_sp) then
+            x0(dir)=0;
+            deltax(dir)=-a1
+            vof1(i,j,k) = THINC1DForward(x_center, betagamma2, x0(dir), deltax(dir))
+          end if
+          if (a2 .GT. 0.0_sp) then
+            x0(dir)=1.0_sp-a2;
+            deltax(dir)=a2
+            vof3(i,j,k) = THINC1DForward(x_center, betagamma2, x0(dir), deltax(dir))
+          end if
+          x0(dir) = DMAX1(-a1,0.0_sp)
+          deltax(dir) = 1.0_sp - x0(dir) - DMAX1(0.0_sp,a2)
+          vof2(i,j,k) = THINC1DForward(x_center, betagamma2, x0(dir), deltax(dir))
+          ! print *, vof1(i,j,k), vof2(i,j,k), vof3(i,j,k)
+          vof2(i,j,k) = THINC1DForward(x_center, betagamma2, 0.0_sp, 1.0_sp)
+          print *, x_center, f(i,j,k), vof2(i,j,k)
+          read(*,*)
+        endif
+      enddo
+    enddo
+  enddo
+
+  ! apply proper boundary conditions to vof1, vof2, vof3
+  call phi_bc%setBCS(vof1)
+  call phi_bc%setBCS(vof2)
+  call phi_bc%setBCS(vof3)
+  !new values of c and  clip it: 0. <= c <= 1.
+  do k=1,nl(3)
+    do j=1,nl(2)
+      do i=1,nl(1)
+        f(i,j,k) = vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk)
+        if (f(i,j,k) < EPSC) then
+          f(i,j,k) = 0.0_sp
+        elseif ( f(i,j,k) >  (1.d0 - EPSC)) then
+          f(i,j,k) = 1.0_sp
+        endif
+      enddo
+    enddo
+  enddo
+  ! apply proper boundary conditions to c
+  call phi_bc%setBCS(f)
+  !***
+  return
+End Subroutine AdvTHINC
 
 !=======================================================
 ! Advection algorithm of CIAM MOF

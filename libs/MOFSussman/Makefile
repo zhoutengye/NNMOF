@@ -11,6 +11,9 @@ CPPFLAG = -DBL_LANG_FORT -DBL_SPACEDIM=$(DIM) -DBL_FORT_USE_UNDERSCORE -DBL_LINU
 SRCS = PROBCOMMON.F90 tetrahedron_keast_rule.F90 triangle_fekete_rule.F90 GLOBALUTIL.F90 MOF.F90 modmof.F90
 OBJS = $(SRCS:.F90=.o)
 
+.F90.o:
+	$(FC) -c -cpp $(CPPFLAG) $(OPTFLAG) -I. $*.F90
+
 # after all .o is gathered, link and generate the executable
 
 libmof: $(OBJS)
@@ -18,15 +21,8 @@ libmof: $(OBJS)
 	ar rcs libmof.a $(OBJS)
 	cp *.mod $(LIB_DIR)
 	cp *.a $(LIB_DIR)
+	make clean
 
-EXEC = MOF.ex
-$(EXEC): $(OBJS)
-	$(FC) $(OPTFLAG) -o $(EXEC) $(OBJS) 
-
-$dt: $(OBJS)
-
-.F90.o:
-	$(FC) -c -cpp $(CPPFLAG) $(OPTFLAG) -I. $*.F90
 
 clean:
 	rm -f *.o

@@ -4,7 +4,6 @@
 !       (1-1) Norm calculation Parker and Youngs
 !       (1-2) Norm calculation Central difference
 !       (1-3) Norm calculation Mixed Central difference and Youngs (MYC)
-!       (1-4) Norm calculation MOF interface
 !     (2) Flood algorithm (VOF Reconstruction)
 !       (2-1) Flood algorithm backward finding alpha
 !       (2-2) Flood algorithm backward finding centroid
@@ -37,9 +36,12 @@
 !         | MOFLemoine-BFGS   ! 0,0,0            | 1,1,1             |
 !         | MOFLemoine-GN     ! 0,0,0            | 1,1,1             |
 !         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
-!    In MOF interface (1.4) shifts the origin.
-!
 !    While calling those functions, be carefully about the grid origin and size
+!
+!   A procefure pointer MOFNorm is used to determine which MOF to choose,
+!   by default, it is pointed to MOFZY. To change the target function, for example
+!   to MOFSussmanGaussNewton, use the following sentence in code
+!        MOFNorm => MOFSussmanGaussNewton
 !=================
 Module ModVOFFunc
   Use ModGlobal, only : sp
@@ -828,7 +830,7 @@ Contains
 
 
   !=======================================================
-  ! (2-4) Forward flooding algorithm of SZ finding f and centroid
+  ! (2-5) Forward flooding algorithm of SZ finding f and centroid
   ! FIND THE "CUT VOLUME" V0
   ! for GIVEN
   !    r0, dr0
@@ -848,41 +850,31 @@ Contains
   !      f: vof function
   !      xc0: centroid (cx, cy, cz)
   !=======================================================
-  SUBROUTINE THINC1DForward(x_center, alpha, beta, udt, dx, flux)
+  Real(8) Function THINC1DForward(x_center, betagamma2, x0, deltax)
 
-    IMPLICIT NONE
-    REAL(8), INTENT(IN) :: x_center, alpha, beta, ude, dx
-    REAL(8), INTENT(OUT) :: flux
-    REAL(8) :: ctd0(3)
-    REAL(8) :: al,almax,alh,alr,np1,np2,np3,m1,m2,m3,m12,mm,denom
-    REAL(8) :: tmp1,tmp2,tmp3,tmp4,a2,bot1,frac
-    REAL(8), PARAMETER :: eps0=1.d-50
-    INTEGER :: ind(3)
-    INTRINSIC DMAX1,DMIN1,DABS
+    Implicit None
+    REAL(8) :: x_center, betagamma2, x0, deltax
+    Real(8) :: a0, a1
 
-    x_center = 0.5d0 / beta * dlog( ( a3 * a3 - a1 * a3 ) / ( a1 * a3 - 1.0d0 ) )
-    a4 = dcosh( beta * ( Dble(ksgn) - udt - x_center ) )
-    a5 = dcosh( beta * ( Dble(ksgn) - x_center ) )
+    a1 = dexp(betagamma2 * ( x_center - ( x0 + deltax) ) ) + 1.0d0
+    a0 = dexp(betagamma2 * ( x_center - x0 ) ) + 1.0d0
 
-    Flux = 0.5d0 * (  - alpha * dx / beta * dlog( a4 / a5 ) )
+    THINC1DForward = 1.0_sp / betagamma2 * dlog( a0 / a1 )
 
-    Flux(i,j,k) = 0.5d0 * ( udt - alpha * Dx / beta * dlog( a4 / a5 ) )
+  End Function THINC1DForward
 
-  End Subroutine THINC1DForward
+  Real(8) Function THINC1DBackward(f, betagamma2)
 
-  SUBROUTINE THINC1DBackward(f, beta, x_center)
+    Implicit None
+    REAL(8) :: f, betagamma2
+    Real(8) :: a1, a2, a3
 
-    IMPLICIT NONE
-    REAL(8), INTENT(IN) :: f
-    REAL(8), INTENT(IN) :: beta
-    REAL(8), INTENT(OUT) :: x_center
-    Real(8) :: a1, d3, xc
+    a1 = dexp(betagamma2 * f)
+    a2 = 1.0d0 - a1
+    a3 = a1 - dexp(-betagamma2)
+    THINC1DBackward = 1.0d0 / betagamma2 * dlog(abs(a2 / a3))
 
-    a1 = dexp( beta * ( 2.0 * f - 1.0d0 ) )
-    a3 = dexp(beta)
-    x_center = 0.5d0 / beta * dlog( ( a3 * a3 - a1 * a3 ) / ( a1 * a3 - 1.0d0 ) )
-
-  End Subroutine THINC1DBackward
+  End Function THINC1DBackward
 
 
 
