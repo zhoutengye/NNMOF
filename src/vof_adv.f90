@@ -385,6 +385,8 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
   Real(sp),Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
   Integer  :: i, j, k, ii, jj, kk, ic1, ic2, ic3
   Real(sp) :: a1,a2, beta, gamma, betagamma2, x_center
+  Real(sp) :: betagamma21, betagamma22
+  Real(sp) :: x_center1, x_center2
   Real(sp) :: x0(3), deltax(3)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof2,vof3
   Real(sp) :: norm(3)
@@ -429,19 +431,17 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
           !*(1)* normal vector
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           Call NormMYCS(f_block, norm)
-          Call Normalization2(norm)
+          Call Normalization1(norm)
           !*(2) determine gamma
           if (norm(dir) .gt. 0) Then
-            gamma = 1.0_sp
-          else
             gamma = -1.0_sp
+          else
+            gamma = 1.0_sp
           endif
-          ! beta = 2.3_sp * dabs(norm(1)) + 0.01_sp
-          beta = 3.5_sp
+          beta = 3.5_sp * dabs(norm(dir)) + 0.01_sp
+          ! Use the formulation of THINC/SW
           betagamma2 = 2.0_sp * beta * gamma
           x_center = THINC1DBackward(f(i,j,k), betagamma2)
-          ! print *, betagamma2, x_center
-          !*(3) get fluxes
           x0=0.0_sp; deltax=1.0_sp
           if (a1 .LT. 0.0_sp) then
             x0(dir)=0;
@@ -451,15 +451,19 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
           if (a2 .GT. 0.0_sp) then
             x0(dir)=1.0_sp-a2;
             deltax(dir)=a2
+
+            if (f(i,j,k) > f(i+ii,j+jj,k+kk) )then
+              x_center2 = 0.5_sp - x_center
+              betagamma22 = - betagamma2
+            else
+              x_center2 = x_center
+              betagamma22 = betagamma2
+            endif
             vof3(i,j,k) = THINC1DForward(x_center, betagamma2, x0(dir), deltax(dir))
           end if
           x0(dir) = DMAX1(-a1,0.0_sp)
           deltax(dir) = 1.0_sp - x0(dir) - DMAX1(0.0_sp,a2)
-          vof2(i,j,k) = THINC1DForward(x_center, betagamma2, x0(dir), deltax(dir))
-          ! print *, vof1(i,j,k), vof2(i,j,k), vof3(i,j,k)
-          vof2(i,j,k) = THINC1DForward(x_center, betagamma2, 0.0_sp, 1.0_sp)
-          print *, x_center, f(i,j,k), vof2(i,j,k)
-          read(*,*)
+          vof2(i,j,k) = f(i,j,k) - vof1(i,j,k) - vof3(i,j,k)
         endif
       enddo
     enddo
