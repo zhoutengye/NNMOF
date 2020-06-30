@@ -23,10 +23,17 @@ bash libs-install.sh
 All libraries are located in =libs= directory.
 
 *** Manual installation
-You may compile your own =hdf5= and **hypre**, and manually compile two external MOF libraries in **libs** directory. It is important to make sure the C, Fortran compiler and MPI version are consistent while compiling all those libraries.
+You may compile your own =hdf5= and =hypre=, 
+and manually compile two external MOF libraries in =libs= directory. 
+It is important to make sure the C, 
+Fortran compiler and MPI version are consistent 
+while compiling all those libraries.
 
 *** For visualization
-There are visualization tool available, which replies on **h5py** and **mayavi** library with **Python**. To use it, **Python** and correcponding library should be installed as well. **Anaconda** is recommanded to install **python** and libraries.
+There are visualization tool available, 
+which replies on =h5py= and =mayavi= library with *Python*. 
+To use it, =Python= and correcponding library should be installed as well. 
+=Anaconda= is recommanded to install =Python= and libraries.
 
 ** Important Note:
 
