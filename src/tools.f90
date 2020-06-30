@@ -490,5 +490,4 @@ Contains
    End If
  End Function Heaviside
 
-
 End Module ModTools

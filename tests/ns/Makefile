@@ -15,7 +15,7 @@ CASE_SRCS = test.f90
 #-----------Include essential files---------------
 include $(MOF_DIR)/Make-Essential
 
-# Case specific makefile variables
+# Case specific makefile variables, not necessary
 CPP := $(CPP) -DTEST$(TEST_NUM)
 EXEC       = TEST-$(TEST_NUM)
 

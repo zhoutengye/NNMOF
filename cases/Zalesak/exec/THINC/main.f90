@@ -90,8 +90,8 @@ Subroutine zalesak
     rank = mod(nn+1,3)
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
-    ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
-    Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
+    Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
+    ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
   End Do
