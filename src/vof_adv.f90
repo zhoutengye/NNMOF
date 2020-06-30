@@ -213,8 +213,8 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        a1 = us(i,j,k) *dt/dl(1)
-        a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
+        a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
+        a2 = us(ii,j,k) *dt/dl(dir)
 
         ! f = 1
         if (f(i,j,k) .GE. 1.0_sp-epsc) then
@@ -317,8 +317,8 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        a1 = us(i,j,k) *dt/dl(1)
-        a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
+        a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
+        a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
         if (f(i,j,k) .GE. 1.0_sp-epsc) then
@@ -356,8 +356,8 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        a1 = us(i,j,k)*dt/dl(dir)
-        a2 = us(i+ii,j+jj,k+kk)*dt/dl(dir)
+        a1 = us(i-ii,j-jj,k-kk)*dt/dl(dir)
+        a2 = us(i,j,k)*dt/dl(dir)
         f(i,j,k) = f(i,j,k) - (vof3(i,j,k) - vof1(i+ii,j+jj,k+kk)) + & 
             (vof3(i-ii,j-jj,k-kk) - vof1(i,j,k)) !+ vof2(i,j,k)*(a2-a1);
         if (f(i,j,k) < EPSC) then
@@ -385,8 +385,6 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
   Real(sp),Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
   Integer  :: i, j, k, ii, jj, kk, ic1, ic2, ic3
   Real(sp) :: a1,a2, beta, gamma, betagamma2, x_center
-  Real(sp) :: betagamma21, betagamma22
-  Real(sp) :: x_center1, x_center2
   Real(sp) :: x0(3), deltax(3)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: vof1,vof2,vof3
   Real(sp) :: norm(3)
@@ -417,8 +415,8 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        a1 = us(i,j,k) *dt/dl(1)
-        a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
+        a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
+        a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
         if (f(i,j,k) .GE. 1.0_sp-epsc) then
@@ -452,13 +450,6 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
             x0(dir)=1.0_sp-a2;
             deltax(dir)=a2
 
-            if (f(i,j,k) > f(i+ii,j+jj,k+kk) )then
-              x_center2 = 0.5_sp - x_center
-              betagamma22 = - betagamma2
-            else
-              x_center2 = x_center
-              betagamma22 = betagamma2
-            endif
             vof3(i,j,k) = THINC1DForward(x_center, betagamma2, x0(dir), deltax(dir))
           end if
           x0(dir) = DMAX1(-a1,0.0_sp)
@@ -544,8 +535,8 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        a1 = us(i,j,k) *dt/dl(1)
-        a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
+        a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
+        a2 = us(i,j,k) *dt/dl(dir)
 
         c1xyz = 0.0_sp
         c2xyz = 0.0_sp
@@ -748,8 +739,8 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
-        a1 = us(i,j,k) *dt/dl(1)
-        a2 = us(i+ii,j+jj,k+kk) *dt/dl(dir)
+        a1 = us(i-ii,j-jj,k-jj) *dt/dl(dir)
+        a2 = us(i,j,k) *dt/dl(dir)
 
         c1xyz = 0.0_sp
         c2xyz = 0.0_sp
