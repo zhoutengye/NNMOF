@@ -9,6 +9,8 @@
 !       (2-2) Flood algorithm backward finding centroid
 !       (2-3) Flood algorithm forward finding vof
 !       (2-4) Flood algorithm forward finding vof and centroid
+!       (2-5) Flood algorithm backward of THINC/SW finding jump center
+!       (2-6) Flood algorithm forward of THINC/SW finding vof
 !     (3) MOF Reconstruction
 !       (3-1) MOF reconstruction using quick centroid and Gauss-Newton iteration
 !       (3-2) MOF reconstruction using Lemoine's analytic gradient and Gauss-Newton iteration
@@ -827,28 +829,51 @@ Contains
     endif
 
   End Subroutine FloodSZ_forwardC
-
-
   !=======================================================
-  ! (2-5) Forward flooding algorithm of SZ finding f and centroid
-  ! FIND THE "CUT VOLUME" V0
-  ! for GIVEN
-  !    r0, dr0
-  !  and
-  !    m1 x1 + m2 x2 + m3 x3 = alpha
+  ! (2-5) Backward flooding algorithm of THINC/SW
+  ! FIND THE "jump center" the sigmoid/tanh function
+  ! for given vof function
+  !    f
+  !  and THINC parameter
+  !    betagamma2
   !
-  ! Adopted from Paris simulator by Zaleski
-  ! Used in:
-  !     MOF advection
   !-------------------------------------------------------
   ! Input:
-  !      nr: normal vector(nx, ny, nz)
-  !      alpha: alpha
-  !      x0: the origin (x0,y0,z0)
-  !      dx: dimension of the cell (dx0,dy0,dz0)
-  ! Output:
   !      f: vof function
-  !      xc0: centroid (cx, cy, cz)
+  !      batagamma2: 2 * beta * gamma
+  ! Output:
+  !      THINC1DForward: coordinate of jump center
+  !=======================================================
+  Real(8) Function THINC1DBackward(f, betagamma2)
+
+    Implicit None
+    REAL(8) :: f, betagamma2
+    REAL(8) :: beta
+    Real(8) :: a0, a1, a2
+
+    a0 = dexp(betagamma2 * f)
+    a1 = dexp(betagamma2) - a0
+    a2 = a0 - 1.0_sp
+    THINC1DBackward = 1.0d0 / betagamma2 * dlog(abs(a1 / a2))
+
+  End Function THINC1DBackward
+
+  !=======================================================
+  ! (2-6) Forward flooding algorithm of THINC/SW
+  ! FIND THE "CUT VOLUME" V0
+  ! for given doner region
+  !    x0, deltax
+  !  and THINC parameter
+  !    x_center, betagamma2
+  !
+  !-------------------------------------------------------
+  ! Input:
+  !      x_center: center of the jump for sigmoid/Tanh
+  !      batagamma2: 2 * beta * gamma
+  !      x0: the origin of the direction
+  !      deltax: u*dt/dx
+  ! Output:
+  !      THINC1DForward: vof function
   !=======================================================
   Real(8) Function THINC1DForward(x_center, betagamma2, x0, deltax)
 
@@ -859,23 +884,9 @@ Contains
     a1 = dexp(betagamma2 * ( x_center - ( x0 + deltax) ) ) + 1.0d0
     a0 = dexp(betagamma2 * ( x_center - x0 ) ) + 1.0d0
 
-    THINC1DForward = 1.0_sp / betagamma2 * dlog( a0 / a1 )
+    THINC1DForward = deltax + 1.0_sp / betagamma2 * dlog( a1 / a0 )
 
   End Function THINC1DForward
-
-  Real(8) Function THINC1DBackward(f, betagamma2)
-
-    Implicit None
-    REAL(8) :: f, betagamma2
-    Real(8) :: a1, a2, a3
-
-    a1 = dexp(betagamma2 * f)
-    a2 = 1.0d0 - a1
-    a3 = a1 - dexp(-betagamma2)
-    THINC1DBackward = 1.0d0 / betagamma2 * dlog(abs(a2 / a3))
-
-  End Function THINC1DBackward
-
 
 
   !=======================================================

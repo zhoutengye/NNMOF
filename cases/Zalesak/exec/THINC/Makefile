@@ -1,6 +1,6 @@
 MOF_DIR    = ../../../../
 compiler   = gnu
-EXEC       = Zalesak-mof
+EXEC       = Zalesak-THINC.exec
 FC         = mpif90
 DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
