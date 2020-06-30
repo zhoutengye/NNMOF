@@ -76,26 +76,26 @@ Module ModGlobal
   Type Field
     Character(100) :: name
     Integer :: bound_type(3,2)
-    Integer :: bound_value(3,2)
+    Real(sp) :: bound_value(3,2)
     Integer :: lohi(3,2)
   Contains
     procedure :: SetBC
     procedure :: SetBCS
   End Type Field
   Real(SP), Allocatable :: phi(:,:,:)
-  Type(Field)           :: phi_bc
+  Real(SP), Allocatable :: p(:,:,:)
   Real(SP), Allocatable :: u(:,:,:)
-  Type(Field)           :: u_bc
   Real(SP), Allocatable :: v(:,:,:)
-  Type(Field)           :: v_bc
   Real(SP), Allocatable :: w(:,:,:)
-  Type(Field)           :: w_bc
   Real(SP), Allocatable :: cx(:,:,:)
-  Type(Field)           :: cx_bc
   Real(SP), Allocatable :: cy(:,:,:)
-  Type(Field)           :: cy_bc
   Real(SP), Allocatable :: cz(:,:,:)
-  Type(Field)           :: cz_bc
+
+  Type(Field)           :: phi_bc
+  Type(Field)           :: p_bc
+  Type(Field)           :: u_bc
+  Type(Field)           :: v_bc
+  Type(Field)           :: w_bc
 
 Contains
 
@@ -130,9 +130,19 @@ Contains
     Integer  :: nx, ny, nz
     Real(sp) :: dx, dy, dz
     Integer  :: px, py
-    Logical  :: io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz
-    Logical  :: periodx, periody, periodz
-    Integer  :: nn
+    Logical  :: io_phi = .false.
+    Logical  :: io_p   = .false.
+    Logical  :: io_u   = .false.
+    Logical  :: io_v   = .false.
+    Logical  :: io_w   = .false.
+    Logical  :: io_cx  = .false.
+    Logical  :: io_cy  = .false.
+    Logical  :: io_cz  = .false.
+    Logical  :: periodx = .false.
+    Logical  :: periody = .false.
+    Logical  :: periodz = .false.
+    Integer  :: nn, i
+    logical :: file_exists
     Character(80) :: input_name
     Character(80) :: file_name
 
@@ -140,7 +150,7 @@ Contains
     namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
     namelist /compvar/ dt, tstart, tend
     namelist /outvar/ output_inteval, startframe
-    namelist /iofield/ n_vars, io_phi, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
+    namelist /iofield/ n_vars, io_phi, io_p, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
 
     Call getarg(1,input_name)
     if (INPUT_NAME .eq. '') Then
@@ -153,26 +163,36 @@ Contains
 
 
     ! Read at processor 0
-    if (myid .eq. 0) then
-      Open(10, file=file_name)
-      Read(10, nml = mpivar)
-      Read(10, nml = gridvar)
-      Read(10, nml = compvar)
-      Read(10, nml = outvar)
-      Read(10, nml = iofield)
-      dims(1) = px
-      dims(2) = py
-      n(1) = nx
-      n(2) = ny
-      n(3) = nz
-      dl(1) = dx
-      dl(2) = dy
-      dl(3) = dz
-      periods(1) = periodx
-      periods(2) = periody
-      periods(3) = periodz
-      close(10)
-    end if
+    If (myid .eq. 0) Then
+      INQUIRE(FILE=file_name, EXIST=file_exists)
+      If ( file_exists ) Then
+        Open(10, file=file_name)
+        write(6,*) file_exists
+        Read(10, nml = mpivar)
+        Read(10, nml = gridvar)
+        Read(10, nml = compvar)
+        Read(10, nml = outvar)
+        Read(10, nml = iofield)
+        dims(1) = px
+        dims(2) = py
+        n(1) = nx
+        n(2) = ny
+        n(3) = nz
+        dl(1) = dx
+        dl(2) = dy
+        dl(3) = dz
+        periods(1) = periodx
+        periods(2) = periody
+        periods(3) = periodz
+        close(10)
+      Else
+        print *, "======Fatal Error=============================="
+        print *, Trim(file_name), " does not exist, please check"
+        print *, "==============================================="
+        Call MPI_Finalize(ierr)
+        stop
+      End If
+    End If
 
     ! Broad values to all processors
     Call MPI_BCAST(dims, 2, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
@@ -217,6 +237,8 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(io_cz, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(io_p, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     ! Determine input variables for HDF5
     Allocate(h5_input_field(n_vars))
@@ -256,6 +278,25 @@ Contains
       h5_input_field(nn)%groupname = 'cz'
       h5_output_field(nn)%groupname = 'cz'
       nn = nn + 1
+    End If
+    If (io_p) Then
+      h5_input_field(nn)%groupname = 'p'
+      h5_output_field(nn)%groupname = 'p'
+      nn = nn + 1
+    End If
+
+    If (nn-1 .ne. n_vars) then
+      If (myid .eq. 0) then
+        print *, '==========================================='
+        print *, 'Wrong n_vars = ', n_vars, ' in namelist, '
+        print *, 'the following variables are in io field'
+        do i = 1, nn-1
+          print *, i, h5_input_field(i)%groupname
+        end do
+        print *, '==========================================='
+      End If
+      Call MPI_Finalize(ierr)
+      Stop
     End If
 
   End Subroutine Init_param
@@ -351,6 +392,9 @@ Contains
         elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
           Call HDF5OpenGroup(h5_input, h5_input_field(i))
           Call HDF5ReadData(h5_input_field(i), cz, data_name)
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'p' ) Then
+          Call HDF5OpenGroup(h5_input, h5_input_field(i))
+          Call HDF5ReadData(h5_input_field(i), p, data_name)
         endif
       end do
     End If
@@ -369,6 +413,8 @@ Contains
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
+        Call HDF5CreateGroup(h5_output, h5_output_field(i))
+      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'p' ) Then
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
       endif
     end do
@@ -586,6 +632,7 @@ Contains
     Implicit None
     ! Allocate variables
     Allocate(phi(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+    Allocate(  p(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate(  u(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate(  v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate(  w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
@@ -593,6 +640,7 @@ Contains
     Allocate( cy(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     Allocate( cz(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
     phi = 0.0_sp
+    p   = 0.0_sp
     u   = 0.0_sp
     v   = 0.0_sp
     w   = 0.0_sp
@@ -659,18 +707,6 @@ Contains
     phi_bc%lohi(:,1) = 0
     phi_bc%lohi(:,2) = nl(:)+1
 
-    cx_bc%name = 'cx'
-    cx_bc%lohi(:,1) = 0
-    cx_bc%lohi(:,2) = nl(:)+1
-
-    cy_bc%name = 'cy'
-    cy_bc%lohi(:,1) = 0
-    cy_bc%lohi(:,2) = nl(:)+1
-
-    cz_bc%name = 'cz'
-    cz_bc%lohi(:,1) = 0
-    cz_bc%lohi(:,2) = nl(:)+1
-
     u_bc%name = 'u'
     u_bc%lohi(:,1) = 0
     u_bc%lohi(:,2) = nl(:)+1
@@ -685,16 +721,15 @@ Contains
     w_bc%lohi = 0
     w_bc%lohi(:,2) = nl(:)+1
     w_bc%lohi(3,2) = nl(3)
+
+    phi_bc%name = 'p'
+    phi_bc%lohi(:,1) = 0
+    phi_bc%lohi(:,2) = nl(:)+1
+
     ! At present, the values are not imported from file, but assigned directly here.
     ! For VOF problem, always set to 0 Nuemann
     phi_bc%bound_type(:,:) = 2
     phi_bc%bound_value(:,:) = 0
-
-    cx_bc%bound_type(:,:) = 2
-    cx_bc%bound_value(:,:) = 0
-
-    cy_bc%bound_type(:,:) = 2
-    cy_bc%bound_value(:,:) = 0
 
     u_bc%bound_type(:,:) = 2
     u_bc%bound_value(:,:) = 0

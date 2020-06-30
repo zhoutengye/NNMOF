@@ -848,7 +848,6 @@ Contains
 
     Implicit None
     REAL(8) :: f, betagamma2
-    REAL(8) :: beta
     Real(8) :: a0, a1, a2
 
     a0 = dexp(betagamma2 * f)

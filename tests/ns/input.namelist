@@ -27,8 +27,9 @@ startframe = 0
 /
 
 &iofield
-n_vars = 7
+n_vars = 8
 io_phi = .true.
+io_p   = .true.
 io_u   = .true.
 io_v   = .true.
 io_w   = .true.
@@ -47,4 +48,31 @@ mu_g  = 1.0e-6
 iter_tolerance = 1e-3
 iter_max = 10
 rk_order = 3
+/
+
+&ns_bc
+phi_bc_types_lo = /(   2,    2,    2 )/
+phi_bc_value_lo = /( 0.0,  0.0,  0.0 )/
+phi_bc_types_hi = /(   2,    2,    2 )/
+phi_bc_value_hi = /( 0.0,  0.0,  0.0 )/
+
+p_bc_types_lo   = /(   2,    2,    2)/
+p_bc_value_lo   = /( 0.0,  0.0,  0.0)/
+p_bc_types_hi   = /(   2,    2,    2)/
+p_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+
+u_bc_types_lo   = /(   1,    1,    1)/
+u_bc_value_lo   = /( 0.0,  0.0,  0.0)/
+u_bc_types_hi   = /(   1,    1,    1)/
+u_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+
+v_bc_types_lo   = /(   1,    1,    1)/
+v_bc_value_lo   = /( 0.0,  0.0,  0.0)/
+v_bc_types_hi   = /(   1,    1,    1)/
+v_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+
+w_bc_types_lo   = /(   1,    1,    1)/
+w_bc_value_lo   = /( 0.0,  0.0,  0.0)/
+w_bc_types_hi   = /(   1,    1,    1)/
+w_bc_value_hi   = /( 0.0,  0.0,  0.0)/
 /

@@ -34,6 +34,7 @@ Subroutine test1
 
   Call Init(inputfield=.true.)
 
+
   Call InitNavierStokes
 
   ! VOF advection
