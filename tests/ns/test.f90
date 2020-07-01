@@ -17,38 +17,80 @@ program test
 end program test
 
 !===============
-! test1: MISC:
-!    (1) Norm2Angle and Angle2Norm
-!    (2) Flood_BackwardC
-!    (3) FindCentroid
-!    (4) MOFZY
+! test1:
+! (1) Make sure everything reads correctly
+! (2) Hydrostatic problem with uniform rho
+! (3) Hydrostatic problem with variable rho
 !===============
 Subroutine test1
   Use ModGlobal
   Use ModTools
-  Use ModVOF
   Use ModNavierStokes
   Implicit None
-  Integer  :: nn = 0
-  Integer :: rank
+  Integer :: i
 
   Call Init(inputfield=.true.)
+  Call InitNavierStokes(U, V, W, Phi, P)
 
+  ! (1) Test read parameters
+  Do i = 1, 1
+    If ( myid .eq. i-1) then
+      print *, "=====id: ", myid, '=========='
+      print *, "rho_l: ", rho_l
+      print *, "rho_g: ", rho_g
+      print *, "mu_l: ", mu_l
+      print *, "mu_g: ", mu_g
+      print *, "body_force: ", body_force
+      print *, "rk_order: ", rk_order
+      print *, "phi_bc_types: ", phi_bc%bound_type
+      print *, "phi_bc_values: ", phi_bc%bound_value
+      print *, "u_bc_types: ", u_bc%bound_type
+      print *, "u_bc_values: ", u_bc%bound_value
+      print *, "v_bc_types: ", v_bc%bound_type
+      print *, "v_bc_values: ", v_bc%bound_value
+      print *, "w_bc_types: ", w_bc%bound_type
+      print *, "w_bc_values: ", w_bc%bound_value
+    End If
+  End Do
 
-  Call InitNavierStokes
+  ! (2) Test uniform density
+  ! phi = 1.0_sp
+  ! body_force = 0.0_sp
+  ! body_force(1:3) = - 9.8_sp
+  ! Call UpdtRhoMu(Phi)
+  ! Call TwoPhaseFlow(U, V, W, Phi, P)
+  ! Call Visual3DContour(P)
 
-  ! VOF advection
-  ! Do While (time < tend)
-  !   nn = nn + 1
-  !   rank = mod(nn+1,3)
-  !   Call VOFAdvection(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
-  !   time =  time + dt
-  ! End Do
-  ! print *, nn
+  ! (3) test variable density
+  ! For simplicity only one processor
+  ! phi = 0.0_sp
+  ! phi(0:10,:,:) = 1.0_sp
+  ! phi(:,:,0:10) = 1.0_sp
+  ! body_force = 0.0_sp
+  ! body_force(3) = - 9.8_sp
+  ! Call UpdtRhoMu(Phi)
+  ! Call TwoPhaseFlow(U, V, W, Phi, P)
+  ! Call Visual3DContour(P)
+  
+  ! (3) Test variable density
+  ! For simplicity only one processor
+  phi = 0.0_sp
+  cx = 0.0_sp
+  cy = 0.0_sp
+  cz = 0.0_sp
+  phi(6:15,0:10,6:15) = 1.0_sp
+  Call UpdtRhoMu(Phi)
+  Do i = 1, 2
+    Call TwoPhaseFlow(U, V, W, Phi, P)
+  End Do
 
-
-  ! Call Visual3DContour(f1=f_end)
-
+  Call Visual3DQuiver(U,V,W)
+  
+  ! Call Visual3DContour(P)
+  ! Call Visual3DContour(Phi)
+  ! Call Visual3DContour(u)
+  ! Call Visual3DContour(v)
+  ! Call Visual3DContour(w)
 
   Call MPI_FINALIZE(ierr)
 

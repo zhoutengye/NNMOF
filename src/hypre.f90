@@ -1,6 +1,9 @@
 Module HypreStruct
   Use ModGlobal
+  Use ModTools
   Implicit None
+  Private
+  Public :: Hypre_Initialize, Hypre_Poisson
 
   Type :: Hypre_para
     Integer :: ier
@@ -20,14 +23,15 @@ Module HypreStruct
   Type(Hypre_para) :: Hypre
 
   Procedure(InterfaceSparse), Pointer :: Sparse_Matrix_Vector => Sparse_Matrix_Vector_Neumann_0
-  Procedure(), Pointer :: Hypre_Solver => Hypre_Solver_BicgSTAB
-  Procedure(), Pointer :: Hypre_SetSolver => Hypre_SetSolver_BicgSTAB
+  Procedure(), Pointer :: Hypre_Solver => Hypre_Solver_SMG
+  Procedure(), Pointer :: Hypre_SetSolver => Hypre_SetSolver_SMG
   Procedure(), Pointer :: Hypre_SetPreConditioner => Hypre_SetPreConditioner_SMG
   Procedure(), Pointer :: Hypre_PreConditioner => Hypre_PreConditioner_SMG
 
   Integer :: nxyz
   Real(sp) :: iter_tolerance
   Integer  :: iter_max
+  Integer :: niter
 
   Interface
     Subroutine InterfaceSparse(P, Div, Rhox, Rhoy, Rhoz, flag)
@@ -63,7 +67,7 @@ Contains
       Hypre%iupper(2) = ( coord(2) + 1 ) * nl(2)
       Hypre%ilower(3) = 1
       Hypre%iupper(3) = nl(3)
-      nxyz = nl(1) * nl(2) * nl(3)
+      nxyz = nl(1) * nl(2) * nl(3) 
     End Block
     
     !-1. Set up a grid. 
@@ -94,41 +98,42 @@ Contains
       offsets(6,:) = [ 0, 0,-1]
       offsets(7,:) = [ 0, 0, 1]
 
-      ! Assign each of the 5 stencil entries
+      ! Assign each of the 7 stencil entries
       Do entry = 1,7
         offset = offsets(entry,:)
         Call HYPRE_StructStencilSetElement(hypre%stencil, entry-1, offset, Hypre%ier);
       End Do
-      hypre%precond_id = 9
+      hypre%precond_id = 0
     End Block
 
   End Subroutine Hypre_Initialize
 
-  Subroutine Hypre_Poisson(P, Rhox, Rhoy, Rhoz, Div, flag)
+  Subroutine Hypre_Poisson(P, Rhox, Rhoy, Rhoz, Div, flag, n_iter)
     Implicit None
     real(sp), intent(inout), dimension(0:,0:,0:) :: P
     real(sp), intent(in),    dimension(0:,0:,0:) :: Rhox, Rhoy, Rhoz
     real(sp), intent(in),    dimension(:,:,:) :: Div
     Integer, intent(in),    dimension(:,:,:) :: flag
+    Integer, intent(out) :: n_iter
     Integer  :: kk
-    Real(SP) :: Phi(nxyz)
+    Real(SP) :: PP(nxyz)
     Integer :: i, j, k
 
+
     Call Sparse_Matrix_Vector(P, Div, Rhox, Rhoy, Rhoz, flag)
-    Call Hypre_PreConditioner
+    ! Call Hypre_PreConditioner
     Call Hypre_Solver
 
-    call HYPRE_StructVectorGetBoxValues(hypre%x, hypre%ilower, hypre%iupper, Phi, Hypre%ier)
+    call HYPRE_StructVectorGetBoxValues(hypre%x, hypre%ilower, hypre%iupper, PP, Hypre%ier)
     kk = 1
     Do k = 1, nl(3)
       Do j = 1, nl(2)
         Do i = 1, nl(1)
-          P(i,j,k) = Phi(kk)
+          P(i,j,k) = PP(kk)
           kk = kk + 1
         EndDo
       EndDo
     EndDo
-
 
   End Subroutine Hypre_Poisson
 
@@ -139,6 +144,8 @@ Contains
     real(sp), intent(in), dimension(:,:,:) :: Div
     Integer , intent(in), dimension(:,:,:) :: flag
     Integer :: i, j, k
+
+
     Block
       Integer :: stencil_indices(7)
       Integer :: nentries
@@ -168,43 +175,43 @@ Contains
 
       kk = 1
       Do k = 1, nl(3)
-        Do j = 1, nl(3)
-          Do i = 1, nl(3)
+        Do j = 1, nl(2)
+          Do i = 1, nl(1)
 
           If ( left  .eq. MPI_PROC_NULL .and. i .eq. 1 ) then
             values(kk+1) = 0.0_SP
           Else
-            values(kk+1) = RHOx(i-1,j,k)   / nl(1) / nl(1)
+            values(kk+1) = RHOx(i-1,j,k)   / dl(1) / dl(1)
           End If
 
           If ( right .eq. MPI_PROC_NULL .and. i .eq. nl(1) ) then
             values(kk+2) = 0.0_SP
           Else
-            values(kk+2) = Rhox(i,j,k) / nl(1) / nl(1)
+            values(kk+2) = Rhox(i,j,k) / dl(1) / dl(1)
           End If
 
           If ( front .eq. MPI_PROC_NULL .and. j .eq. 1 ) then
             values(kk+3) = 0.0_SP
           Else
-            values(kk+3) = Rhoy(i,j-1,k)   / nl(2) / nl(2)
+            values(kk+3) = Rhoy(i,j-1,k)   / dl(2) / dl(2)
           End If
 
           If ( back  .eq. MPI_PROC_NULL .and. j .eq. nl(2) ) then
             values(kk+4) = 0.0_SP
           Else
-            values(kk+4) = Rhoy(i,j,k) / nl(2) / nl(2)
+            values(kk+4) = Rhoy(i,j,k) / dl(2) / dl(2)
           End If
 
           If ( bottom .eq. MPI_PROC_NULL .and. k .eq. 1 ) then
             values(kk+5) = 0.0_SP
           Else
-            values(kk+5) = Rhoz(i,j,k-1) / nl(3) / nl(3)
+            values(kk+5) = Rhoz(i,j,k-1) / dl(3) / dl(3)
           End If
 
           If ( top .eq. MPI_PROC_NULL .and. k .eq. nl(3) ) then
             values(kk+6) = 0.0_SP
           Else
-            values(kk+6) = Rhoz(i,j,k) / nl(3) / nl(3)
+            values(kk+6) = Rhoz(i,j,k) / dl(3) / dl(3)
           End If
 
           ! If (flag_c(i,j) .le. 0) Then
@@ -221,8 +228,8 @@ Contains
     Do k = 1, nl(3)
       Do j = 1, nl(2)
         Do i = 1, nl(1)
-          values(kk) = - (values(kk+1) + values(kk+2) + values(kk+3) + values(kk+4) )
-          kk = kk + 5
+          values(kk) = - ( values(kk+1) + values(kk+2) + values(kk+3) + values(kk+4) + values(kk+5) + values(kk+6) )
+          kk = kk + 7
         EndDo
       EndDo
     EndDo
@@ -252,7 +259,7 @@ Contains
       Call HYPRE_StructVectorInitialize(hypre%b, Hypre%ier)
       Call HYPRE_StructVectorInitialize(hypre%x, Hypre%ier)
 
-
+      kk = 1
       Do k = 1, nl(3)
         Do j = 1, nl(2)
           Do i = 1, nl(1)
@@ -292,11 +299,34 @@ Contains
 
   End Subroutine Hypre_SetSolver_BicgSTAB
 
+  Subroutine Hypre_SetSolver_SMG
+    Implicit None
+    Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
+    Call HYPRE_StructSMGSetTol(hypre%solver, iter_tolerance, Hypre%ier)
+    ! Call HYPRE_StructSMGSetPrintLevel(hypre%solver, 2, Hypre%ier)
+    Call HYPRE_StructSMGSetMaxIter(hypre%solver, iter_max, Hypre%ier)
+
+  End Subroutine Hypre_SetSolver_SMG
+
+
+  Subroutine Hypre_Solver_SMG
+    Implicit None
+
+    Call HYPRE_StructSMGSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call HYPRE_StructSMGSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call HYPRE_StructSMGGetNumIterations(hypre%solver, niter, Hypre%ier)
+    ! Call HYPRE_StructSMGGetPrintLevel(hypre%solver, 2, hypre%ier)
+
+  End Subroutine Hypre_Solver_SMG
+
+
+
   Subroutine Hypre_Solver_BicgSTAB
     Implicit None
 
     Call HYPRE_StructBICGSTABSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructBICGSTABSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call hypre_structbicgstabgetnumitera(hypre%solver, niter, Hypre%ier)
 
   End Subroutine Hypre_Solver_BicgSTAB
 

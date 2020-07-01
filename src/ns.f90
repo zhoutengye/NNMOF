@@ -1,70 +1,72 @@
 Module ModNavierStokes
-  Use ModGlobal
+  Use mpi
+  Use ModGlobal, only : sp
+  Use ModGlobal, only : dl, nl, dt
+  Use ModGlobal, only : Phi_bc, P_bc, U_bc, V_bc, W_bc
+  Use ModGlobal, only : h5_input
+  Use ModGlobal, only : myid, nproc, ierr
   Use ModTools
   Use HypreStruct
+  Use ModVOF
   Implicit None
+  ! Module variables will not pass through the subroutine interface
   Real(sp), Allocatable :: Rho(:,:,:), Rhox(:,:,:), Rhoy(:,:,:), Rhoz(:,:,:)
   Real(sp), Allocatable :: mu(:,:,:), Div(:,:,:)
   Integer, Allocatable :: flag(:,:,:)
-  Real(sp), Allocatable :: bforce(:)
+  Real(sp) :: body_force(3)
   Real(sp) :: rho_l, rho_g
   Real(sp) ::  mu_l, mu_g
   Integer :: rk_order
   Real(sp), Allocatable :: rkcoef(:,:)
-
+  Integer :: n_iter
+  Integer :: step_rank = 0
 
 Contains
 
-  Subroutine TwoPhaseFlow
+  Subroutine TwoPhaseFlow(U, V, W, Phi, P)
     Implicit None
+    real(sp), Intent(inout), Dimension(0:,0:,0:) :: u, v, w, p, phi
     real(sp), dimension(nl(1),nl(2),nl(3))    :: dudtrko,dvdtrko,dwdtrko
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: up,vp,wp
     Integer :: irk
 
+    ! Runge-Kutta time integration
     Do irk=1,rk_order
-
+      ! Runge-Kutta step for momentum
       call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp)
-
-      Call BC_UVW
-
-      Call Divergence(u, v, w, Div)
-
-      Call Hypre_Poisson(P, Div, Rhox, Rhoy, Rhoz, flag)
-
-      Call BC_P
-
+      ! Boundary condition for intermediate velocity
+      Call BC_UVW(UP, VP, WP)
+      ! Calculate divergence
+      Call Divergence(up, vp, wp, Div)
+      ! Solve pressure Poisson equation
+      Call Hypre_Poisson(P, Rhox, Rhoy, Rhoz, Div, flag, n_iter)
+      Call BC_P(P)
+      ! Preject the velocity to the divergence-free field
       Call Projection(P, u, v, w, up, vp, wp)
-
-      Call BC_UVW
+      ! Boundary condition for divergence-free velocity field
+      Call BC_UVW(U, V, W)
     End Do
 
-    ! Call MOF
-    Call UpdtRhoMu
+    ! print *, wp(:,1,10)
+    ! print *, p(6:15,1,10)
+    ! print *, w(:,1,10)
+
+    step_rank = step_rank+1
+    Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
+    Call UpdtRhoMu(Phi)
 
   End Subroutine TwoPhaseFlow
 
-
   !==========================
   ! Runge Kutta time integration
-  !   Key steps:
-  ! Depending on the actual variable of u1, u2, u3,
-  ! it will solve the corresponding momentum equation
-  !    (1) Solve u: u1=u, u2=v, u3=w
-  !    (2) Solve v: u1=v, u2=w, u3=u
-  !    (3) Solve w: u1=w, u2=u, u3=v
-  ! 1D view for u
-  !    d(u)/dt_i =
-  !     ( (uu)_i+1/2 - (uu)_i-1/2 + ( (mu*dudx)_i+1/2 - (mu*dudx)_i-1/2 ) / rho ) / dx
-  !     ( (uv)_j+1/2 - (uv)_j-1/2 + ( (mu*dudy)_j+1/2 - (mu*dudy)_j-1/2 ) / rho ) / dy
-  !     ( (uw)_k+1/2 - (uw)_k-1/2 + ( (mu*dudz)_k+1/2 - (mu*dudz)_k-1/2 ) / rho ) / dz
   !==========================
   Subroutine RungeKuttaMomentum(rkpar, u, v, w, p, dudtrko, dvdtrko, dwdtrko, up, vp, wp)
     Implicit None
-    real(sp), intent(in), dimension(0:,0:,0:) :: u,v,w, p
-    real(sp), intent(inout), dimension(:,:,:) :: dudtrko,dvdtrko,dwdtrko
-    real(sp), intent(in), dimension(2) :: rkpar
-    real(sp), dimension(nl(1),nl(2),nl(3)) :: dudtrk,dvdtrk,dwdtrk
-    real(sp), intent(out), dimension(0:,0:,0:)    :: up,vp,wp
+    real(sp), Intent(in), Dimension(0:,0:,0:) :: u,v,w, p
+    real(sp), Intent(inout), Dimension(:,:,:) :: dudtrko,dvdtrko,dwdtrko
+    real(sp), Intent(in), Dimension(2) :: rkpar
+    real(sp), Intent(out), Dimension(0:,0:,0:)  :: up,vp,wp
+    real(sp), Dimension(nl(1),nl(2),nl(3)) :: dudtrk,dvdtrk,dwdtrk
     real(sp) :: factor1,factor2,factor12
     Integer :: i, j, k
 
@@ -73,9 +75,9 @@ Contains
     factor12 = factor1 + factor2
 
     ! Calculate \partial P \partial x
-    Call PartialP(P, dudtrk, dir=1)
-    Call PartialP(P, dvdtrk, dir=2)
-    Call PartialP(P, dwdtrk, dir=3)
+    Call PartialP(P, dudtrk, 1)
+    Call PartialP(P, dvdtrk, 2)
+    Call PartialP(P, dwdtrk, 3)
     do k=1,nl(3)
       do j=1,nl(2)
         do i=1,nl(1)
@@ -86,10 +88,13 @@ Contains
       enddo
     enddo
 
+
+
     ! Calculate Advection, diffusion
-    ! Call AdvDiff(u, v, w, dudtrk, dir=1)
-    ! Call AdvDiff(v, w, u, dvdtrk, dir=2)
-    ! Call AdvDiff(u, u, v, dwdtrk, dir=3)
+    Call AdvDiffU(u, v, w, dudtrk)
+    Call AdvDiffV(u, v, w, dvdtrk)
+    Call AdvDiffW(u, v, w, dwdtrk)
+    Call BodyForce(dudtrk, dvdtrk, dwdtrk)
     do k=1,nl(3)
       do j=1,nl(2)
         do i=1,nl(1)
@@ -116,19 +121,22 @@ Contains
   !      (uu)_i = 0.25 * (u_i+1/2 + u_i-1/2)^2
   !      (uv)_i = 0.25 * (u_i+1/2 + u_i-1/2) * (v_j+1/2,v_j-1/2)
   !      (uw)_i = 0.25 * (u_i+1/2 + u_i-1/2) * (w_k+1/2,w_k-1/2)
+  !      (dudx)_i = (u_i+1/2 + u_i-1/2) / dx
+  !      (dudy)_i = (u_j+1/2 + u_y-1/2) / dy
+  !      (dudz)_i = (u_k+1/2 + u_k-1/2) / dz
   !--------------------------
   ! Inputs:
-  !    u1, u2, u3: velocity conponent
+  !    u, v, w: velocity conponent
   !    rho_dir: the reciprocal of rho, depends on direction
   !    mu_c: mu at cell center
+  !    nl: dimension of grid
+  !    dl: grid size dx, dy, dz
   ! Outputs:
   !    dudt: time integration of advection and diffusion
   !==========================
-  Subroutine AdvDiffU(u, v, w, rho, mu_c, bforce, dudt)
+  Subroutine AdvDiffU(u, v, w, dudt)
     Implicit None
     Real(sp), Dimension(0:,0:,0:), Intent(in)  :: u, v, w
-    Real(sp), Dimension(0:,0:,0:), Intent(in)  :: rho, mu_c
-    Real(sp), Intent(in)  :: bforce
     Real(sp), Dimension(:,:,:), Intent(out) :: dudt
     integer :: i,j,k
     Real(sp) :: uuip,uuim,uvjp,uvjm,uwkp,uwkm
@@ -154,18 +162,115 @@ Contains
           dudzm = mu(i,j,k) * (u(  i,  j,  k) - u(  i,  j,k-1)) / dl(3)
           ! Momentum balance
           dudt(i,j,k) = &
-              ((-uuip + uuim) + (dudxp-dudxm)) / rho(i,j,k) / dl(1) + &
-              ((-uvjp + uvjm) + (dudyp-dudym)) / rho(i,j,k) / dl(2) + &
-              ((-uwkp + uwkm) + (dudzp-dudzm)) / rho(i,j,k) / dl(3) + &
-              bforce
+              ((-uuip + uuim) + (dudxp-dudxm)) * rhox(i,j,k) / dl(1) + &
+              ((-uvjp + uvjm) + (dudyp-dudym)) * rhoy(i,j,k) / dl(2) + &
+              ((-uwkp + uwkm) + (dudzp-dudzm)) * rhoz(i,j,k) / dl(3)
         Enddo
       Enddo
     Enddo
 
   End Subroutine AdvDiffU
 
+
   !==========================
-  ! Calculate divergence by
+  ! Calculate Advection and diffusion for V
+  ! similar with  AdvDiffU
+  !==========================
+  Subroutine AdvDiffV(u, v, w, dvdt)
+    Implicit None
+    Real(sp), Dimension(0:,0:,0:), Intent(in)  :: u, v, w
+    Real(sp), Dimension(:,:,:), Intent(out) :: dvdt
+    integer :: i,j,k
+    real(sp) :: uvip,uvim,vvjp,vvjm,wvkp,wvkm
+    real(sp) :: dvdxp,dvdxm,dvdyp,dvdym,dvdzp,dvdzm
+
+    ! Calculate the advection-diffusion spatial term
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          ! uu, uv, uw
+          uvip = 0.25_sp * (u(  i,  j,  k) + u(  i,j+1,  k)) * (v(i,j,k) + v(i+1,  j,  k))
+          uvim = 0.25_sp * (u(i-1,  j,  k) + u(i-1,j+1,  k)) * (v(i,j,k) + v(i-1,  j,  k))
+          vvjp = 0.25_sp * (v(  i,  j,  k) + v(  i,j+1,  k)) * (v(i,j,k) + v(  i,j+1,  k))
+          vvjm = 0.25_sp * (v(  i,  j,  k) + v(  i,j-1,  k)) * (v(i,j,k) + v(  i,j-1,  k))
+          wvkp = 0.25_sp * (w(  i,  j,  k) + w(  i,j+1,  k)) * (v(i,j,k) + v(  i,  j,k+1))
+          wvkm = 0.25_sp * (w(  i,  j,k-1) + w(  i,j+1,k-1)) * (v(i,j,k) + v(  i,  j,k-1))
+          ! dudx, dudy, dudz
+          dvdxp = mu(i,j,k) * (v(i+1,  j,  k) - v(  i,  j,  k)) / dl(1)
+          dvdxm = mu(i,j,k) * (v(  i,  j,  k) - v(i-1,  j,  k)) / dl(1)
+          dvdyp = mu(i,j,k) * (v(  i,j+1,  k) - v(  i,  j,  k)) / dl(2)
+          dvdym = mu(i,j,k) * (v(  i,  j,  k) - v(  i,j-1,  k)) / dl(2)
+          dvdzp = mu(i,j,k) * (v(  i,  j,k+1) - v(  i,  j,  k)) / dl(3)
+          dvdzm = mu(i,j,k) * (v(  i,  j,  k) - v(  i,  j,k-1)) / dl(3)
+          ! Momentum balance
+          dvdt(i,j,k) = &
+              ((-uvip + uvim) + (dvdxp-dvdxm)) * rhox(i,j,k) / dl(1) + &
+              ((-vvjp + vvjm) + (dvdyp-dvdym)) * rhoy(i,j,k) / dl(2) + &
+              ((-wvkp + wvkm) + (dvdzp-dvdzm)) * rhoz(i,j,k) / dl(3)
+        Enddo
+      Enddo
+    Enddo
+
+  End Subroutine AdvDiffV
+
+  !==========================
+  ! Calculate Advection and diffusion for W
+  ! similar with  AdvDiffU
+  !==========================
+  Subroutine AdvDiffW(u, v, w, dwdt)
+    Implicit None
+    Real(sp), Dimension(0:,0:,0:), Intent(in)  :: u, v, w
+    Real(sp), Dimension(:,:,:), Intent(out) :: dwdt
+    integer :: i,j,k
+    real(sp) :: uwip,uwim,vwjp,vwjm,wwkp,wwkm
+    real(sp) :: dwdxp,dwdxm,dwdyp,dwdym,dwdzp,dwdzm
+
+    ! Calculate the advection-diffusion spatial term
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          ! uu, uv, uw
+          uwip = 0.25_sp*(w(i,j,k) + w(i+1,  j,  k)) * (u(i  ,j  ,k) + u(  i,  j,k+1))
+          uwim = 0.25_sp*(w(i,j,k) + w(i-1,  j,  k)) * (u(i-1,j  ,k) + u(i-1,  j,k+1))
+          vwjp = 0.25_sp*(w(i,j,k) + w(  i,j+1,  k)) * (v(i  ,j  ,k) + v(  i,  j,k+1))
+          vwjm = 0.25_sp*(w(i,j,k) + w(  i,j-1,  k)) * (v(i  ,j-1,k) + v(  i,j-1,k+1))
+          wwkp = 0.25_sp*(w(i,j,k) + w(  i,  j,k+1)) * (w(i  ,j  ,k) + w(  i,  j,k+1))
+          wwkm = 0.25_sp*(w(i,j,k) + w(  i,  j,k-1)) * (w(i  ,j  ,k) + w(  i,  j,k-1))
+          ! dudx, dudy, dudz
+          dwdxp = mu(i,j,k) * (w(i+1,  j,  k) - w(  i,  j,  k)) / dl(1)
+          dwdxm = mu(i,j,k) * (w(  i,  j,  k) - w(i-1,  j,  k)) / dl(1)
+          dwdyp = mu(i,j,k) * (w(  i,j+1,  k) - w(  i,  j,  k)) / dl(2)
+          dwdym = mu(i,j,k) * (w(  i,  j,  k) - w(  i,j-1,  k)) / dl(2)
+          dwdzp = mu(i,j,k) * (w(  i,  j,k+1) - w(  i,  j,  k)) / dl(3)
+          dwdzm = mu(i,j,k) * (w(  i,  j,  k) - w(  i,  j,k-1)) / dl(3)
+          ! Momentum balance
+          dwdt(i,j,k) = &
+              ((-uwip + uwim) + (dwdxp-dwdxm)) * rhox(i,j,k) / dl(1) + &
+              ((-vwjp + vwjm) + (dwdyp-dwdym)) * rhoy(i,j,k) / dl(2) + &
+              ((-wwkp + wwkm) + (dwdzp-dwdzm)) * rhoz(i,j,k) / dl(3)
+        Enddo
+      Enddo
+    Enddo
+
+  End Subroutine AdvDiffW
+
+  Subroutine BodyForce(dudt, dvdt, dwdt)
+    Implicit None
+    Real(sp), Dimension(:,:,:), Intent(inout)  :: dudt, dvdt,dwdt
+    Integer :: i, j, k
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          dudt(i,j,k) = dudt(i,j,k) + body_force(1)
+          dvdt(i,j,k) = dvdt(i,j,k) + body_force(2)
+          dwdt(i,j,k) = dwdt(i,j,k) + body_force(3)
+        EndDo
+      Enddo
+    Enddo
+  End Subroutine BodyForce
+
+  !==========================
+  ! Calculate partial P by
   ! 1D view
   ! du/dt_i = - (p_i+1/2 - p_i-1/2) / dx
   !--------------------------
@@ -183,17 +288,17 @@ Contains
     Integer :: ip, jp, kp
 
     If (dir .eq. 1) Then
-      ip =-1; jp = 0; kp = 0
+      ip = 1; jp = 0; kp = 0
     ElseIf (dir .eq. 2) Then
-      ip = 0; jp =-1; kp = 0
+      ip = 0; jp = 1; kp = 0
     Else
-      ip = 0; jp = 0; kp =-1
+      ip = 0; jp = 0; kp = 1
     End If
 
     do k=1, nl(3)
       do j=1, nl(2)
         do i=1, nl(1)
-          dudt(i,j,k) = - (p(i,j,k) - p(i+ip,j+jp,k+jp)) / dl(dir)
+          dudt(i,j,k) = - (p(i+ip,j+jp,k+kp) - p(i,j,k)) / dl(dir)
         enddo
       enddo
     enddo
@@ -220,9 +325,9 @@ Contains
       Do j = 1, nl(2)
         Do i = 1, nl(1)
           Div(i,j,k) = &
-              ( up(i,j,k) - up(i-1,  j,  k) ) / dl(1) + &
-              ( vp(i,j,k) - vp(  i,j-1,  k) ) / dl(2) + &
-              ( wp(i,j,k) - wp(  i,  j,k-1) ) / dl(3)
+              ( up(i,j,k) - up(i-1,j,k) ) / dl(1) + &
+              ( vp(i,j,k) - vp(i,j-1,k) ) / dl(2) + &
+              ( wp(i,j,k) - wp(i,j,k-1) ) / dl(3)
         End Do
       End Do
     End Do
@@ -249,9 +354,9 @@ Contains
     do k=1,nl(3)
       do j=1,nl(2)
         do i=1,nl(1)
-          u(i,j,k) = up(i,j,k) - (p(i,j,k) - p(i-1,  j,  k)) * dt / dl(1)
-          v(i,j,k) = vp(i,j,k) - (p(i,j,k) - p(  i,j-1,  k)) * dt / dl(2)
-          w(i,j,k) = wp(i,j,k) - (p(i,j,k) - p(  i,  j,k-1)) * dt / dl(3)
+          u(i,j,k) = up(i,j,k) - rhox(i,j,k) * (p(i+1,  j,  k) - p(i,j,k)) * dt / dl(1)
+          v(i,j,k) = vp(i,j,k) - rhoy(i,j,k) * (p(  i,j+1,  k) - p(i,j,k)) * dt / dl(2)
+          w(i,j,k) = wp(i,j,k) - rhoz(i,j,k) * (p(  i,  j,k+1) - p(i,j,k)) * dt / dl(3)
         enddo
       enddo
     enddo
@@ -261,37 +366,42 @@ Contains
   !==========================
   ! Boudnary conditions for u, v, w
   !==========================
-  Subroutine UpdtRhoMu
+  Subroutine UpdtRhoMu(Phi)
     Implicit None
+    real(sp), intent(out), dimension(0:,0:,0:) :: Phi
     Integer :: i,j,k
+
+    Call Phi_bc%SetBCS(Phi)
+
     Do k=1,nl(3)
       Do j=1,nl(2)
         Do i=1,nl(1)
-          Rho(i,j,k) = Phi(i,j,k) * rho_l + Phi(i,j,k) * rho_g
-          Mu(i,j,k) = Phi(i,j,k) *  mu_l + Phi(i,j,k) *  mu_g
+          Rho(i,j,k) = Phi(i,j,k) * rho_l + ( 1.0_sp - Phi(i,j,k) ) * rho_g
+          Mu(i,j,k)  = Phi(i,j,k) *  mu_l + ( 1.0_sp - Phi(i,j,k) ) *  mu_g
         enddo
       enddo
     enddo
 
-    Call Phi_bc%SetBCS(Phi)
-    Call BC_RHOMU
+    Call BC_RHOMU(Rho, Mu)
 
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          Rhox(i,j,k) = 0.5_sp * ( 1.0_sp / Rho(i,j,k) + 1.0_sp / Rho(i+1,j,k) )
-          Rhoy(i,j,k) = 0.5_sp * ( 1.0_sp / Rho(i,j,k) + 1.0_sp / Rho(i,j+1,k) )
-          Rhoz(i,j,k) = 0.5_sp * ( 1.0_sp / Rho(i,j,k) + 1.0_sp / Rho(i,j,k+1) )
+    Do k=0,nl(3)
+      Do j=0,nl(2)
+        Do i=0,nl(1)
+          Rhox(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i+1,j,k))
+          Rhoy(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i,j+1,k))
+          Rhoz(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i,j,k+1))
         EndDo
       EndDo
     EndDo
+
   End Subroutine UpdtRhoMu
 
   !==========================
   ! Boudnary conditions for u, v, w
   !==========================
-  Subroutine BC_UVW
+  Subroutine BC_UVW(U, V, W)
     Implicit None
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
     Call U_bc%SetBCS(U)
     Call V_bc%SetBCS(V)
     Call W_bc%SetBCS(W)
@@ -300,18 +410,20 @@ Contains
   !==========================
   ! Boudnary conditions for p
   !==========================
-  Subroutine BC_P
+  Subroutine BC_P(P)
     Implicit None
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: P
     Call Phi_bc%SetBCS(P)
   End Subroutine BC_P
 
   !==========================
   ! Boudnary conditions for rho and mu
   !==========================
-  Subroutine BC_RHOMU
+  Subroutine BC_RHOMU(Rho, Mu)
     Implicit None
-    Call Phi_bc%SetBCS(RHO)
-    Call Phi_bc%SetBCS(MU)
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: Rho, Mu
+    Call Phi_bc%SetBCS(Rho)
+    Call Phi_bc%SetBCS(Mu)
   End Subroutine BC_RHOMU
 
   !==========================
@@ -320,8 +432,9 @@ Contains
   !   The bc types and values are initialized in basics.f90 for only VOF
   !   Here will overwrite some of the value.
   !==========================
-  Subroutine InitNavierStokes
+  Subroutine InitNavierStokes(u, v, w, phi, p)
     Implicit None
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: p,u,v,w,phi
     Real(sp) :: iter_tolerance
     Integer :: iter_max
     Character(80) :: file_name
@@ -339,7 +452,7 @@ Contains
     Integer :: i
 
     !  variables for physics
-    namelist /ns/ rho_l, rho_g, mu_l, mu_g, iter_tolerance, iter_max, rk_order
+    namelist /ns/ rho_l, rho_g, mu_l, mu_g, iter_tolerance, iter_max, rk_order, body_force
     !  variables for boundary conditions
     namelist /ns_bc/ &
         phi_bc_value_lo, phi_bc_value_hi, &
@@ -352,6 +465,7 @@ Contains
         u_bc_types_lo,   u_bc_types_hi, &
         v_bc_types_lo,   v_bc_types_hi, &
         w_bc_types_lo,   w_bc_types_hi
+
 
     Call getarg(1,input_name)
     if (INPUT_NAME .eq. '') Then
@@ -385,6 +499,15 @@ Contains
     Allocate(Flag(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
     Allocate( Div(nl(1), nl(2), nl(3)))
     Allocate(rkcoef(2,rk_order))
+
+    Rho  = 0.0_sp
+    Rhox = 0.0_sp
+    Rhoy = 0.0_sp
+    Rhoz = 0.0_sp
+    Mu   = 0.0_sp
+    Div  = 0.0_sp
+    Flag = 1
+    rkcoef   = 0.0_sp
 
     ! Set boundary conditions for phi
     phi_bc%bound_type(:,1)  = phi_bc_types_lo
@@ -428,13 +551,21 @@ Contains
       rkcoef(2,2) = -17.0_sp / 60.0_sp
       rkcoef(1,3) =  45.0_sp / 60.0_sp
       rkcoef(2,3) = -25.0_sp / 60.0_sp
+    Else
+      If ( myid .eq. 0 ) then
+        print *, "======Fatal Error=============================="
+        print *, "Wong rk order, should be 1 or 2 or 3"
+        print *, "==============================================="
+      End If
+      Call MPI_Finalize(ierr)
+      stop
     End If
 
     ! Initialize hypre
     Call Hypre_Initialize(iter_tolerance, iter_max)
 
     ! Initialize the Rho and Mu field
-    Call UpdtRhoMu
+    Call UpdtRhoMu(Phi)
 
     ! Initialize hypre
     Call u_bc%SetBCS(u)
@@ -444,5 +575,37 @@ Contains
     Call phi_bc%SetBCS(p)
 
   End Subroutine InitNavierStokes
+
+  Subroutine Jacobi(P)
+    Implicit None
+    Real(sp), Intent(InOut) :: P(0:,0:,0:)
+    Real(sp) :: PP(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Integer :: i, j, k, ll
+
+
+    Do ll = 1, 10000
+      Do k = 1, nl(3)
+        Do j = 1, nl(2)
+          Do i = 1, nl(1)
+            PP(i,j,k) = - ( DIV(i,j,k) / dt &
+                &  - rhox(i-1,j,k) * P(i-1,j,k) - rhox(i,j,k) * P(i+1,j,k)    &
+                &  - rhoy(i,j-1,k) * P(i,j-1,k) - rhoy(i,j,k) * P(i,j+1,k)  &
+                &  - rhoz(i,j,k-1) * P(i,j,k-1) - rhoz(i,j,k) * P(i,j,k+1) )  &
+                &  / ( rhox(i,j,k) + rhox(i-1,j,k) + rhoy(i,j,k) + rhoy(i,j-1,k) + rhoz(i,j,k) + rhoz(i,j,k-1) )
+          End Do
+        End Do
+      End Do
+
+      Do k = 1, nl(3)
+        Do j = 1, nl(2)
+          Do i = 1, nl(1)
+            P(i,j,k) = PP(i,j,k)
+          End Do
+        End Do
+      End Do
+      Call P_bc%SetBCS(P)
+    End Do
+
+  End Subroutine Jacobi
 
 End Module ModNavierStokes
