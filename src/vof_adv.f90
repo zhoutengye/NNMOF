@@ -214,7 +214,7 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
     do j=1,nl(2)
       do i=1,nl(1)
         a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
-        a2 = us(ii,j,k) *dt/dl(dir)
+        a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
         if (f(i,j,k) .GE. 1.0_sp-epsc) then

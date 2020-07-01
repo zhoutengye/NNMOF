@@ -601,8 +601,8 @@ Contains
       top    = myid
       bottom = myid
     Else
-      top    = -1
-      bottom = -1
+      top    = -2
+      bottom = -2
     EndIf
     !
     nl(1) = n(1) / dims(1)
@@ -720,11 +720,11 @@ Contains
     w_bc%name = 'w'
     w_bc%lohi = 0
     w_bc%lohi(:,2) = nl(:)+1
-    w_bc%lohi(3,2) = nl(3)
+    w_bc%lohi(3,1) = nl(3)
 
-    phi_bc%name = 'p'
-    phi_bc%lohi(:,1) = 0
-    phi_bc%lohi(:,2) = nl(:)+1
+    p_bc%name = 'p'
+    p_bc%lohi(:,1) = 0
+    p_bc%lohi(:,2) = nl(:)+1
 
     ! At present, the values are not imported from file, but assigned directly here.
     ! For VOF problem, always set to 0 Nuemann

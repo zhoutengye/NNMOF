@@ -1,6 +1,6 @@
 &mpivar
-px = 2
-py = 2
+px = 1
+py = 1
 /
 
 &gridvar
@@ -10,15 +10,15 @@ nz = 20
 dx = 1.0
 dy = 1.0
 dz = 1.0
-periodx = .true.
-periody = .true.
-periodz = .true.
+periodx = .false.
+periody = .false.
+periodz = .false.
 /
 
 &compvar
 tstart = 0.0
-tend  = 5.0
-dt = 0.2
+tend  = 1.0
+dt = 0.001
 /
 
 &outvar
@@ -41,38 +41,39 @@ output_name = ''
 /
 
 &ns
-rho_l = 1000.0
-rho_g = 1.0
+rho_l = 1.0e3
+rho_g = 1.0e0
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
-iter_tolerance = 1e-3
-iter_max = 10
-rk_order = 3
+iter_max = 30
+rk_order = 1
+iter_tolerance = 1e-6
+body_force = 0.0, -9.81, 0.0
 /
 
 &ns_bc
-phi_bc_types_lo = /(   2,    2,    2 )/
-phi_bc_value_lo = /( 0.0,  0.0,  0.0 )/
-phi_bc_types_hi = /(   2,    2,    2 )/
-phi_bc_value_hi = /( 0.0,  0.0,  0.0 )/
+phi_bc_types_lo =   2,    2,    2
+phi_bc_value_lo = 0.0,  0.0,  0.0
+phi_bc_types_hi =   2,    2,    2
+phi_bc_value_hi = 0.0,  0.0,  0.0
 
-p_bc_types_lo   = /(   2,    2,    2)/
-p_bc_value_lo   = /( 0.0,  0.0,  0.0)/
-p_bc_types_hi   = /(   2,    2,    2)/
-p_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+p_bc_types_lo   =   2,    2,    2
+p_bc_value_lo   = 0.0,  0.0,  0.0
+p_bc_types_hi   =   2,    2,    2
+p_bc_value_hi   = 0.0,  0.0,  0.0
 
-u_bc_types_lo   = /(   1,    1,    1)/
-u_bc_value_lo   = /( 0.0,  0.0,  0.0)/
-u_bc_types_hi   = /(   1,    1,    1)/
-u_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+u_bc_types_lo   =   1,    1,    1
+u_bc_value_lo   = 0.0,  0.0,  0.0
+u_bc_types_hi   =   1,    1,    1
+u_bc_value_hi   = 0.0,  0.0,  0.0
 
-v_bc_types_lo   = /(   1,    1,    1)/
-v_bc_value_lo   = /( 0.0,  0.0,  0.0)/
-v_bc_types_hi   = /(   1,    1,    1)/
-v_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+v_bc_types_lo   =   1,    1,    1
+v_bc_value_lo   = 0.0,  0.0,  0.0
+v_bc_types_hi   =   1,    1,    1
+v_bc_value_hi   = 0.0,  0.0,  0.0
 
-w_bc_types_lo   = /(   1,    1,    1)/
-w_bc_value_lo   = /( 0.0,  0.0,  0.0)/
-w_bc_types_hi   = /(   1,    1,    1)/
-w_bc_value_hi   = /( 0.0,  0.0,  0.0)/
+w_bc_types_lo   =   1,    1,    1
+w_bc_value_lo   = 0.0,  0.0,  0.0
+w_bc_types_hi   =   1,    1,    1
+w_bc_value_hi   = 0.0,  0.0,  0.0
 /

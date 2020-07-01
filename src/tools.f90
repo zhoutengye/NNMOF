@@ -2,6 +2,9 @@
 Module ModTools
   Use ModGlobal
   Implicit None
+  Private
+  Public ::  Visual3DContour, Visual3DQuiver, Visual2DContour
+  Public ::  Heaviside, ShapeLS, InOut, VolumeOctree, VolumeCentroidOctree
 
   Type Octree
     Real(sp) :: xc(3)
