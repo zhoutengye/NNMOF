@@ -3,10 +3,6 @@
 # define test_case test1
 # elif defined TEST2
 # define test_case test2
-# elif defined TEST3
-# define test_case test3
-# elif defined TEST4
-# define test_case test4
 # endif
 program test
   use ModGlobal
@@ -78,22 +74,65 @@ Subroutine test1
   cx = 0.0_sp
   cy = 0.0_sp
   cz = 0.0_sp
-  phi(6:15,0:10,6:15) = 1.0_sp
+  body_force = 0.0_sp
+  body_force(3) = - 9.8_sp
+  if (myid .eq.0) then
+    phi(:,:,1:10) = 1.0_sp
+     cx(:,:,1:10) = 0.5_sp
+     cy(:,:,1:10) = 0.5_sp
+     cz(:,:,1:10) = 0.5_sp
+  endif
   Call UpdtRhoMu(Phi)
-  Do i = 1, 2
-    Call TwoPhaseFlow(U, V, W, Phi, P)
+  Do i = 1, 10
+    Call TwoPhaseFlow(U, V, W, Phi, P, cx, cy, cz)
   End Do
 
-  Call Visual3DQuiver(U,V,W)
-  
-  ! Call Visual3DContour(P)
-  ! Call Visual3DContour(Phi)
-  ! Call Visual3DContour(u)
-  ! Call Visual3DContour(v)
-  ! Call Visual3DContour(w)
+  Call Visual3DContour(Phi)
+
 
   Call MPI_FINALIZE(ierr)
 
 
 end Subroutine test1
 
+!===============
+! test2:
+! (1) DAM-BREAK like case
+!===============
+Subroutine test2
+  Use ModGlobal
+  Use ModTools
+  Use ModNavierStokes
+  Implicit None
+  Integer :: i
+
+  Call Init(inputfield=.false.)
+  Call InitNavierStokes(U, V, W, Phi, P)
+
+  phi = 0.0_sp
+  U = 0.0_sp
+  V = 0.0_sp
+  W = 0.0_sp
+  cx = 0.0_sp
+  cy = 0.0_sp
+  cz = 0.0_sp
+  body_force = 0.0_sp
+  body_force(3) = - 9.8_sp
+  if (myid .eq.0) then
+    phi(:,:,1:10) = 1.0_sp
+    cx(:,:,1:10) = 0.5_sp
+    cy(:,:,1:10) = 0.5_sp
+    cz(:,:,1:10) = 0.5_sp
+  endif
+  Call UpdtRhoMu(Phi)
+  time = tstart
+  Do While (time < tend)
+    Call TwoPhaseFlow(U, V, W, Phi, P, cx, cy, cz)
+    time = time + dt
+    if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
+  End Do
+
+  Call Visual3DContour(Phi)
+
+  Call MPI_FINALIZE(ierr)
+End Subroutine Test2
