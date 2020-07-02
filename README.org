@@ -83,18 +83,18 @@ the main file and other extra code file should be added to the name
     |----------------------+-------------------------------------------------------+---------+------|
     | rho_l,rho_r          | density of liquid and gas                             | float   |    1 |
     | mu_l, mu_g           | viscosity of liquid and gas                           | float   |    1 |
-    | body_force           | body foece in $x$, $y$, $z$ dierections               | float   |    3 |
+    | body_force           | body foece in /x/, /y/, /z/ dierections               | float   |    3 |
     | rk_order             | Order of Runge-Kutta integration, should be 1, 2 or 3 | integer |    1 |
     | iter_max             | Maximum iteration step                                | integer |    1 |
     | iter_tolerance       | Tolerance of the iterationq                           | float   |    1 |
     | hypre_solver         | Choice of hypre solver                                | integer |    1 |
     | hypre_preconditioner | Choice of hypre preconsitioner                        | integer |    1 |
-    | bc_left              | Lower boundary type at $x$ direction                  | integer |    3 |
-    | bc_right             | Upper boundary type at $x$ direction                  | integer |    3 |
-    | bc_back              | Lower boundary type at $y$ direction                  | float   |    3 |
-    | bc_front             | Upper boundary type at $y$ direction                  | float   |    3 |
-    | bc_bottom            | Lower boundary type at $z$ direction                  | float   |    3 |
-    | bc_top               | Upper boundary type at $z$ direction                  | float   |    3 |
+    | bc_left              | Lower boundary type at /x/ direction                  | integer |    3 |
+    | bc_right             | Upper boundary type at /x/ direction                  | integer |    3 |
+    | bc_back              | Lower boundary type at /y/ direction                  | float   |    3 |
+    | bc_front             | Upper boundary type at /y/ direction                  | float   |    3 |
+    | bc_bottom            | Lower boundary type at /z/ direction                  | float   |    3 |
+    | bc_top               | Upper boundary type at /z/ direction                  | float   |    3 |
 
 **** Options for Hypre
      The choice of hypre solver and preconditioner only works with specific combination:
@@ -107,6 +107,8 @@ the main file and other extra code file should be added to the name
 |      2 | PFMG              | Yes  |     |      |
 |      3 | BiCGSTAB          | Yes  | Yes | Yes  |
 |      4 | GMRES             | Yes  | Yes | Yes  |
+
+Notes: Seems that SMG without preconditioner or SMG conditioner with GMRES work best.
 
 
 **** Boudnary conditions
