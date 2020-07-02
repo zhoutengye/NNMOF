@@ -23,6 +23,11 @@
 !       (4-3) Cartesian norm to Spherical angle
 !       (4-4) Spherical angle to Cartesian norm
 !       (4-5) Anvance of angle
+!     (5) Level set related
+!       (5-1) Smooth vof function
+!       (5-2) VOF to level set function near interface
+!       (5-3) Fast sweeping method (FSM) for ls function for far field
+!       (5-4) permulation function for FSM
 !-----------------
 ! Author: Zhouteng Ye (yzt9zju@gmail.com)
 !-----------------
@@ -1737,6 +1742,313 @@ Contains
     end if
   End Subroutine advance_angle
 
+  !=======================================================
+  ! (5-1) Smooth vof function
+  !=======================================================
+  Subroutine Smooth_Phi(Phi, Phi_DS, nx, ny, nz)
+    Implicit None
+    real(sp), intent(in), dimension(0:,0:,0:) :: Phi
+    real(sp), intent(out), dimension(0:,0:,0:) :: Phi_DS
+    Integer, Intent(In) :: nx, ny, nz
+    real(sp):: ds1(-1:1,-1:1)
+    real(sp):: ds2(-1:1)
+    Integer :: i,j,k, ii, jj, kk
+
+    Do k=1,nz
+      Do j=1,ny
+        Do i=1,nx
+          Do jj = -1,1
+            Do kk = -1,1
+              DS1(jj,kk) = 0.125_sp * Phi(i-1,j+jj,k+kk) + 0.75_sp * Phi(i,i+jj,k+kk) + 0.125_sp * Phi(i-1,j+jj,k+kk)
+            End Do
+          End Do
+          Do ii = -1,1
+            DS2(ii) = 0.125_sp * DS1(-1,ii) + 0.75_sp * DS1(0,ii) + 0.125_sp * DS1(1,jj)
+          End Do
+          Phi_DS(i,j,k) = 0.125_sp * DS2(-1) + 0.75_sp * DS2(0) + 0.125_sp * DS2(1)
+        Enddo
+      Enddo
+    Enddo
+
+  End Subroutine Smooth_Phi
+
+  !=======================================================
+  ! (5-2) VOF to level set function near interface
+  !=======================================================
+  Subroutine VOF2LS(Phi, Ls, nx, ny, nz, dx)
+    Implicit None
+    real(sp), intent(in), dimension(0:,0:,0:) :: Phi
+    real(sp), intent(out), dimension(0:,0:,0:) :: Ls
+    Integer, Intent(In) :: nx, ny, nz
+    Real(sp), Intent(In) :: dx
+    Integer :: i,j,k, ii, jj, kk
+    Do k=1,nz
+      Do j=1,ny
+        Do i=1,nx
+          If (Phi(i,j,k) .gt. 0.0_sp .and. Phi(i,j,k) .lt. 1.0 ) Then
+            LS(i,j,k) = 1.0 / 3.0 * log(-(Phi(i,j,k)-1.0_sp)/Phi(i,j,k)) * 1.5_sp * dx
+          End If
+        Enddo
+      Enddo
+    Enddo
+
+  End Subroutine VOF2LS
+
+  !===========================================
+  ! (5-3) Fast sweeping method (FSM) for ls function for far field
+  !===========================================
+  Subroutine FSM_3D_UNIFORM(Ls, dx, nx, ny, nz)
+    Use ModGlobal, only : Phi_bc
+    Implicit None
+    Integer, intent(in)    :: nx, ny, nz
+    integer, intent(in)    :: dx
+    Real(8), intent(inout) :: ls(nx+2,ny+2,nz+2)
+
+    Integer :: s(nx+1,ny+2,nz+2)
+    Integer :: i, j, k, l
+    Integer :: Istart, Istep, Iend
+    Integer :: Jstart, Jstep, Jend
+    Integer :: Kstart, Kstep, Kend
+    Real(8) :: a, b, c, h, dnew
+
+    ! Initialize s
+    s = 0.d0
+
+    !============================================================
+    ! Initialize level set
+    Do j = 2, ny+1
+      Do k = 2, nz+1
+        Do i = 2, nx+1
+
+          If (dabs(ls(I,J,K)) .le. 1.5d0*dx) Then
+
+            s(I,J,K) = 1
+          Else
+            s(I,J,K) = 0
+
+            If ( ls(I,J,K) .ge. 0.0d0 ) Then
+              Ls(I,J,K) = (nx*dx)
+            Else
+              Ls(I,J,K) = -(nx*dx)
+            EndIf
+
+          EndIf
+
+        EndDo
+      EndDo
+    EndDo
+
+    Do l=1,8
+
+      If (l.eq.1) Then
+        !X+,Y+,Z+direction
+        Istart = 2
+        Istep  = 1
+        Iend   = nx + 1
+
+        Jstart = 2
+        Jstep  = 1
+        Jend   = ny + 1
+
+        Kstart = 2
+        Kstep  = 1
+        Kend   = nz + 1
+      Elseif (l.eq.2) Then
+        !X-,Y+,Z+direction
+        Istart = nx + 1
+        Istep  = -1
+        Iend   = 2
+
+        Jstart = 2
+        Jstep  = 1
+        Jend   = ny + 1
+
+        Kstart = 2
+        Kstep  = 1
+        Kend   = nz + 1
+      Elseif (l.eq.3) Then
+        !X+,Y-,Z+direction
+        Istart = 2
+        Istep  = 1
+        Iend   = nx + 1
+
+        Jstart = ny + 1
+        Jstep  = -1
+        Jend   = 2
+
+        Kstart = 2
+        Kstep  = 1
+        Kend   = nz + 1
+      ElseIf (l.eq.4) Then
+        !X-,Y-,Z+direction
+        Istart = nx +1
+        Istep  = -1
+        Iend   = 2
+
+        Jstart = ny + 1
+        Jstep  = -1
+        Jend   = 2
+
+        Kstart = 2
+        Kstep  = 1
+        Kend   = nz + 1
+      Elseif (l.eq.5) Then
+        !X+,Y+,Z-direction
+        Istart = 2
+        Istep  = 1
+        Iend   = nx + 1
+
+        Jstart = 2
+        Jstep  = 1
+        Jend   = ny + 1
+
+        Kstart = nz + 1
+        Kstep  = -1
+        Kend   = 2
+      ElseIf (l.eq.6) Then
+        !X-,Y+,Z-direction
+        Istart = nx + 1
+        Istep  = -1
+        Iend   = 2
+
+        Jstart = 2 
+        Jstep  = 1
+        Jend   = ny + 1
+
+        Kstart = nz + 1
+        Kstep  = -1
+        Kend   = 2
+      ElseIf (l.eq.7) Then
+        !X+,Y-,Z-direction
+        Istart = 2
+        Istep  = 1
+        Iend   = nx + 1
+
+        Jstart = ny + 1
+        Jstep  = -1
+        Jend   = 2
+
+        Kstart = nz + 1
+        Kstep  = -1
+        Kend   = 2
+      Else 
+        !X-,Y-,Z-direction
+        Istart = nx + 1
+        Istep  = -1
+        Iend   = 2
+
+        Jstart = ny + 1
+        Jstep  = -1
+        Jend   = 2
+
+        Kstart = nz + 1
+        Kstep  = -1
+        Kend   = 2
+      EndIf
+
+      Do j = Jstart, Jend, Jstep
+        Do k = Kstart, Kend, Kstep
+          Do i = Istart, Iend, Istep
+
+            If(s(i,j,k).ne.0) Cycle
+
+            !ls>=0
+            If ( ls(i,j,k) .ge. 0.0d0 ) Then
+
+              a = dMin1( Ls(i-1,j,k), Ls(i+1,j,k) )
+              b = dMin1( Ls(i,j-1,k), Ls(i,j+1,k) )
+              c = dMin1( Ls(i,j,k-1), Ls(i,j,k+1) )
+
+              Call Rank31(a, b, c)
+
+              If ( h .le. dAbs(b-a) ) Then
+
+                dnew = a+h
+              ElseIf ( h .le. dabs(c-a) )Then
+                dnew = ( a + b + dSqrt( 2.0 * h * h - ( a - b )**2.d0 ) )/2.d0 
+              Else
+                dnew = ( a + b + c + dSqrt( 3.0 * h * h - ( (a-b)**2.0 + ( b - c )**2.d0 + ( c - a )**2.0 ) )  ) / 3.d0
+
+              EndIf
+
+              Ls(i,j,k) = dMin1( Ls(i,j,k), dnew )
+
+              !ls<0
+            Else
+
+              a = dMax1( Ls(I-1,J,k), Ls(I+1,J,k) )
+              b = dMax1( Ls(I,J-1,k), Ls(I,J+1,k) )
+              c = dMax1( Ls(I,J,k-1), Ls(I,J,k+1) )
+
+              call Rank32(a, b, c)
+
+              If ( h .le. dabs(b-a) ) Then
+                dnew = a-h
+              ElseIf ( h .le. dabs(c-a) )Then
+                dnew = ( a + b - dSqrt( 2.0 * h * h - ( a - b )**2.d0 ) ) / 2.0d0 
+              Else
+                dnew = ( a + b + c - dSqrt( 3.0 * h * h - ( ( a - b )**2.d0 + ( b - c )**2.0 + (c-a)**2.0 ) ) ) / 3.0d0
+              EndIf
+
+              Ls(i,j,k) = dMax1( Ls(i,j,k), dnew )
+
+            EndIf
+
+          EndDO
+        EndDO
+      EndDO
+
+      Call Phi_bc%SetBCS(LS)
+
+    EndDO
+
+  End Subroutine FSM_3D_UNIFORM
+
+  !==========================
+  ! (5-4) permulation function for FSM
+  !==========================
+  Subroutine Rank31(a, b, c)
+    Implicit None
+    Real(8)   ::  a,b,c
+    Real(8)   ::  d
+    If(a.gt.b) Then
+      d=a
+      a=b
+      b=d
+    EndIf
+    If(a.gt.c) Then
+      d=a
+      a=c
+      c=d
+    EndIf
+    If(b.gt.c) then
+      d=b
+      b=c
+      c=d
+    EndIf
+  End Subroutine Rank31
+
+  Subroutine Rank32(a ,b, c)
+    Implicit None
+    Real(8)   ::  a,b,c
+    Real(8)   ::  d
+    If(a.lt.b) then
+      d=a
+      a=b
+      b=d
+    EndIf
+    If(a.lt.c) Then
+      d=a
+      a=c
+      c=d
+    EndIf
+    If(b.lt.c) Then
+      d=b
+      b=c
+      c=d
+    EndIf
+
+  End Subroutine Rank32
 
 End Module ModVOFFunc
 
