@@ -1,0 +1,68 @@
+&mpivar
+px = 1
+py = 1
+/
+
+&gridvar
+nx = 20
+ny = 20
+nz = 20
+dx = 1.0
+dy = 1.0
+dz = 1.0
+periodx = .false.
+periody = .false.
+periodz = .false.
+/
+
+&compvar
+tstart = 0.0
+tend  = 1.0
+dt = 0.05
+/
+
+&outvar
+output_inteval = 1.0
+startframe = 0
+/
+
+&iofield
+n_vars = 8
+io_phi = .true.
+io_p   = .true.
+io_u   = .true.
+io_v   = .true.
+io_w   = .true.
+io_cx  = .true.
+io_cy  = .true.
+io_cz  = .true.
+output_path = ''
+output_name = ''
+/
+
+&ns_physics
+rho_l = 1.0e3
+rho_g = 1.0e0
+mu_l  = 1.0e-3
+mu_g  = 1.0e-6
+cfl   = 0.5
+dt_min = 0.005
+body_force = 0.0, 0.0, -9.81
+/
+
+&ns_solver
+rk_order = 3
+iter_max = 30
+iter_tolerance = 1e-3
+hypre_solver = 1
+hypre_preconditioner = 0
+/
+
+&ns_bc
+bc_left   = 2
+bc_right  = 2
+bc_back   = 2
+bc_front  = 2
+bc_top    = 2
+bc_bottom = 2
+/

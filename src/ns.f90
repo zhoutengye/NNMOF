@@ -12,6 +12,7 @@
 !       (2-3) Divergence
 !       (2-4) Projection
 !       (2-5) Update Rho and Mu
+!       (2-6) Continuum surface tension
 !     (3) Initial and Boundary conditions
 !       (3-1) Boundary condition for u, v, w
 !       (3-2) Boundary condition for p
@@ -540,6 +541,77 @@ Contains
     EndDo
 
   End Subroutine UpdtRhoMu
+
+  !===============================================================
+  !  Density-scaled Continuum Surface Force (CSF)
+  !  with balanced force formation
+  !  Key steps:
+  !    (1) Scale volume function
+  !    (2) Convert the VOF function to level set
+  !    (3) calculate curvature at grid center
+  !    (4) Interpolate the curvature to grid center
+  !    (5) Calculte density-scaled balanced surface tension
+  !
+  !---------------------------------------------------------------
+  ! Inputs:
+  !   Phi: volume fraction
+  !   sigma: surface tension coefficient
+  ! Outputs:
+  !   dudt, dvdt, dwdt: du/dt, dv/dt, dw/dt
+  !===============================================================
+  Subroutine CSF(dudt, dvdt, dwdt, sigma, Phi)
+    Implicit None
+    real(sp), intent(in) :: sigma
+    real(sp), intent(in), dimension(0:,0:,0:) :: Phi
+    real(sp), intent(out), dimension(0:,0:,0:) :: dudt, dvdt, dwdt
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Phi_DS
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Ls
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_v
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_sx, kappa_sy, kappa_sz
+    Integer :: i, j, k
+
+    !    (1) Scale volume function
+    Call Smooth_Phi(Phi, Phi_DS, nl(1), nl(2), nl(3))
+
+    !    (2) Convert the VOF function to level set
+    Call VOF2LS(Phi, LS, nl(1), nl(2), nl(3), dl(1))
+
+    !    (3) calculate curvature at grid center
+    Kappa_v = 0.0_sp
+    Do k=0,nl(3)
+      Do j=0,nl(2)
+        Do i=0,nl(1)
+          Kappa_v(i,j,k) = - ( ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i+1,j,k) ) / dl(1) / dl(1) &
+                    &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j+1,k) ) / dl(2) / dl(2) &
+                    &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j,k+1) ) / dl(3) / dl(3) )
+        EndDo
+      EndDo
+    EndDo
+    Call Phi_bc%SetBCS(kappa_v)
+
+    !    (4) Interpolate the curvature to grid center
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          Kappa_sx(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(i-1,  j,  k) )
+          Kappa_sy(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,j-1,  k) )
+          Kappa_sz(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,  j,k-1) )
+        EndDo
+      EndDo
+    EndDo
+
+    !    (5) Calculte density-scaled balanced surface tension
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          dudt(i,j,k) = sigma * Kappa_sx(i,j,k) * ( Phi_DS(i+1,  j,  k) - Phi_DS(i,j,k) ) * rhox(i,j,k) / dl(1) * dt
+          dvdt(i,j,k) = sigma * Kappa_sy(i,j,k) * ( Phi_DS(  i,j+1,  k) - Phi_DS(i,j,k) ) * rhoy(i,j,k) / dl(2) * dt
+          dwdt(i,j,k) = sigma * Kappa_sz(i,j,k) * ( Phi_DS(  i,  j,k+1) - Phi_DS(i,j,k) ) * rhoz(i,j,k) / dl(3) * dt
+        EndDo
+      EndDo
+  EndDo
+
+  End Subroutine CSF
 
   !==========================
   ! (3-1) Boudnary conditions for u, v, w
