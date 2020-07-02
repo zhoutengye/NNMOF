@@ -16,6 +16,9 @@ docs/ltximg/
 libs/hypre
 libs/hdf5*
 
+*contour.py
+*quiver.py
+
 *.aux
 *.fdb_latexmk
 *.log

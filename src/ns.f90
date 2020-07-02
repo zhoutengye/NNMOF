@@ -139,9 +139,9 @@ Contains
     ! VOF/MOF advection
     step_rank = step_rank+1
     If (present(cx)) Then ! MOF
-      Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
-    Else !VOF
       Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3), cx, cy, cz)
+    Else !VOF
+      Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
     End If
     Call UpdtRhoMu(Phi)
 
