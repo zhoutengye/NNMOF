@@ -17,7 +17,7 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 1.0
+tend  = 4.0
 dt = 0.05
 /
 
@@ -45,13 +45,15 @@ rho_l = 1.0e3
 rho_g = 1.0e0
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
+cfl   = 0.5
+dt_min = 0.005
 body_force = 0.0, 0.0, -9.81
 /
 
 &ns_solver
 rk_order = 3
 iter_max = 30
-iter_tolerance = 1e-6
+iter_tolerance = 1e-3
 hypre_solver = 1
 hypre_preconditioner = 0
 /
@@ -67,18 +69,18 @@ p_bc_value_lo   = 0.0,  0.0,  0.0
 p_bc_types_hi   =   2,    2,    2
 p_bc_value_hi   = 0.0,  0.0,  0.0
 
-u_bc_types_lo   =   1,    1,    1
-u_bc_value_lo   = 0.0,  0.0,  0.0
-u_bc_types_hi   =   1,    1,    1
-u_bc_value_hi   = 0.0,  0.0,  0.0
+u_bc_types_lo   =   1,    2,    2
+u_bc_value_lo   = 0.0,  1.0,  1.0
+u_bc_types_hi   =   1,    2,    2
+u_bc_value_hi   = 0.0,  1.0,  1.0
 
-v_bc_types_lo   =   1,    1,    1
-v_bc_value_lo   = 0.0,  0.0,  0.0
-v_bc_types_hi   =   1,    1,    1
-v_bc_value_hi   = 0.0,  0.0,  0.0
+v_bc_types_lo   =   2,    1,    2
+v_bc_value_lo   = 1.0,  0.0,  1.0
+v_bc_types_hi   =   2,    1,    1
+v_bc_value_hi   = 1.0,  0.0,  1.0
 
-w_bc_types_lo   =   1,    1,    1
-w_bc_value_lo   = 0.0,  0.0,  0.0
-w_bc_types_hi   =   1,    1,    1
-w_bc_value_hi   = 0.0,  0.0,  0.0
+w_bc_types_lo   =   2,    2,    1
+w_bc_value_lo   = 1.0,  1.0,  0.0
+w_bc_types_hi   =   2,    2,    1
+w_bc_value_hi   = 1.0,  1.0,  0.0
 /
