@@ -4,6 +4,7 @@ from mayavi import mlab
 f = h5py.File('visual.h5','r')
 for key in f['visual']:
     vis = np.array(f['visual'][key])
+    vis = np.transpose(vis, (1, 2, 0))
     mlab.contour3d(vis,contours=8,opacity=.2 )
 nx, ny, nz = vis.shape
 f.close()

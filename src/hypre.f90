@@ -1,3 +1,55 @@
+!=================
+! Includes:
+!     (1) Derived types and procedure pointer
+!     (2) Hypre interface for public
+!       (2-1) Hypre Initialize
+!       (2-2) Hypre Poisson
+!     (3) Construct the matrix
+!       (3-1) Construct Sparse matrix and RHS
+!     (4) Set Solvers
+!       (4-1) Set solver SMG
+!       (4-2) Set solver PFMG
+!       (4-3) Set solver BicgSTAB
+!       (4-4) Set solver GMRES
+!     (5) Set Pre-conditioner
+!       (5-1) Set preconditioner SMG
+!       (5-2) Set preconditioner PFMG
+!     (6) Solvers
+!       (6-1) SMG
+!       (6-2) PFMG
+!       (6-3) BicgSTAB
+!       (6-4) GMRES
+!-----------------
+! Author: Zhouteng Ye (yzt9zju@gmail.com)
+!-----------------
+! Note:
+!  1) The following variables are not passed from the subroutine interface,
+!  but comes from the ModGlobal
+!     mpi variables
+!     dt: time step
+!     nl: number of total grids, with rank 3
+!     dl: grid size, with rank 3
+!
+!  2)  List of solvers:
+!    In input.namelist, set hypre_solver:
+!       1: SMG
+!       2: PFMG
+!       3: BicgSTAB
+!       4: GMRES
+!    List of pre_conditioner:
+!       0: No preconditioner
+!       1: SMG
+!       2: FPMG
+! Working pairs are
+!     |------------|-----|------|----------|-------|
+!     |            | SMG | FPMG | BicgSTAB | GMRES |
+!     |------------|-----|------|----------|-------|
+!     |   no pre:  | Yes | Yes  | Yes      | Yes   |
+!     |   SMG:     |     |      | Yes      | Yes   |
+!     |   FPMG:    |     |      | Yes      | Yes   |
+!     |------------|-----|------|----------|-------|
+!=================
+
 Module HypreStruct
   Use ModGlobal
   Use ModTools
@@ -5,6 +57,7 @@ Module HypreStruct
   Private
   Public :: Hypre_Initialize, Hypre_Poisson
 
+  ! (1) Derived types 
   Type :: Hypre_para
     Integer :: ier
     Integer*8 :: grid
@@ -22,16 +75,17 @@ Module HypreStruct
 
   Type(Hypre_para) :: Hypre
 
+  ! (1) Procedure pointers
   Procedure(InterfaceSparse), Pointer :: Sparse_Matrix_Vector => Sparse_Matrix_Vector_Neumann_0
-  Procedure(), Pointer :: Hypre_Solver => Hypre_Solver_SMG
-  Procedure(), Pointer :: Hypre_SetSolver => Hypre_SetSolver_SMG
+  Procedure(), Pointer :: Hypre_Solver => Hypre_Solver_GMRES
+  Procedure(), Pointer :: Hypre_SetSolver => Hypre_SetSolver_GMRES
   Procedure(), Pointer :: Hypre_SetPreConditioner => Hypre_SetPreConditioner_SMG
-  Procedure(), Pointer :: Hypre_PreConditioner => Hypre_PreConditioner_SMG
 
   Integer :: nxyz
   Real(sp) :: iter_tolerance
   Integer  :: iter_max
   Integer :: niter
+  Real(sp) :: residual_norm
 
   Interface
     Subroutine InterfaceSparse(P, Div, Rhox, Rhoy, Rhoz, flag)
@@ -46,16 +100,76 @@ Module HypreStruct
 
 Contains
 
-  Subroutine Hypre_Initialize(tol, nmax)
+  !=======================
+  ! (2-1) Initialize hypre solver
+  !   Setup solver, preconditioner, maximum iteration step
+  !-----------------------
+  ! Inputs:
+  !    tol: Relative tolerance for iteration
+  !    nnmax: Maximum iteration steps
+  !    set_hypre_solver: Assin the type of hypre solver
+  !    set_hypre_preconditioner: Assin the type of hypre preconditioner
+  !========================
+  Subroutine Hypre_Initialize(tol, nmax, set_hypre_solver, set_Hypre_PreConditioner)
 
     Implicit None
     Real(sp), Intent(In) :: tol
     Integer , Intent(In) :: nmax
+    Integer , Intent(In) :: set_hypre_solver, set_hypre_preConditioner
 
     iter_tolerance = tol
     iter_max = nmax
 
-    Call HYPRE_StructBICGSTABCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
+    ! Set pre conditioner
+    hypre%precond_id = 9
+    if (set_hypre_preconditioner .eq. 0) then
+      hypre%precond_id = 9
+    else if (set_Hypre_PreConditioner .eq. 1) then
+      hypre%precond_id = 0
+      Hypre_SetPreConditioner => Hypre_SetPreConditioner_SMG
+    else if (set_Hypre_PreConditioner .eq. 2) then
+      hypre%precond_id = 1
+      Hypre_SetPreConditioner => Hypre_SetPreConditioner_PFMG
+    else
+      If ( myid .eq. 0 ) then
+        print *, "======Fatal Error=============================="
+        print *, "Incorrect preconditioner, should be:"
+        print *, "0: No preconditioner"
+        print *, "1: SMG preconditioner"
+        print *, "2: PFMG preconditioner"
+        print *, "==============================================="
+      End If
+      Call MPI_Finalize(ierr)
+      stop
+    endif
+
+    ! Set iterator
+    if (Set_Hypre_Solver .eq. 1) then
+      Hypre_SetSolver => Hypre_SetSolver_SMG
+      Hypre_Solver => Hypre_Solver_SMG
+    else if (Set_Hypre_Solver .eq. 2) then
+      Hypre_SetSolver => Hypre_SetSolver_PFMG
+      Hypre_Solver => Hypre_Solver_PFMG
+    else if (Set_Hypre_Solver .eq. 3) then
+      Hypre_SetSolver => Hypre_SetSolver_BicgSTAB
+      Hypre_Solver => Hypre_Solver_BicgSTAB
+    else if (Set_Hypre_Solver .eq. 4) then
+      Hypre_SetSolver => Hypre_SetSolver_GMRES
+      Hypre_Solver => Hypre_Solver_GMRES
+    else
+      If ( myid .eq. 0 ) then
+        print *, "======Fatal Error=============================="
+        print *, "Incorrect hypre solver, should be:"
+        print *, "1: SMG"
+        print *, "2: PFMG"
+        print *, "3: BicgSTAB"
+        print *, "4: GMRES"
+        print *, "==============================================="
+      End If
+      Call MPI_Finalize(ierr)
+      stop
+    endif
+
     Call Hypre_SetPreConditioner
     Call Hypre_SetSolver
 
@@ -103,25 +217,42 @@ Contains
         offset = offsets(entry,:)
         Call HYPRE_StructStencilSetElement(hypre%stencil, entry-1, offset, Hypre%ier);
       End Do
-      hypre%precond_id = 0
     End Block
 
   End Subroutine Hypre_Initialize
 
-  Subroutine Hypre_Poisson(P, Rhox, Rhoy, Rhoz, Div, flag, n_iter)
+  !=======================
+  ! (2-2) Solve the Poisson equatiosn
+  ! Key steps:
+  !   (1) Construct sparse matrix and RHS vector
+  !   (2) Solve Ap = Div
+  !   (3) Get the value of p
+  !-----------------------
+  ! Inputs:
+  !    P: Pressure
+  !    Rhox: x face-centered conponent of 1 / Rho
+  !    Rhoy: y face-centered conponent of 1 / Rho
+  !    Rhoz: z face-centered conponent of 1 / Rho
+  !    Div: Divergence
+  !    flag: used to indicate fluid region
+  ! Outputs:
+  !    P: Pressure
+  !    n_iter: Number of iteration
+  !    res: Relative residual norm
+  !========================
+  Subroutine Hypre_Poisson(P, Rhox, Rhoy, Rhoz, Div, flag, n_iter, res)
     Implicit None
     real(sp), intent(inout), dimension(0:,0:,0:) :: P
     real(sp), intent(in),    dimension(0:,0:,0:) :: Rhox, Rhoy, Rhoz
     real(sp), intent(in),    dimension(:,:,:) :: Div
     Integer, intent(in),    dimension(:,:,:) :: flag
     Integer, intent(out) :: n_iter
+    Real(sp), intent(out) :: res
     Integer  :: kk
     Real(SP) :: PP(nxyz)
     Integer :: i, j, k
 
-
     Call Sparse_Matrix_Vector(P, Div, Rhox, Rhoy, Rhoz, flag)
-    ! Call Hypre_PreConditioner
     Call Hypre_Solver
 
     call HYPRE_StructVectorGetBoxValues(hypre%x, hypre%ilower, hypre%iupper, PP, Hypre%ier)
@@ -135,8 +266,26 @@ Contains
       EndDo
     EndDo
 
+    n_iter = niter
+    res = residual_norm
+
   End Subroutine Hypre_Poisson
 
+  !=======================
+  ! (3-1) Construct Sparse matrix and RHS
+  !-----------------------
+  ! Inputs:
+  !    P: Pressure
+  !    Rhox: x face-centered conponent of 1 / Rho
+  !    Rhoy: y face-centered conponent of 1 / Rho
+  !    Rhoz: z face-centered conponent of 1 / Rho
+  !    Div: Divergence
+  !    flag: used to indicate fluid region
+  ! Outputs:
+  !    P: Pressure
+  !    n_iter: Number of iteration
+  !    res: Relative residual norm
+  !========================
   Subroutine Sparse_Matrix_Vector_Neumann_0(P, Div, Rhox, Rhoy, Rhoz, flag)
     Implicit None
     real(sp), intent(in), dimension(0:,0:,0:) :: P
@@ -289,50 +438,88 @@ Contains
 
   end Subroutine Sparse_Matrix_Vector_Neumann_0
 
-
-  Subroutine Hypre_SetSolver_BicgSTAB
-    Implicit None
-    Call HYPRE_StructBICGSTABCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
-    Call HYPRE_StructBICGSTABSetTol(hypre%solver, iter_tolerance, Hypre%ier)
-    ! Call HYPRE_StructBiCGSTABSetPrintLev(hypre%solver, 2, Hypre%ier)
-    Call HYPRE_StructBICGSTABSetMaxIter(hypre%solver, iter_max, Hypre%ier)
-
-  End Subroutine Hypre_SetSolver_BicgSTAB
-
+  !=============================
+  ! (4-1) Set up SMG Solver
+  !=============================
   Subroutine Hypre_SetSolver_SMG
     Implicit None
     Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
     Call HYPRE_StructSMGSetTol(hypre%solver, iter_tolerance, Hypre%ier)
-    ! Call HYPRE_StructSMGSetPrintLevel(hypre%solver, 2, Hypre%ier)
     Call HYPRE_StructSMGSetMaxIter(hypre%solver, iter_max, Hypre%ier)
-
   End Subroutine Hypre_SetSolver_SMG
+  !=============================
+  ! (4-2) Set up PFMG Solver
+  !=============================
+  Subroutine Hypre_SetSolver_PFMG
+    Implicit None
+    Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
+    Call HYPRE_StructPFMGSetTol(hypre%solver, iter_tolerance, Hypre%ier)
+    Call HYPRE_StructPFMGSetMaxIter(hypre%solver, iter_max, Hypre%ier)
+  End Subroutine Hypre_SetSolver_PFMG
+  !=============================
+  ! (4-3) Set up BiCGSTAB Solver
+  !=============================
+  Subroutine Hypre_SetSolver_BicgSTAB
+    Implicit None
+    Call HYPRE_StructBICGSTABCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
+    Call HYPRE_StructBICGSTABSetTol(hypre%solver, iter_tolerance, Hypre%ier)
+    Call HYPRE_StructBICGSTABSetMaxIter(hypre%solver, iter_max, Hypre%ier)
+  End Subroutine Hypre_SetSolver_BicgSTAB
+  !=============================
+  ! (4-4) Set up GMRES Solver
+  !=============================
+  Subroutine Hypre_SetSolver_GMRES
+    Implicit None
+    Call HYPRE_StructGMRESCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
+    Call HYPRE_StructGMRESSetTol(hypre%solver, iter_tolerance, Hypre%ier)
+    Call HYPRE_StructGMRESSetMaxIter(hypre%solver, iter_max, Hypre%ier)
+  End Subroutine Hypre_SetSolver_GMRES
 
-
+  !=============================
+  ! (6-1) SMG Solver
+  !=============================
   Subroutine Hypre_Solver_SMG
     Implicit None
-
     Call HYPRE_StructSMGSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructSMGSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructSMGGetNumIterations(hypre%solver, niter, Hypre%ier)
-    ! Call HYPRE_StructSMGGetPrintLevel(hypre%solver, 2, hypre%ier)
-
+    Call hypre_structsmggetfinalrelative(hypre%solver, residual_norm, hypre%ier)
   End Subroutine Hypre_Solver_SMG
-
-
-
+  !=============================
+  ! (6-2) PFMG Solver
+  !=============================
+  Subroutine Hypre_Solver_PFMG
+    Implicit None
+    Call HYPRE_StructPFMGSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call HYPRE_StructPFMGSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call HYPRE_StructPFMGGetNumIteration(hypre%solver, niter, Hypre%ier)
+    Call hypre_structpfmggetfinalrelativ(hypre%solver, residual_norm, hypre%ier)
+  End Subroutine Hypre_Solver_PFMG
+  !=============================
+  ! (6-3) BicgSTAB Solver
+  !=============================
   Subroutine Hypre_Solver_BicgSTAB
     Implicit None
-
+    ! Call HYPRE_StructBICGSTABSetPrecond(hypre%solver, hypre%precond_id, hypre%precond, Hypre%ier)
     Call HYPRE_StructBICGSTABSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructBICGSTABSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call hypre_structbicgstabgetnumitera(hypre%solver, niter, Hypre%ier)
-
+    Call hypre_structbicgstabgetfinalrel(hypre%solver, residual_norm, hypre%ier)
   End Subroutine Hypre_Solver_BicgSTAB
+  !=============================
+  ! (6-4) GMRES Solver
+  !=============================
+  Subroutine Hypre_Solver_GMRES
+    Implicit None
+    Call HYPRE_StructgmresSetPrecond(hypre%solver, hypre%precond_id, hypre%precond, Hypre%ier)
+    Call HYPRE_StructGMRESSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call HYPRE_StructGMRESSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
+    Call HYPRE_StructGMRESGetNumIteratio(hypre%solver, niter, Hypre%ier)
+    Call hypre_structGMRESgetfinalrelati(hypre%solver, residual_norm, hypre%ier)
+  End Subroutine Hypre_Solver_GMRES
 
   Subroutine Hypre_SetPreConditioner_SMG
     Implicit None
-
     Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
     Call HYPRE_StructSMGSetMemoryUse(hypre%precond, 0, Hypre%ier)
     Call HYPRE_StructSMGSetMaxIter(hypre%precond, 1, Hypre%ier)
@@ -340,15 +527,17 @@ Contains
     Call HYPRE_StructSMGSetZeroGuess(hypre%precond, Hypre%ier)
     Call HYPRE_StructSMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
     Call HYPRE_StructSMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
-    Hypre%precond_id = 0
-
   End Subroutine Hypre_SetPreConditioner_SMG
 
-  Subroutine Hypre_PreConditioner_SMG
+  Subroutine Hypre_SetPreConditioner_PFMG
     Implicit None
 
-    Call HYPRE_StructBICGSTABSetPrecond(hypre%solver, hypre%precond_id, hypre%precond, Hypre%ier)
-
-  End Subroutine Hypre_PreConditioner_SMG
+    Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
+    Call HYPRE_StructPFMGSetMaxIter(hypre%precond, 1, Hypre%ier)
+    Call HYPRE_StructPFMGSetTol(hypre%precond, 0.0, Hypre%ier)
+    Call HYPRE_StructPFMGSetZeroGuess(hypre%precond, Hypre%ier)
+    Call HYPRE_StructPFMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
+    Call HYPRE_StructPFMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
+  End Subroutine Hypre_SetPreConditioner_PFMG
 
 End Module HypreStruct

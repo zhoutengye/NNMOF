@@ -1,6 +1,6 @@
 &mpivar
-px = 1
-py = 1
+px = 2
+py = 2
 /
 
 &gridvar
@@ -18,7 +18,7 @@ periodz = .false.
 &compvar
 tstart = 0.0
 tend  = 1.0
-dt = 0.001
+dt = 0.1
 /
 
 &outvar
@@ -40,15 +40,20 @@ output_path = ''
 output_name = ''
 /
 
-&ns
+&ns_physics
 rho_l = 1.0e3
 rho_g = 1.0e0
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
+body_force = 0.0, 0.0, -9.81
+/
+
+&ns_solver
+rk_order = 3
 iter_max = 30
-rk_order = 1
 iter_tolerance = 1e-6
-body_force = 0.0, -9.81, 0.0
+hypre_solver = 1
+hypre_preconditioner = 0
 /
 
 &ns_bc
