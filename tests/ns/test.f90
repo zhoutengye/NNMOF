@@ -104,7 +104,8 @@ Subroutine test2
   Use ModTools
   Use ModNavierStokes
   Implicit None
-  Integer :: i
+  Integer :: i, j, k
+  Real(sp) :: vol1, vol2
 
   Call Init(inputfield=.false.)
   Call InitNavierStokes(U, V, W, Phi, P)
@@ -119,20 +120,41 @@ Subroutine test2
   body_force = 0.0_sp
   body_force(3) = - 9.8_sp
   if (myid .eq.0) then
-    phi(:,:,1:10) = 1.0_sp
-    cx(:,:,1:10) = 0.5_sp
-    cy(:,:,1:10) = 0.5_sp
-    cz(:,:,1:10) = 0.5_sp
+    phi(1:10,1:10,1:10) = 1.0_sp
+    cx(1:10,1:10,1:10) = 0.5_sp
+    cy(1:10,1:10,1:10) = 0.5_sp
+    cz(1:10,1:10,1:10) = 0.5_sp
   endif
   Call UpdtRhoMu(Phi)
+  vol1 = 0.0_sp
+  Do k = 1,nl(3)
+    Do j = 1,nl(2)
+      Do i = 1,nl(2)
+        vol1 = vol1+phi(i,j,k)
+      End Do
+    End Do
+  End Do
+
   time = tstart
   Do While (time < tend)
-    Call TwoPhaseFlow(U, V, W, Phi, P)
+    Call TwoPhaseFlow(U, V, W, Phi, P, cx, cy, cz)
+    ! Call TwoPhaseFlow(U, V, W, Phi, P)
     time = time + dt
     if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
   End Do
 
+  vol2 = 0.0_sp
+  Do k = 1,nl(3)
+    Do j = 1,nl(2)
+      Do i = 1,nl(2)
+        vol2 = vol2+phi(i,j,k)
+      End Do
+    End Do
+  End Do
+
   Call Visual3DContour(Phi)
+
+  print *, vol1, vol2
 
   Call MPI_FINALIZE(ierr)
 End Subroutine Test2

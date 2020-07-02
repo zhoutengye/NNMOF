@@ -18,6 +18,7 @@
 !       (3-3) Boundary condition for rho, mu
 !       (3-4) Initialization
 !     (4) Misc
+!       (4-2) Adjust_dt
 !       (4-1) Jacobi iteration
 !------------------------------------------
 ! Author: Zhouteng Ye (yzt9zju@gmail.com)
@@ -65,10 +66,11 @@
 !    SMG  seems work best
 !    FPMG seems not working properly with multi-phase flow
 !===============================================
+#include "param.h"
 Module ModNavierStokes
   Use mpi
   Use ModGlobal, only : sp
-  Use ModGlobal, only : dl, nl, dt
+  Use ModGlobal, only : dl, nl, dt, dt0
   Use ModGlobal, only : Phi_bc, P_bc, U_bc, V_bc, W_bc
   Use ModGlobal, only : h5_input
   Use ModGlobal, only : myid, nproc, ierr
@@ -87,6 +89,7 @@ Module ModNavierStokes
   Integer :: rk_order
   Real(sp), Allocatable :: rkcoef(:,:)
   Integer :: n_iter
+  Real(sp) :: cfl, dt_min
   Real(sp) :: p_residual
   Integer :: step_rank = 0
 
@@ -143,7 +146,10 @@ Contains
     Else !VOF
       Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
     End If
+
+    ! Update Rho, Mu, and adjust time step
     Call UpdtRhoMu(Phi)
+    Call Adjustdt(U, V, W, cfl)
 
   End Subroutine TwoPhaseFlow
 
@@ -592,7 +598,7 @@ Contains
     Integer :: i
 
     !  variables for physics
-    namelist /ns_physics/ rho_l, rho_g, mu_l, mu_g,  body_force
+    namelist /ns_physics/ rho_l, rho_g, mu_l, mu_g, body_force, cfl, dt_min
     namelist /ns_solver/ iter_tolerance, iter_max, rk_order, hypre_solver, Hypre_PreConditioner
     !  variables for boundary conditions
     namelist /ns_bc/ &
@@ -722,14 +728,42 @@ Contains
   End Subroutine InitNavierStokes
 
   !==========================
-  !  (4-1) Jacobi iteration
+  !  (4-1) Adjust dt
+  !==========================
+  Subroutine Adjustdt(U, V, W, cfl)
+    Implicit None
+    Real(sp), Intent(In), Dimension(0:,0:,0:) :: U, V, W
+    Real(sp) :: uvw, uvw2, dlmin
+    Real(sp), Intent(In) :: cfl
+    Integer :: i, j, k
+    uvw = 0.0_sp
+    Do k = 1, nl(3)
+      Do j = 1, nl(2)
+        Do i = 1, nl(1)
+          uvw = max(uvw,abs(u(i,j,k))+abs(v(i,j,k))+abs(w(i,j,k)))
+        End Do
+      End Do
+    End Do
+
+    dlmin = min(min(nl(1),nl(2)),nl(3))
+
+    Call MPI_Reduce(uvw, uvw2, 1, MPI_REAL_SP, MPI_MAX, MPI_COMM_WORLD, 0, ierr)
+
+    dt = sqrt(3.0_sp) * dlmin / uvw
+
+    dt = min(dt0, dt)
+    dt = max(dt, dt_min)
+
+  End Subroutine Adjustdt
+
+  !==========================
+  !  (4-2) Jacobi iteration
   !==========================
   Subroutine Jacobi(P)
     Implicit None
     Real(sp), Intent(InOut) :: P(0:,0:,0:)
     Real(sp) :: PP(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: i, j, k, ll
-
 
     Do ll = 1, 1000
       Do k = 1, nl(3)

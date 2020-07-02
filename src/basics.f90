@@ -42,6 +42,7 @@ Module ModGlobal
   Real(sp) :: dl(3)
   Real(sp) :: scale = 1
   Real(sp) :: dt
+  Real(sp) :: dt0
   Real(sp) :: tstart
   Real(sp) :: time
   Real(sp) :: tend
@@ -239,6 +240,8 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(io_p, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
+
+    dt0 = dt
 
     ! Determine input variables for HDF5
     Allocate(h5_input_field(n_vars))
