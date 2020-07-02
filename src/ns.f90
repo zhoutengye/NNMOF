@@ -584,16 +584,8 @@ Contains
     Integer :: iter_max
     Character(80) :: file_name
     Character(80) :: input_name
-    Real(sp), Dimension(3) :: phi_bc_value_lo, phi_bc_value_hi
-    Real(sp), Dimension(3) ::   p_bc_value_lo,   p_bc_value_hi
-    Real(sp), Dimension(3) ::   u_bc_value_lo,   u_bc_value_hi
-    Real(sp), Dimension(3) ::   v_bc_value_lo,   v_bc_value_hi
-    Real(sp), Dimension(3) ::   w_bc_value_lo,   w_bc_value_hi
-    Integer,  Dimension(3) :: phi_bc_types_lo, phi_bc_types_hi
-    Integer,  Dimension(3) ::   p_bc_types_lo,   p_bc_types_hi
-    Integer,  Dimension(3) ::   u_bc_types_lo,   u_bc_types_hi
-    Integer,  Dimension(3) ::   v_bc_types_lo,   v_bc_types_hi
-    Integer,  Dimension(3) ::   w_bc_types_lo,   w_bc_types_hi
+    Integer :: bc_left, bc_right, bc_bottom, bc_top, bc_front, bc_back
+    Integer :: bc_pair(2)
     Integer :: hypre_solver, hypre_PreConditioner
     Integer :: i
 
@@ -602,16 +594,9 @@ Contains
     namelist /ns_solver/ iter_tolerance, iter_max, rk_order, hypre_solver, Hypre_PreConditioner
     !  variables for boundary conditions
     namelist /ns_bc/ &
-        phi_bc_value_lo, phi_bc_value_hi, &
-        p_bc_value_lo,   p_bc_value_hi, &
-        u_bc_value_lo,   u_bc_value_hi, &
-        v_bc_value_lo,   v_bc_value_hi, &
-        w_bc_value_lo,   w_bc_value_hi, &
-        phi_bc_types_lo, phi_bc_types_hi, &
-        p_bc_types_lo,   p_bc_types_hi, &
-        u_bc_types_lo,   u_bc_types_hi, &
-        v_bc_types_lo,   v_bc_types_hi, &
-        w_bc_types_lo,   w_bc_types_hi
+        bc_left, bc_right, &
+        bc_back, bc_front, &
+        bc_top, bc_bottom
 
     Call getarg(1,input_name)
     if (INPUT_NAME .eq. '') Then
@@ -660,31 +645,107 @@ Contains
     Flag = 1
     rkcoef   = 0.0_sp
 
-    ! Set boundary conditions for phi
-    phi_bc%bound_type(:,1)  = phi_bc_types_lo
-    phi_bc%bound_type(:,2)  = phi_bc_types_hi
-    phi_bc%bound_value(:,1) = phi_bc_value_lo
-    phi_bc%bound_value(:,2) = phi_bc_value_hi
-    ! Set boundary conditions for p
-    p_bc%bound_type(:,1)    = p_bc_types_lo
-    p_bc%bound_type(:,2)    = p_bc_types_hi
-    p_bc%bound_value(:,1)   = p_bc_value_lo
-    p_bc%bound_value(:,2)   = p_bc_value_hi
-    ! Set boundary conditions for u
-    u_bc%bound_type(:,1)    = u_bc_types_lo
-    u_bc%bound_type(:,2)    = u_bc_types_hi
-    u_bc%bound_value(:,1)   = u_bc_value_lo
-    u_bc%bound_value(:,2)   = u_bc_value_hi
-    ! Set boundary conditions for v
-    v_bc%bound_type(:,1)    = v_bc_types_lo
-    v_bc%bound_type(:,2)    = v_bc_types_hi
-    v_bc%bound_value(:,1)   = v_bc_value_lo
-    v_bc%bound_value(:,2)   = v_bc_value_hi
-    ! Set boundary conditions for w
-    w_bc%bound_type(:,1)    = w_bc_types_lo
-    w_bc%bound_type(:,2)    = w_bc_types_hi
-    w_bc%bound_value(:,1)   = w_bc_value_lo
-    w_bc%bound_value(:,2)   = w_bc_value_hi
+    ! Boudnary conditions:
+    ! 1. No-slip wall
+    ! 2. Slip wall/ Symmetric
+
+    ! Left and right
+    bc_pair(1) = bc_left
+    bc_pair(2) = bc_right
+    Do i = 1, 2
+      Select case (bc_pair(i))
+      Case(1)
+        u_bc%bound_type(1,i)  = 1
+        u_bc%bound_value(1,i) = 0.0_sp
+        v_bc%bound_type(1,i)  = 2
+        v_bc%bound_value(1,i) = -1.0_sp
+        w_bc%bound_type(1,i)  = 2
+        w_bc%bound_value(1,i) = -1.0_sp
+        p_bc%bound_type(1,i)  = 2
+        p_bc%bound_value(1,i) = 1.0_sp
+        phi_bc%bound_type(1,i)  = 2
+        phi_bc%bound_value(1,i) = 1.0_sp
+      Case(2)
+        u_bc%bound_type(1,i)  = 1
+        u_bc%bound_value(1,i) = 0.0_sp
+        v_bc%bound_type(1,i)  = 2
+        v_bc%bound_value(1,i) = 1.0_sp
+        w_bc%bound_type(1,i)  = 2
+        w_bc%bound_value(1,i) = 1.0_sp
+        p_bc%bound_type(1,i)  = 2
+        p_bc%bound_value(1,i) = 1.0_sp
+        phi_bc%bound_type(1,i)  = 2
+        phi_bc%bound_value(1,i) = 1.0_sp
+      Case Default
+        if (myid .eq.0) then
+          print *, "======Fatal Error=============================="
+          print *, "Wrong bc value, please check the namelist file"
+          print *, "==============================================="
+        end if
+        Call MPI_Finalize(ierr)
+        stop
+    End Select
+  End Do
+
+    ! Front and back
+    bc_pair(1) = bc_back
+    bc_pair(2) = bc_front
+    Do i = 1, 2
+      Select case (bc_pair(i))
+      Case(1)
+        u_bc%bound_type(2,i)  = 2
+        u_bc%bound_value(2,i) = -1.0_sp
+        v_bc%bound_type(2,i)  = 1
+        v_bc%bound_value(2,i) = 0.0_sp
+        w_bc%bound_type(2,i)  = 2
+        w_bc%bound_value(2,i) = -1.0_sp
+        p_bc%bound_type(2,i)  = 2
+        p_bc%bound_value(2,i) = 1.0_sp
+        phi_bc%bound_type(2,i)  = 2
+        phi_bc%bound_value(2,i) = 1.0_sp
+      Case(2)
+        u_bc%bound_type(2,i)  = 2
+        u_bc%bound_value(2,i) = 1.0_sp
+        v_bc%bound_type(2,i)  = 1
+        v_bc%bound_value(2,i) = 0.0_sp
+        w_bc%bound_type(2,i)  = 2
+        w_bc%bound_value(2,i) = 1.0_sp
+        p_bc%bound_type(2,i)  = 2
+        p_bc%bound_value(2,i) = 1.0_sp
+        phi_bc%bound_type(2,i)  = 2
+        phi_bc%bound_value(2,i) = 1.0_sp
+      End Select
+    End Do
+
+    ! Top and bottom
+    bc_pair(1) = bc_bottom
+    bc_pair(2) = bc_top
+    Do i = 1, 2
+      Select case (bc_pair(i))
+      Case(1)
+        u_bc%bound_type(3,i)  = 2
+        u_bc%bound_value(3,i) = -1.0_sp
+        v_bc%bound_type(3,i)  = 2
+        v_bc%bound_value(3,i) = -1.0_sp
+        w_bc%bound_type(3,i)  = 1
+        w_bc%bound_value(3,i) = 0.0_sp
+        p_bc%bound_type(3,i)  = 2
+        p_bc%bound_value(3,i) = 1.0_sp
+        phi_bc%bound_type(3,i)  = 2
+        phi_bc%bound_value(3,i) = 1.0_sp
+      Case(2)
+        u_bc%bound_type(3,i)  = 2
+        u_bc%bound_value(3,i) = 1.0_sp
+        v_bc%bound_type(3,i)  = 1
+        v_bc%bound_value(3,i) = 0.0_sp
+        w_bc%bound_type(3,i)  = 2
+        w_bc%bound_value(3,i) = 1.0_sp
+        p_bc%bound_type(3,i)  = 2
+        p_bc%bound_value(3,i) = 1.0_sp
+        phi_bc%bound_type(3,i)  = 2
+        phi_bc%bound_value(3,i) = 1.0_sp
+      End Select
+    End Do
 
     ! Assign RungeKutta
     If (rk_order .eq. 1) Then
@@ -753,6 +814,8 @@ Contains
 
     dt = min(dt0, dt)
     dt = max(dt, dt_min)
+
+    Call MPI_Barrier(MPI_COMM_WORLD, ierr)
 
   End Subroutine Adjustdt
 
