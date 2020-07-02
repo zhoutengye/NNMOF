@@ -105,7 +105,7 @@ Subroutine test2
   Use ModNavierStokes
   Implicit None
   Integer :: i, j, k
-  Real(sp) :: vol1, vol2
+  Real(sp) :: vol1, vol2, vol11, vol21
 
   Call Init(inputfield=.false.)
   Call InitNavierStokes(U, V, W, Phi, P)
@@ -152,6 +152,9 @@ Subroutine test2
   End Do
 
   Call Visual3DContour(Phi)
+
+  Call MPI_Reduce(vol1, vol11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
+  Call MPI_Reduce(vol2, vol21, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
 
   print *, vol1, vol2
 

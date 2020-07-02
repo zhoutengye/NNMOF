@@ -1,6 +1,6 @@
 &mpivar
-px = 2
-py = 2
+px = 1
+py = 1
 /
 
 &gridvar
@@ -17,7 +17,7 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 4.0
+tend  = 1.0
 dt = 0.05
 /
 
@@ -59,28 +59,10 @@ hypre_preconditioner = 0
 /
 
 &ns_bc
-phi_bc_types_lo =   2,    2,    2
-phi_bc_value_lo = 0.0,  0.0,  0.0
-phi_bc_types_hi =   2,    2,    2
-phi_bc_value_hi = 0.0,  0.0,  0.0
-
-p_bc_types_lo   =   2,    2,    2
-p_bc_value_lo   = 0.0,  0.0,  0.0
-p_bc_types_hi   =   2,    2,    2
-p_bc_value_hi   = 0.0,  0.0,  0.0
-
-u_bc_types_lo   =   1,    2,    2
-u_bc_value_lo   = 0.0,  1.0,  1.0
-u_bc_types_hi   =   1,    2,    2
-u_bc_value_hi   = 0.0,  1.0,  1.0
-
-v_bc_types_lo   =   2,    1,    2
-v_bc_value_lo   = 1.0,  0.0,  1.0
-v_bc_types_hi   =   2,    1,    1
-v_bc_value_hi   = 1.0,  0.0,  1.0
-
-w_bc_types_lo   =   2,    2,    1
-w_bc_value_lo   = 1.0,  1.0,  0.0
-w_bc_types_hi   =   2,    2,    1
-w_bc_value_hi   = 1.0,  1.0,  0.0
+bc_left   = 2
+bc_right  = 2
+bc_back   = 2
+bc_front  = 2
+bc_top    = 2
+bc_bottom = 2
 /

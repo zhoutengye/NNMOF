@@ -162,7 +162,6 @@ Contains
       h5_input%filename = trim(input_name)//'.h5'
     endif
 
-
     ! Read at processor 0
     If (myid .eq. 0) Then
       INQUIRE(FILE=file_name, EXIST=file_exists)
