@@ -35,8 +35,11 @@ which replies on =h5py= and =mayavi= library with *Python*.
 To use it, =Python= and correcponding library should be installed as well. 
 =Anaconda= is recommanded to install =Python= and libraries.
 
-** Important Note:
-
+** Compile and run cases
+   The repository is under frequent update,
+   it is recommended to make a new directory outside the =NNMOF= directory.
+   To compile outside the =NNMOF= directory, one can simply copy a case from
+ =case= dir and change the path of =MOF_DIR= in Makefile.
 *** Makefile
 
 See the Makefile in =test/basics= directory as the example to see how to customize makefile.
@@ -44,7 +47,6 @@ See the Makefile in =test/basics= directory as the example to see how to customi
 The code in =src= directory does not contain main file, 
 the main file and other extra code file should be added to the name 
 =CASE_SRCS= and makefile.
- 
 
 *** Run the code
      Execute with command
@@ -60,7 +62,57 @@ the main file and other extra code file should be added to the name
     for example, for file =test3.namelist=, and the initial field file is =test3.h5=, =(input)= should be =test3=.
     If no =(input)= is given, it will search for the default input file =input.namelist= and =input.h5=.
 
+- By default, both =namelist= and =h5= files are essential, however, one can call the =Init= function with =initfield = .false.=, so that the executable will no longer require initial =h5= file.
 
+- The variables in initial field =h5= file should correcponds with the variables in the =namelist= file.
+ 
+*** Input file  
+**** Basic variables
+    | Name            | Description                                | Type    | Rank |
+    |-----------------+--------------------------------------------+---------+------|
+    | px, py          | number of processors in $x$, $y$ direction | Integer |    1 |
+    | nx, ny, nz      | number of grid in $x$, $y$, $z$ firection  | Integer |    1 |
+    | dx, dy, dz      | grid size in $x$, $y$, $z$ direction       | float   |    1 |
+    | preiodx(or y,z) | periodic boudary                           | logical |    1 |
+    | tstart, end, dt | start, end time and time step              | float   |    1 |
+    | n_vars          | number of input/output field variable      | integer |    1 |
+    | io_x            | whether use the variable as input/output   | logical | 1    |
+
+**** Navier-Stokes related variables
+    | Name                 | Description                                           | Type    | Rank |
+    |----------------------+-------------------------------------------------------+---------+------|
+    | rho_l,rho_r          | density of liquid and gas                             | float   |    1 |
+    | mu_l, mu_g           | viscosity of liquid and gas                           | float   |    1 |
+    | body_force           | body foece in $x$, $y$, $z$ dierections               | float   |    3 |
+    | rk_order             | Order of Runge-Kutta integration, should be 1, 2 or 3 | integer |    1 |
+    | iter_max             | Maximum iteration step                                | integer |    1 |
+    | iter_tolerance       | Tolerance of the iterationq                           | float   |    1 |
+    | hypre_solver         | Choice of hypre solver                                | integer |    1 |
+    | hypre_preconditioner | Choice of hypre preconsitioner                        | integer |    1 |
+    | XX_bc_types_lo       | Lower boundary type at $x$, $y$, $z$ direction        | integer |    3 |
+    | XX_bc_types_hi       | Higher boundary type at $x$, $y$, $z$ direction       | integer |    3 |
+    | XX_bc_value_lo       | Lower boundary value at $x$, $y$, $z$ direction       | float   |    3 |
+    | XX_bc_value_hi       | Higher boundary value at $x$, $y$, $z$ direction      | float   |    3 |
+
+**** Options for Hypre
+     The choice of hypre solver and preconditioner only works with specific combination:
+|--------+-------------------+------+-----+------|
+|        | preconditioner => | 0    | 1   | 2    |
+|--------+-------------------+------+-----+------|
+| solver |                   | None | SMG | PFMG |
+|--------+-------------------+------+-----+------|
+|      1 | SMG               | Yes  |     |      |
+|      2 | PFMG              | Yes  |     |      |
+|      3 | BiCGSTAB          | Yes  | Yes | Yes  |
+|      4 | GMRES             | Yes  | Yes | Yes  |
+
+
+**** Boudnary conditions
+     Currently, only Dilichlet and Neumann doundary conditions with constant values 
+     at each face of the computational domain. 
+     The types and values of the boundary conditions can be assigned at the =namelist= file.
+    
+** Important Notes:
 *** Ghost cells
     -   Only support one ghost cell layer.
     -   For MPI exchange, always 0 and n(i+1) as halo nodes.
@@ -73,9 +125,8 @@ the main file and other extra code file should be added to the name
     direction, =bound_type= is the type of boundary conditoin, 1 means Dilichlet, 2 means Nuemann;
     =bound_value= is the value of the boundary conditoin. The shape of =lohi=, =bound_value= and 
     =bound_type= are =(3,2)=.
-
+    
 ** GTD
-   
 *** Basic VOF[4/4]
 - [X] Basic MPI from CaNS
 - [X] VOF-PLIC
@@ -93,8 +144,9 @@ the main file and other extra code file should be added to the name
 - [ ] MOF forward data generation
 - [ ] Parameters optimization
 
-*** Write paper[1/3]
+*** NS solver[2/4]
 - [X] Flow solver
-- [ ] Debug flow solver
+- [X] Debug flow solver
+- [ ] CSF
 - [ ] FSI
 
