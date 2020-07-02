@@ -359,7 +359,7 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
         a1 = us(i-ii,j-jj,k-kk)*dt/dl(dir)
         a2 = us(i,j,k)*dt/dl(dir)
         f(i,j,k) = f(i,j,k) - (vof3(i,j,k) - vof1(i+ii,j+jj,k+kk)) + & 
-            (vof3(i-ii,j-jj,k-kk) - vof1(i,j,k)) !+ vof2(i,j,k)*(a2-a1);
+            (vof3(i-ii,j-jj,k-kk) - vof1(i,j,k)) + f(i,j,k)*(a2-a1);
         if (f(i,j,k) < EPSC) then
           f(i,j,k) = 0.d0
         elseif (f(i,j,k) >  (1.0_sp - EPSC)) then
@@ -786,14 +786,14 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
         If (vof1(i,j,k) > epsc) Then
-          Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c1xyz(dir) = c1xyz(dir) + 1.0_sp
         End If
         If (vof2(i,j,k) > epsc) Then
-          Call Centroid_Eulerian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         End If
         If (vof3(i,j,k) > epsc) Then
-          Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
+          Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c3xyz(dir) = c3xyz(dir) - 1.0_sp
         End If
 
@@ -827,6 +827,8 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   do k=1,nl(3)
     do j=1,nl(2)
       do i=1,nl(1)
+        a1 = us(i-ii,j-jj,k-kk)*dt/dl(dir)
+        a2 = us(i,j,k)*dt/dl(dir)
         mx = vof3(i-ii,j-jj,k-kk) * c3x(i-ii,j-jj,k-kk) + &
             vof2(i,j,k) * c2x(i,j,k) + &
             vof1(i+ii,j+jj,k+kk) * c1x(i+ii,j+jj,k+kk)
@@ -838,7 +840,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
             vof1(i+ii,j+jj,k+kk) * c1z(i+ii,j+jj,k+kk)
         f(i,j,k) = vof2(i,j,k) &
             + vof1(i+ii,j+jj,k+kk) &
-            + vof3(i-ii,j-jj,k-kk)
+            + vof3(i-ii,j-jj,k-kk) 
         cx(i,j,k) = mx / ( f(i,j,k) + 1e-30 )
         cy(i,j,k) = my / ( f(i,j,k) + 1e-30 )
         cz(i,j,k) = mz / ( f(i,j,k) + 1e-30 )

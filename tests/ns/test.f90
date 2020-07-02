@@ -127,7 +127,7 @@ Subroutine test2
   Call UpdtRhoMu(Phi)
   time = tstart
   Do While (time < tend)
-    Call TwoPhaseFlow(U, V, W, Phi, P, cx, cy, cz)
+    Call TwoPhaseFlow(U, V, W, Phi, P)
     time = time + dt
     if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
   End Do
