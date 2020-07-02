@@ -88,8 +88,8 @@ Subroutine zalesak
   Do While (time < tend)
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,3)
-    Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
-    ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
