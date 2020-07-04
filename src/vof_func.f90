@@ -1781,7 +1781,7 @@ Contains
     real(sp), intent(out), dimension(0:,0:,0:) :: Ls
     Integer, Intent(In) :: nx, ny, nz
     Real(sp), Intent(In) :: dx
-    Integer :: i,j,k, ii, jj, kk
+    Integer :: i,j,k
     Do k=1,nz
       Do j=1,ny
         Do i=1,nx

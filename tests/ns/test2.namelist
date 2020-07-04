@@ -1,6 +1,6 @@
 &mpivar
-px = 1
-py = 1
+px = 2
+py = 2
 /
 
 &gridvar
@@ -10,15 +10,15 @@ nz = 20
 dx = 1.0
 dy = 1.0
 dz = 1.0
-periodx = .true.
-periody = .true.
-periodz = .true.
+periodx = .false.
+periody = .false.
+periodz = .false.
 /
 
 &compvar
 tstart = 0.0
-tend  = 20.0
-dt = 0.2
+tend  = 3.0
+dt = 0.01
 /
 
 &outvar
@@ -27,8 +27,9 @@ startframe = 0
 /
 
 &iofield
-n_vars = 7
+n_vars = 8
 io_phi = .true.
+io_p   = .true.
 io_u   = .true.
 io_v   = .true.
 io_w   = .true.
@@ -39,3 +40,29 @@ output_path = ''
 output_name = ''
 /
 
+&ns_physics
+rho_l = 1.0e3
+rho_g = 1.0e0
+mu_l  = 1.0e-3
+mu_g  = 1.0e-6
+cfl   = 0.5
+dt_min = 0.005
+body_force = 0.0, 0.0, -9.81
+/
+
+&ns_solver
+rk_order = 3
+iter_max = 30
+iter_tolerance = 1e-3
+hypre_solver = 1
+hypre_preconditioner = 0
+/
+
+&ns_bc
+bc_left   = 1
+bc_right  = 1
+bc_back   = 1
+bc_front  = 1
+bc_top    = 1
+bc_bottom = 1
+/

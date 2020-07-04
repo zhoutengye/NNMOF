@@ -79,6 +79,7 @@ Module ModGlobal
     Integer :: bound_type(3,2)
     Real(sp) :: bound_value(3,2)
     Integer :: lohi(3,2)
+    Logical :: ghost_flag(3,2)
   Contains
     procedure :: SetBC
     procedure :: SetBCS
@@ -316,8 +317,8 @@ Contains
     Implicit None
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
     logical :: inputfield
-
     Integer :: h5error
+    External :: system
 
     h5_total_dims(1) = n(1)
     h5_total_dims(2) = n(2)
@@ -708,25 +709,33 @@ Contains
     phi_bc%name = 'phi'
     phi_bc%lohi(:,1) = 0
     phi_bc%lohi(:,2) = nl(:)+1
+    phi_bc%ghost_flag(:,:) = .true.
 
     u_bc%name = 'u'
     u_bc%lohi(:,1) = 0
     u_bc%lohi(:,2) = nl(:)+1
     u_bc%lohi(1,2) = nl(1)
+    u_bc%ghost_flag(:,:) = .true.
+    u_bc%ghost_flag(1,:) = .false.
 
     v_bc%name = 'v'
     v_bc%lohi = 0
     v_bc%lohi(:,2) = nl(:)+1
     v_bc%lohi(2,2) = nl(2)
+    v_bc%ghost_flag(:,:) = .true.
+    v_bc%ghost_flag(2,:) = .false.
 
     w_bc%name = 'w'
     w_bc%lohi = 0
     w_bc%lohi(:,2) = nl(:)+1
-    w_bc%lohi(3,1) = nl(3)
+    w_bc%lohi(3,2) = nl(3)
+    w_bc%ghost_flag(:,:) = .true.
+    w_bc%ghost_flag(3,:) = .false.
 
     p_bc%name = 'p'
     p_bc%lohi(:,1) = 0
     p_bc%lohi(:,2) = nl(:)+1
+    p_bc%ghost_flag(3,:) = .true.
 
     ! At present, the values are not imported from file, but assigned directly here.
     ! For VOF problem, always set to 0 Nuemann
@@ -798,11 +807,19 @@ Contains
       if (myid .eq. 0) print *,'Wrong bc isign value, should be -1 or 1'
       Call MPI_FINALIZE(ierr)
     end if
+    ! if(self%name=='u')then
+    !   print *, idir, isign, ind, hl, self%bound_value(idir,hl)
+    !   read(*,*)
+    ! endif
     Select Case(idir)
     Case(1)
       Select Case(self%bound_type(idir,hl))
       Case(1)
-        f(ind,:,:) = self%bound_value(idir,hl)
+        If (self%ghost_flag(idir,hl)) Then
+          f(ind,:,:) = 2.0_sp * self%bound_value(idir,hl) - f(ind,:,:)
+        Else
+          f(ind,:,:) = self%bound_value(idir,hl)
+        End If
       Case(2)
         f(ind,:,:) = f(ind-isign,:,:) + &
             isign * f(ind-isign,:,:) * self%bound_value(idir,hl) / dl(1)
@@ -810,7 +827,11 @@ Contains
     Case(2)
       Select Case(self%bound_type(idir,hl))
       Case(1)
-        f(:,ind,:) = self%bound_value(idir,hl)
+        If (self%ghost_flag(idir,hl)) Then
+          f(:,ind,:) = 2.0_sp * self%bound_value(idir,hl) - f(:,ind,:)
+        Else
+          f(:,ind,:) = self%bound_value(idir,hl)
+      End If
       Case(2)
         f(:,ind,:) = f(:,ind-isign,:) + &
             isign * f(:,ind-isign,:) * self%bound_value(idir,hl) / dl(2)
@@ -818,7 +839,11 @@ Contains
     Case(3)
       Select Case(self%bound_type(idir,hl))
       Case(1)
-        f(:,:,ind) = self%bound_value(idir,hl)
+        If (self%ghost_flag(idir,hl)) Then
+          f(:,:,ind) = 2.0_sp * self%bound_value(idir,hl) - f(:,:,ind)
+        Else
+          f(:,:,ind) = self%bound_value(idir,hl)
+        EndIf
       Case(2)
         f(:,:,ind) = f(:,:,ind-isign) + &
             isign * f(:,:,ind-isign) * self%bound_value(idir,hl) / dl(3)

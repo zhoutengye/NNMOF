@@ -1,14 +1,14 @@
-TEST_NUM = 2
+TEST_NUM = 3
 MOF_DIR    = ../..
-compiler   = gnu
+compiler   = intel
 EXEC       = TEST
 FC         = mpif90
-DEBUG      = false
+DEBUG      = true
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path
-# HDF5_DIR   = $(HOME)/hdf5/$(compiler)
-# HYPRE_DIR  = $(HOME)/hypre/$(compiler)
+HDF5_DIR   = $(HOME)/HPC/hdf5/$(compiler)
+HYPRE_DIR  = $(HOME)/HPC/hypre/$(compiler)
 
 CASE_SRCS = test.f90
 

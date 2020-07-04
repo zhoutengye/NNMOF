@@ -94,6 +94,8 @@ Module ModNavierStokes
   Real(sp) :: p_residual
   Integer :: step_rank = 0
 
+  integer :: jacobiflag
+
 Contains
 
   !==========================
@@ -129,8 +131,7 @@ Contains
       ! Calculate divergence
       Call Divergence(up, vp, wp, Div)
       ! Solve pressure Poisson equation
-      Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
-      ! Call Jacobi(PP)
+        Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
       Call BC_P(PP)
       ! Preject the velocity to the divergence-free field
       Call Projection(PP, u, v, w, up, vp, wp)
@@ -153,6 +154,46 @@ Contains
     Call Adjustdt(U, V, W, cfl)
 
   End Subroutine TwoPhaseFlow
+  !==========================
+  ! (1-1) Two phase flow solver
+  ! Key steps:
+  !  (1) Runge Kutta time advance for Navier-Stokes equations
+  !  (2) Free surface using VOF/MOF
+  !--------------------------
+  ! Inputs & outputs:
+  !   U, V, W: velocity conponents
+  !   Phi: volume fraction
+  !   P: pressure
+  !==========================
+  Subroutine SinglePhaseFlow(U, V, W, P)
+    Implicit None
+    real(sp), Intent(inout), Dimension(0:,0:,0:) :: u, v, w, p
+    real(sp), dimension(nl(1),nl(2),nl(3))    :: dudtrko,dvdtrko,dwdtrko
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: up,vp,wp
+    Integer :: irk
+
+    ! Runge-Kutta time integration
+    Do irk=1,rk_order
+      ! Runge-Kutta step for momentum
+      call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp)
+      ! Boundary condition for intermediate velocity
+      Call BC_UVW(UP, VP, WP)
+      ! Calculate divergence
+      Call Divergence(up, vp, wp, Div)
+      ! Solve pressure Poisson equation
+      Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
+      Call BC_P(PP)
+      ! Preject the velocity to the divergence-free field
+      Call Projection(PP, u, v, w, up, vp, wp)
+      ! Boundary condition for divergence-free velocity field
+      Call BC_UVW(U, V, W)
+      p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3)) + pp(1:nl(1),1:nl(2),1:nl(3))
+      Call BC_P(P)
+    End Do
+
+    Call Adjustdt(U, V, W, cfl)
+
+  End Subroutine SinglePhaseFlow
 
   !==========================
   ! (1-2) Runge Kutta time integration 
@@ -362,12 +403,12 @@ Contains
           wwkp = 0.25_sp*(w(i,j,k) + w(  i,  j,k+1)) * (w(i  ,j  ,k) + w(  i,  j,k+1))
           wwkm = 0.25_sp*(w(i,j,k) + w(  i,  j,k-1)) * (w(i  ,j  ,k) + w(  i,  j,k-1))
           ! dudx, dudy, dudz
-          dwdxp = muyz(i,j,k)   * (w(i+1,  j,  k) - w(  i,  j,  k)) / dl(1)
+          dwdxp = muyz(i,j,  k) * (w(i+1,  j,  k) - w(  i,  j,  k)) / dl(1)
           dwdxm = muyz(i-1,j,k) * (w(  i,  j,  k) - w(i-1,  j,  k)) / dl(1)
-          dwdyp = muxz(i,j,k)   * (w(  i,j+1,  k) - w(  i,  j,  k)) / dl(2)
+          dwdyp = muxz(i,j,  k) * (w(  i,j+1,  k) - w(  i,  j,  k)) / dl(2)
           dwdym = muxz(i,j-1,k) * (w(  i,  j,  k) - w(  i,j-1,  k)) / dl(2)
           dwdzp =   mu(i,j,k+1) * (w(  i,  j,k+1) - w(  i,  j,  k)) / dl(3)
-          dwdzm =   mu(i,j,k)   * (w(  i,  j,  k) - w(  i,  j,k-1)) / dl(3)
+          dwdzm =   mu(i,j,  k) * (w(  i,  j,  k) - w(  i,  j,k-1)) / dl(3)
           ! Momentum balance
           dwdt(i,j,k) = &
               ((-uwip + uwim) + (dwdxp-dwdxm)) * rhox(i,j,k) / dl(1) + &
@@ -620,9 +661,38 @@ Contains
     Implicit None
     real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
     Call U_bc%SetBCS(U)
+    ! U(    0,      :,      :) = 0.0_sp
+    ! U(nl(1),      :,      :) = 0.0_sp
+    ! U(    :,      0,      :) = U(:,1,:)
+    ! U(    :,nl(2)+1,      :) = 1.0_sp
+    ! U(    :,      :,      0) = U(:,:,1)
+    ! U(    :,      :,nl(3)+1) = U(:,:,nl(3))
+
+    Call V_bc%SetBCS(V)
+    ! V(      0,    :,      :) = V(1,:,:)
+    ! V(nl(1)+1,    :,      :) = V(nl(1),:,:)
+    ! V(      :,    0,      :) = 0.0_sp
+    ! V(      :,nl(2),      :) = 0.0_sp
+    ! V(      :,    :,      0) = V(:,:,1)
+    ! V(      :,    :,nl(3)+1) = V(:,:,nl(3))
+
+    Call W_bc%SetBCS(W)
+    ! W(      0,      :,    :) = W(1,:,:)
+    ! W(nl(1)+1,      :,    :) = W(nl(1),:,:)
+    ! W(      :,      0,    :) = W(:,1,:)
+    ! W(      :,nl(2)+1,    :) = W(:,nl(2),:)
+    ! W(      :,      :,    0) = 0.0_sp
+    ! W(      :,      :,nl(3)) = 0.0_sp
+
+  End Subroutine BC_UVW
+
+  Subroutine BC_UVW2(U, V, W)
+    Implicit None
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
+    Call U_bc%SetBCS(U)
     Call V_bc%SetBCS(V)
     Call W_bc%SetBCS(W)
-  End Subroutine BC_UVW
+  End Subroutine BC_UVW2
 
   !==========================
   ! (3-2) Boudnary conditions for p
@@ -729,25 +799,25 @@ Contains
       Case(1)
         u_bc%bound_type(1,i)  = 1
         u_bc%bound_value(1,i) = 0.0_sp
-        v_bc%bound_type(1,i)  = 2
-        v_bc%bound_value(1,i) = -1.0_sp
-        w_bc%bound_type(1,i)  = 2
-        w_bc%bound_value(1,i) = -1.0_sp
+        v_bc%bound_type(1,i)  = 1
+        v_bc%bound_value(1,i) = 0.0_sp
+        w_bc%bound_type(1,i)  = 1
+        w_bc%bound_value(1,i) = 0.0_sp
         p_bc%bound_type(1,i)  = 2
-        p_bc%bound_value(1,i) = 1.0_sp
+        p_bc%bound_value(1,i) = 0.0_sp
         phi_bc%bound_type(1,i)  = 2
-        phi_bc%bound_value(1,i) = 1.0_sp
+        phi_bc%bound_value(1,i) = 0.0_sp
       Case(2)
         u_bc%bound_type(1,i)  = 1
         u_bc%bound_value(1,i) = 0.0_sp
         v_bc%bound_type(1,i)  = 2
-        v_bc%bound_value(1,i) = 1.0_sp
+        v_bc%bound_value(1,i) = 0.0_sp
         w_bc%bound_type(1,i)  = 2
-        w_bc%bound_value(1,i) = 1.0_sp
+        w_bc%bound_value(1,i) = 0.0_sp
         p_bc%bound_type(1,i)  = 2
-        p_bc%bound_value(1,i) = 1.0_sp
+        p_bc%bound_value(1,i) = 0.0_sp
         phi_bc%bound_type(1,i)  = 2
-        phi_bc%bound_value(1,i) = 1.0_sp
+        phi_bc%bound_value(1,i) = 0.0_sp
       Case Default
         if (myid .eq.0) then
           print *, "======Fatal Error=============================="
@@ -765,27 +835,27 @@ Contains
     Do i = 1, 2
       Select case (bc_pair(i))
       Case(1)
-        u_bc%bound_type(2,i)  = 2
-        u_bc%bound_value(2,i) = -1.0_sp
+        u_bc%bound_type(2,i)  = 1
+        u_bc%bound_value(2,i) = 0.0_sp
         v_bc%bound_type(2,i)  = 1
         v_bc%bound_value(2,i) = 0.0_sp
-        w_bc%bound_type(2,i)  = 2
-        w_bc%bound_value(2,i) = -1.0_sp
+        w_bc%bound_type(2,i)  = 1
+        w_bc%bound_value(2,i) = 0.0_sp
         p_bc%bound_type(2,i)  = 2
-        p_bc%bound_value(2,i) = 1.0_sp
+        p_bc%bound_value(2,i) = 0.0_sp
         phi_bc%bound_type(2,i)  = 2
-        phi_bc%bound_value(2,i) = 1.0_sp
+        phi_bc%bound_value(2,i) = 0.0_sp
       Case(2)
         u_bc%bound_type(2,i)  = 2
-        u_bc%bound_value(2,i) = 1.0_sp
+        u_bc%bound_value(2,i) = 0.0_sp
         v_bc%bound_type(2,i)  = 1
         v_bc%bound_value(2,i) = 0.0_sp
         w_bc%bound_type(2,i)  = 2
-        w_bc%bound_value(2,i) = 1.0_sp
+        w_bc%bound_value(2,i) = 0.0_sp
         p_bc%bound_type(2,i)  = 2
-        p_bc%bound_value(2,i) = 1.0_sp
+        p_bc%bound_value(2,i) = 0.0_sp
         phi_bc%bound_type(2,i)  = 2
-        phi_bc%bound_value(2,i) = 1.0_sp
+        phi_bc%bound_value(2,i) = 0.0_sp
       End Select
     End Do
 
@@ -795,27 +865,27 @@ Contains
     Do i = 1, 2
       Select case (bc_pair(i))
       Case(1)
-        u_bc%bound_type(3,i)  = 2
-        u_bc%bound_value(3,i) = -1.0_sp
-        v_bc%bound_type(3,i)  = 2
-        v_bc%bound_value(3,i) = -1.0_sp
+        u_bc%bound_type(3,i)  = 1
+        u_bc%bound_value(3,i) = 0.0_sp
+        v_bc%bound_type(3,i)  = 1
+        v_bc%bound_value(3,i) = 0.0_sp
         w_bc%bound_type(3,i)  = 1
         w_bc%bound_value(3,i) = 0.0_sp
         p_bc%bound_type(3,i)  = 2
-        p_bc%bound_value(3,i) = 1.0_sp
+        p_bc%bound_value(3,i) = 0.0_sp
         phi_bc%bound_type(3,i)  = 2
-        phi_bc%bound_value(3,i) = 1.0_sp
+        phi_bc%bound_value(3,i) = 0.0_sp
       Case(2)
         u_bc%bound_type(3,i)  = 2
-        u_bc%bound_value(3,i) = 1.0_sp
-        v_bc%bound_type(3,i)  = 1
+        u_bc%bound_value(3,i) = 0.0_sp
+        v_bc%bound_type(3,i)  = 2
         v_bc%bound_value(3,i) = 0.0_sp
-        w_bc%bound_type(3,i)  = 2
-        w_bc%bound_value(3,i) = 1.0_sp
+        w_bc%bound_type(3,i)  = 1
+        w_bc%bound_value(3,i) = 0.0_sp
         p_bc%bound_type(3,i)  = 2
-        p_bc%bound_value(3,i) = 1.0_sp
+        p_bc%bound_value(3,i) = 0.0_sp
         phi_bc%bound_type(3,i)  = 2
-        phi_bc%bound_value(3,i) = 1.0_sp
+        phi_bc%bound_value(3,i) = 0.0_sp
       End Select
     End Do
 
@@ -857,6 +927,7 @@ Contains
     Call w_bc%SetBCS(w)
     Call phi_bc%SetBCS(phi)
     Call phi_bc%SetBCS(p)
+    jacobiflag = 0
 
   End Subroutine InitNavierStokes
 
@@ -882,7 +953,7 @@ Contains
 
     Call MPI_Reduce(uvw, uvw2, 1, MPI_REAL_SP, MPI_MAX, MPI_COMM_WORLD, 0, ierr)
 
-    dt = sqrt(3.0_sp) * dlmin / uvw
+    dt = cfl * sqrt(3.0_sp) * dlmin / uvw
 
     dt = min(dt0, dt)
     dt = max(dt, dt_min)
@@ -900,7 +971,7 @@ Contains
     Real(sp) :: PP(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: i, j, k, ll
 
-    Do ll = 1, 1000
+    Do ll = 1, 100
       Do k = 1, nl(3)
         Do j = 1, nl(2)
           Do i = 1, nl(1)
