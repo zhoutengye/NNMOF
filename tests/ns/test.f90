@@ -238,18 +238,19 @@ Subroutine test3
   Do While (time < tend)
     Call SinglePhaseFlow(U, V, W, P)
     ! Call TwoPhaseFlow(U, V, W, Phi, P)
+    Call Monitor(U,V,W)
     time = time + dt
-    if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
+    if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter,"div_max=", div_max
     ! Call Visual3DQUIVER(v,u,w)
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          uvw(i,j,k) = sqrt(u(i,j,k)**2+v(i,j,k)**2+w(i,j,k)**2)
-        End Do
+  End Do
+  ! Call Visual3DContour(u)
+  Do k=1,nl(3)
+    Do j=1,nl(2)
+      Do i=1,nl(1)
+        uvw(i,j,k) = sqrt(u(i,j,k)**2+v(i,j,k)**2+w(i,j,k)**2)
       End Do
     End Do
   End Do
-  ! Call Visual3DContour(u)
   Call Visual3DCONTOUR(uvw)
 
   Call MPI_FINALIZE(ierr)

@@ -92,6 +92,7 @@ Module ModNavierStokes
   Integer :: n_iter
   Real(sp) :: cfl, dt_min
   Real(sp) :: p_residual
+  Real(sp) :: div_max
   Integer :: step_rank = 0
 
   integer :: jacobiflag
@@ -995,5 +996,20 @@ Contains
     End Do
 
   End Subroutine Jacobi
+
+  Subroutine Monitor(U,V,W)
+    Implicit None
+    Real(sp), Intent(In), Dimension(0:,0:,0:) :: U, V, W
+    Integer :: i, j, k
+    Call Divergence(U,V,W,Div)
+    div_max = 0.0_sp
+    Do k = 1, nl(3)
+      Do j = 1, nl(2)
+        Do i = 1, nl(1)
+          div_max = max(div_max,div(i,j,k))
+        End Do
+      End Do
+    End Do
+  End Subroutine Monitor
 
 End Module ModNavierStokes
