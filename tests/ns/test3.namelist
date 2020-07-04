@@ -1,6 +1,6 @@
 &mpivar
-px = 2
-py = 2
+px = 1
+py = 1
 /
 
 &gridvar
@@ -17,7 +17,7 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 50.0
+tend  = 35.0
 dt = 0.05
 /
 
@@ -52,9 +52,9 @@ body_force = 0.0, 0.0,0.0
 
 &ns_solver
 rk_order = 1
-iter_max = 30
-iter_tolerance = 1e-3
-hypre_solver = 1
+iter_max = 50
+iter_tolerance = 1e-9
+hypre_solver = 3
 hypre_preconditioner = 0
 /
 
