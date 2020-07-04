@@ -116,6 +116,8 @@ Contains
     Real(sp), Intent(In) :: tol
     Integer , Intent(In) :: nmax
     Integer , Intent(In) :: set_hypre_solver, set_hypre_preConditioner
+    External HYPRE_StructGridCreate, Hypre_structGridSetExtents, HYPRE_StructGridAssemble
+    External HYPRE_StructStencilCreate, HYPRE_StructStencilSetElement
 
     iter_tolerance = tol
     iter_max = nmax
@@ -251,6 +253,7 @@ Contains
     Integer  :: kk
     Real(SP) :: PP(nxyz)
     Integer :: i, j, k
+    External HYPRE_StructVectorGetBoxValues
 
     Call Sparse_Matrix_Vector(P, Div, Rhox, Rhoy, Rhoz, flag)
     Call Hypre_Solver
@@ -293,7 +296,10 @@ Contains
     real(sp), intent(in), dimension(:,:,:) :: Div
     Integer , intent(in), dimension(:,:,:) :: flag
     Integer :: i, j, k
-
+    External :: HYPRE_StructMatrixCreate, HYPRE_StructMatrixInitialize
+    External :: HYPRE_StructMatrixSetBoxValues, HYPRE_StructMatrixAssemble
+    External :: HYPRE_StructVectorCreate, HYPRE_StructVectorInitialize
+    External :: HYPRE_StructVectorSetBoxValues
 
     Block
       Integer :: stencil_indices(7)
@@ -443,6 +449,7 @@ Contains
   !=============================
   Subroutine Hypre_SetSolver_SMG
     Implicit None
+    External :: HYPRE_StructSMGCreate, HYPRE_StructSMGSetTol, HYPRE_StructSMGSetMaxIter
     Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
     Call HYPRE_StructSMGSetTol(hypre%solver, iter_tolerance, Hypre%ier)
     Call HYPRE_StructSMGSetMaxIter(hypre%solver, iter_max, Hypre%ier)
@@ -452,6 +459,7 @@ Contains
   !=============================
   Subroutine Hypre_SetSolver_PFMG
     Implicit None
+    External :: HYPRE_StructPFMGCreate, HYPRE_StructPFMGSetTol, HYPRE_StructPFMGSetMaxIter
     Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
     Call HYPRE_StructPFMGSetTol(hypre%solver, iter_tolerance, Hypre%ier)
     Call HYPRE_StructPFMGSetMaxIter(hypre%solver, iter_max, Hypre%ier)
@@ -461,6 +469,7 @@ Contains
   !=============================
   Subroutine Hypre_SetSolver_BicgSTAB
     Implicit None
+    External :: HYPRE_StructBICGSTABCreate, HYPRE_StructBICGSTABSetTol, HYPRE_StructBICGSTABSetMaxIter
     Call HYPRE_StructBICGSTABCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
     Call HYPRE_StructBICGSTABSetTol(hypre%solver, iter_tolerance, Hypre%ier)
     Call HYPRE_StructBICGSTABSetMaxIter(hypre%solver, iter_max, Hypre%ier)
@@ -470,6 +479,7 @@ Contains
   !=============================
   Subroutine Hypre_SetSolver_GMRES
     Implicit None
+    External :: HYPRE_StructGMRESCreate, HYPRE_StructGMRESSetTol, HYPRE_StructGMRESSetMaxIter
     Call HYPRE_StructGMRESCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
     Call HYPRE_StructGMRESSetTol(hypre%solver, iter_tolerance, Hypre%ier)
     Call HYPRE_StructGMRESSetMaxIter(hypre%solver, iter_max, Hypre%ier)
@@ -480,16 +490,20 @@ Contains
   !=============================
   Subroutine Hypre_Solver_SMG
     Implicit None
+    External :: HYPRE_StructSMGSetup, HYPRE_StructSMGSolve
+    External :: HYPRE_StructSMGGetNumIterations, HYPRE_Structsmggetfinalrelative
     Call HYPRE_StructSMGSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructSMGSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructSMGGetNumIterations(hypre%solver, niter, Hypre%ier)
-    Call hypre_structsmggetfinalrelative(hypre%solver, residual_norm, hypre%ier)
+    Call HYPRE_Structsmggetfinalrelative(hypre%solver, residual_norm, hypre%ier)
   End Subroutine Hypre_Solver_SMG
   !=============================
   ! (6-2) PFMG Solver
   !=============================
   Subroutine Hypre_Solver_PFMG
     Implicit None
+    External :: HYPRE_StructPFMGSetup, HYPRE_StructPFMGSolve
+    External :: HYPRE_StructPFMGGetNumIteration, HYPRE_Structpfmggetfinalrelativ
     Call HYPRE_StructPFMGSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructPFMGSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructPFMGGetNumIteration(hypre%solver, niter, Hypre%ier)
@@ -500,7 +514,10 @@ Contains
   !=============================
   Subroutine Hypre_Solver_BicgSTAB
     Implicit None
-    ! Call HYPRE_StructBICGSTABSetPrecond(hypre%solver, hypre%precond_id, hypre%precond, Hypre%ier)
+    External :: HYPRE_StructBICGSTABSetPrecond
+    External :: HYPRE_StructbicgstabSetup, HYPRE_StructbicgstabSolve
+    External :: HYPRE_StructbicgstabGetNumItera, HYPRE_Structbicgstabgetfinalrel
+    Call HYPRE_StructBICGSTABSetPrecond(hypre%solver, hypre%precond_id, hypre%precond, Hypre%ier)
     Call HYPRE_StructBICGSTABSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructBICGSTABSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call hypre_structbicgstabgetnumitera(hypre%solver, niter, Hypre%ier)
@@ -511,6 +528,9 @@ Contains
   !=============================
   Subroutine Hypre_Solver_GMRES
     Implicit None
+    External :: HYPRE_StructGMRESSetPrecond
+    External :: HYPRE_StructgmresSetup, HYPRE_StructgmresSolve
+    External :: HYPRE_StructgmresGetNumIteratio, HYPRE_Structgmresgetfinalrelati
     Call HYPRE_StructgmresSetPrecond(hypre%solver, hypre%precond_id, hypre%precond, Hypre%ier)
     Call HYPRE_StructGMRESSetup(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
     Call HYPRE_StructGMRESSolve(hypre%solver, hypre%A, hypre%b, hypre%x, Hypre%ier)
@@ -520,6 +540,10 @@ Contains
 
   Subroutine Hypre_SetPreConditioner_SMG
     Implicit None
+    External :: HYPRE_StructSMGCreate
+    External :: HYPRE_StructSMGSetMemoryUse, HYPRE_StructSMGSetMaxIter
+    External :: HYPRE_StructSMGSetTol, HYPRE_StructSMGSetZeroGuess
+    External :: HYPRE_StructSMGSetNumPreRelax, HYPRE_StructSMGSetNumPostRelax
     Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
     Call HYPRE_StructSMGSetMemoryUse(hypre%precond, 0, Hypre%ier)
     Call HYPRE_StructSMGSetMaxIter(hypre%precond, 1, Hypre%ier)
@@ -531,7 +555,10 @@ Contains
 
   Subroutine Hypre_SetPreConditioner_PFMG
     Implicit None
-
+    External :: HYPRE_StructPFMGCreate
+    External :: HYPRE_StructPFMGSetMaxIter
+    External :: HYPRE_StructPFMGSetTol, HYPRE_StructPFMGSetZeroGuess
+    External :: HYPRE_StructPFMGSetNumPreRelax, HYPRE_StructPFMGSetNumPostRelax
     Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
     Call HYPRE_StructPFMGSetMaxIter(hypre%precond, 1, Hypre%ier)
     Call HYPRE_StructPFMGSetTol(hypre%precond, 0.0, Hypre%ier)

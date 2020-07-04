@@ -39,8 +39,9 @@ Contains
     Type(HDF5Group) :: h5_visual_group
     Character(80) :: data_name
 
-    INTEGER(HID_T) :: plist_id      ! Property list identifier 
+    INTEGER(HID_T) :: plist_id      ! Property list identifier
     Integer :: h5error
+    External :: system
 
     !    Remove the h5 file if existts
     if (myid .eq. 0) Call system('rm -f visual.h5')
@@ -78,8 +79,10 @@ Contains
     Call h5gclose_f(h5_visual_group%group_id, h5error)
     Call h5fclose_f(h5_visual_file%file_id, h5error)
 
-    write(slice_num , '(i5)') slice_coord
-    print *, slice_num
+    if (present(slice_coord)) then
+      write(slice_num , '(i5)') slice_coord
+      print *, slice_num
+    endif
 
     If ( myid .eq. 0 ) Then
       open(10,file='vis3dcontour.py',status='unknown')
@@ -117,6 +120,7 @@ Contains
 
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
     Integer :: h5error
+    External :: system
 
     !    Remove the h5 file if existts
     if (myid .eq. 0) Call system('rm -f visual.h5')
@@ -183,6 +187,7 @@ Contains
 
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
     Integer :: h5error
+    External :: system
 
     !    Remove the h5 file if existts
     if (myid .eq. 0) Call system('rm -f visual.h5')

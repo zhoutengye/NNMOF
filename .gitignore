@@ -15,6 +15,8 @@ docs/ltximg/
 *.a
 libs/hypre
 libs/hdf5*
+libs/master
+libs/hypre-master
 
 *contour.py
 *quiver.py

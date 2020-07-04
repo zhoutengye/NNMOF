@@ -3,10 +3,13 @@
 # define test_case test1
 # elif defined TEST2
 # define test_case test2
+# elif defined TEST3
+# define test_case test3
 # endif
 program test
   use ModGlobal
   Implicit None
+  External test_case
 
   call test_case
 
@@ -25,7 +28,7 @@ Subroutine test1
   Implicit None
   Integer :: i
 
-  Call Init(inputfield=.true.)
+  Call Init(inputfield=.false.)
   Call InitNavierStokes(U, V, W, Phi, P)
 
   ! (1) Test read parameters
@@ -137,10 +140,11 @@ Subroutine test2
 
   time = tstart
   Do While (time < tend)
-    Call TwoPhaseFlow(U, V, W, Phi, P, cx, cy, cz)
+    Call TwoPhaseFlow(U, V, W, Phi, P)
     time = time + dt
     if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
   End Do
+  Call Visual3DContour(phi)
 
   vol2 = 0.0_sp
   Do k = 1,nl(3)
@@ -151,7 +155,6 @@ Subroutine test2
     End Do
   End Do
 
-  Call Visual3DContour(Phi)
 
   Call MPI_Reduce(vol1, vol11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
   Call MPI_Reduce(vol2, vol21, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
@@ -160,3 +163,94 @@ Subroutine test2
 
   Call MPI_FINALIZE(ierr)
 End Subroutine Test2
+
+Subroutine test3
+  Use ModGlobal
+  Use ModTools
+  Use ModNavierStokes
+  Implicit None
+  Real(sp),allocatable :: uvw(:,:,:)
+  Integer :: i,j,k
+
+  Call Init(inputfield=.false.)
+  phi = 1.0_sp
+  U = 0.0_sp
+  V = 0.0_sp
+  W = 0.0_sp
+  P = 0.0_sp
+  body_force = 0.0_sp
+  Allocate(uvw(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+  Call InitNavierStokes(U, V, W, Phi, P)
+  Call BC_UVW(U,V,W)
+
+  ! ! Ucase 1
+  ! u_bc%ghost_flag(2,1) = .false.
+  ! u_bc%bound_type(2,1) = 1
+  ! u_bc%bound_value(2,1) = 1.0_sp
+  ! ! Ucase 2
+  ! u_bc%ghost_flag(2,2) = .false.
+  ! u_bc%bound_type(2,2) = 1
+  ! u_bc%bound_value(2,2) = 1.0_sp
+  ! ! Ucase 3
+  ! u_bc%ghost_flag(3,1) = .false.
+  ! u_bc%bound_type(3,1) = 1
+  ! u_bc%bound_value(3,1) = 1.0_sp
+  ! Ucase 4
+  ! u_bc%ghost_flag(3,2) = .false.
+  ! u_bc%bound_type(3,2) = 1
+  ! u_bc%bound_value(3,2) = 1.0_sp
+
+  ! ! Vcase 1
+  ! v_bc%ghost_flag(1,1) = .false.
+  ! v_bc%bound_type(1,1) = 1
+  ! v_bc%bound_value(1,1) = 1.0_sp
+  ! ! Vcase 2
+  ! v_bc%ghost_flag(1,2) = .false.
+  ! v_bc%bound_type(1,2) = 1
+  ! v_bc%bound_value(1,2) = 1.0_sp
+  ! ! Vcase 3
+  ! v_bc%ghost_flag(3,1) = .false.
+  ! v_bc%bound_type(3,1) = 1
+  ! v_bc%bound_value(3,1) = 1.0_sp
+  ! Vcase 4
+  ! v_bc%ghost_flag(3,2) = .false.
+  ! v_bc%bound_type(3,2) = 1
+  ! v_bc%bound_value(3,2) = 1.0_sp
+
+  ! ! Wcase 1
+  ! w_bc%ghost_flag(1,1) = .false.
+  ! w_bc%bound_type(1,1) = 1
+  ! w_bc%bound_value(1,1) = 1.0_sp
+  ! ! Wcase 2
+  ! w_bc%ghost_flag(1,2) = .false.
+  ! w_bc%bound_type(1,2) = 1
+  ! w_bc%bound_value(1,2) = 1.0_sp
+  ! ! Wcase 3
+  ! w_bc%ghost_flag(2,1) = .false.
+  ! w_bc%bound_type(2,1) = 1
+  ! w_bc%bound_value(2,1) = 1.0_sp
+  !! Wcase 4
+  w_bc%ghost_flag(2,2) = .false.
+  w_bc%bound_type(2,2) = 1
+  w_bc%bound_value(2,2) = 1.0_sp
+
+  time = tstart
+  Do While (time < tend)
+    Call SinglePhaseFlow(U, V, W, P)
+    ! Call TwoPhaseFlow(U, V, W, Phi, P)
+    time = time + dt
+    if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
+    ! Call Visual3DQUIVER(v,u,w)
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          uvw(i,j,k) = sqrt(u(i,j,k)**2+v(i,j,k)**2+w(i,j,k)**2)
+        End Do
+      End Do
+    End Do
+  End Do
+  ! Call Visual3DContour(u)
+  Call Visual3DCONTOUR(uvw)
+
+  Call MPI_FINALIZE(ierr)
+End Subroutine Test3

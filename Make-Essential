@@ -26,7 +26,12 @@ LIBS = $(HDF5LIBS) $(HYPRELIBS) $(MOFLIBS)
 INCS = $(HDF5INCS) $(HYPREINCS) $(MOFINCS) -I$(SRC_DIR)
 
 ifeq ($(DEBUG), true)
+ifeq ($(compiler), intel)
+        FC_OPT = -O0 -g -warn -all -traceback -check all -debug all
+else
         FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
+endif
+        EXEC:= DEBUG-$(EXEC)
         EXEC:= DEBUG-$(EXEC)
 else
         FC_OPT = -O3
