@@ -41,7 +41,6 @@ Contains
 
     INTEGER(HID_T) :: plist_id      ! Property list identifier
     Integer :: h5error
-    External :: system
 
     !    Remove the h5 file if existts
     if (myid .eq. 0) Call system('rm -f visual.h5')
@@ -119,7 +118,6 @@ Contains
 
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
     Integer :: h5error
-    External :: system
 
     !    Remove the h5 file if existts
     if (myid .eq. 0) Call system('rm -f visual.h5')
@@ -188,7 +186,6 @@ Contains
 
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
     Integer :: h5error
-    External :: system
 
     !    Remove the h5 file if existts
     if (myid .eq. 0) Call system('rm -f visual.h5')

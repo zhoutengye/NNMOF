@@ -4,8 +4,8 @@ py = 1
 /
 
 &gridvar
-nx = 40
-ny = 40
+nx = 20
+ny = 20
 nz = 20
 dx = 0.05
 dy = 0.05
@@ -17,7 +17,7 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 50.0
+tend  = 20.0
 dt = 0.05
 /
 
@@ -54,7 +54,7 @@ body_force = 0.0, 0.0,0.0
 rk_order = 1
 iter_max = 50
 iter_tolerance = 1e-3
-hypre_solver = 1
+hypre_solver = 3
 hypre_preconditioner = 0
 /
 
