@@ -19,6 +19,13 @@
 !       (6-2) PFMG
 !       (6-3) BicgSTAB
 !       (6-4) GMRES
+!     (7) Destroy Solvers and preconditioner
+!       (7-1) Destroy SMG solver
+!       (7-2) Destroy PFMG solver
+!       (7-3) Destroy BicgSTAB solver
+!       (7-4) Destroy GMRES solver
+!       (7-5) Destroy BicgSTAB preconditioner
+!       (7-6) Destroy GMRES preconditioner
 !-----------------
 ! Author: Zhouteng Ye (yzt9zju@gmail.com)
 !-----------------
@@ -77,9 +84,11 @@ Module HypreStruct
 
   ! (1) Procedure pointers
   Procedure(InterfaceSparse), Pointer :: Sparse_Matrix_Vector => Sparse_Matrix_Vector_Neumann_0
-  Procedure(), Pointer :: Hypre_Solver => Hypre_Solver_GMRES
-  Procedure(), Pointer :: Hypre_SetSolver => Hypre_SetSolver_GMRES
-  Procedure(), Pointer :: Hypre_SetPreConditioner => Hypre_SetPreConditioner_SMG
+  Procedure(), Pointer :: Hypre_Solver => Hypre_Solver_BicgSTAB
+  Procedure(), Pointer :: Hypre_SetSolver => Hypre_SetSolver_BicgSTAB
+  Procedure(), Pointer :: Hypre_SetPreConditioner => Hypre_SetPreConditioner_None
+  Procedure(), Pointer :: Hypre_Destroy_Solver => Hypre_Destroy_Solver_None
+  Procedure(), Pointer :: Hypre_Destroy_Preconsitioner => Hypre_Destroy_Preconsitioner_None
 
   Integer :: nxyz
   Real(sp) :: iter_tolerance
@@ -118,6 +127,8 @@ Contains
     Integer , Intent(In) :: set_hypre_solver, set_hypre_preConditioner
     External HYPRE_StructGridCreate, Hypre_structGridSetExtents, HYPRE_StructGridAssemble
     External HYPRE_StructStencilCreate, HYPRE_StructStencilSetElement
+    External :: HYPRE_StructMatrixCreate, HYPRE_StructMatrixInitialize
+    External :: HYPRE_StructVectorCreate, HYPRE_StructVectorInitialize
 
     iter_tolerance = tol
     iter_max = nmax
@@ -129,9 +140,11 @@ Contains
     else if (set_Hypre_PreConditioner .eq. 1) then
       hypre%precond_id = 0
       Hypre_SetPreConditioner => Hypre_SetPreConditioner_SMG
+      Hypre_Destroy_Preconsitioner => Hypre_Destroy_Preconsitioner_SMG
     else if (set_Hypre_PreConditioner .eq. 2) then
       hypre%precond_id = 1
       Hypre_SetPreConditioner => Hypre_SetPreConditioner_PFMG
+      Hypre_Destroy_Preconsitioner => Hypre_Destroy_Preconsitioner_PFMG
     else
       If ( myid .eq. 0 ) then
         print *, "======Fatal Error=============================="
@@ -149,15 +162,19 @@ Contains
     if (Set_Hypre_Solver .eq. 1) then
       Hypre_SetSolver => Hypre_SetSolver_SMG
       Hypre_Solver => Hypre_Solver_SMG
+      Hypre_Destroy_Solver => Hypre_Destroy_Solver_SMG
     else if (Set_Hypre_Solver .eq. 2) then
       Hypre_SetSolver => Hypre_SetSolver_PFMG
+      Hypre_Destroy_Solver => Hypre_Destroy_Solver_PFMG
       Hypre_Solver => Hypre_Solver_PFMG
     else if (Set_Hypre_Solver .eq. 3) then
       Hypre_SetSolver => Hypre_SetSolver_BicgSTAB
+      Hypre_Destroy_Solver => Hypre_Destroy_Solver_BicgSTAB
       Hypre_Solver => Hypre_Solver_BicgSTAB
     else if (Set_Hypre_Solver .eq. 4) then
       Hypre_SetSolver => Hypre_SetSolver_GMRES
       Hypre_Solver => Hypre_Solver_GMRES
+      Hypre_Destroy_Solver => Hypre_Destroy_Solver_GMRES
     else
       If ( myid .eq. 0 ) then
         print *, "======Fatal Error=============================="
@@ -172,8 +189,6 @@ Contains
       stop
     endif
 
-    Call Hypre_SetPreConditioner
-    Call Hypre_SetSolver
 
     ! Set up the grid index
     Block
@@ -221,6 +236,15 @@ Contains
       End Do
     End Block
 
+    ! Create empty matrix and vector object
+    Call HYPRE_StructMatrixCreate(MPI_COMM_WORLD, hypre%grid, hypre%stencil, hypre%A, Hypre%ier);
+    Call HYPRE_StructVectorCreate(MPI_COMM_WORLD, hypre%grid, hypre%b, Hypre%ier)
+    Call HYPRE_StructVectorCreate(MPI_COMM_WORLD, hypre%grid, hypre%x, Hypre%ier)
+    ! Indicate that the matrix and vector are ready to be set
+    Call HYPRE_StructMatrixInitialize(hypre%A, Hypre%ier)
+    Call HYPRE_StructVectorInitialize(hypre%b, Hypre%ier)
+    Call HYPRE_StructVectorInitialize(hypre%x, Hypre%ier)
+
   End Subroutine Hypre_Initialize
 
   !=======================
@@ -255,6 +279,9 @@ Contains
     Integer :: i, j, k
     External HYPRE_StructVectorGetBoxValues
 
+    Call Hypre_SetPreConditioner
+    Call Hypre_SetSolver
+
     Call Sparse_Matrix_Vector(P, Div, Rhox, Rhoy, Rhoz, flag)
     Call Hypre_Solver
 
@@ -271,6 +298,9 @@ Contains
 
     n_iter = niter
     res = residual_norm
+
+    Call Hypre_Destroy_Solver
+    Call Hypre_Destroy_Preconsitioner
 
   End Subroutine Hypre_Poisson
 
@@ -296,9 +326,7 @@ Contains
     real(sp), intent(in), dimension(:,:,:) :: Div
     Integer , intent(in), dimension(:,:,:) :: flag
     Integer :: i, j, k
-    External :: HYPRE_StructMatrixCreate, HYPRE_StructMatrixInitialize
     External :: HYPRE_StructMatrixSetBoxValues, HYPRE_StructMatrixAssemble
-    External :: HYPRE_StructVectorCreate, HYPRE_StructVectorInitialize
     External :: HYPRE_StructVectorSetBoxValues
 
     Block
@@ -308,11 +336,6 @@ Contains
       Real(SP), Allocatable :: values(:)
       Integer :: kk
       Integer :: i,j,k
-      ! Create an empty matrix object
-      Call HYPRE_StructMatrixCreate(MPI_COMM_WORLD, hypre%grid, hypre%stencil, hypre%A, Hypre%ier);
-
-      ! Indicate that the matrix coefficients are ready to be set
-      Call HYPRE_StructMatrixInitialize(hypre%A, Hypre%ier)
 
       ! Set the matrix coefficients.  Each processor assigns coefficients
       ! for the boxes in the grid that it owns. Note that the coefficients
@@ -408,11 +431,6 @@ Contains
       nvalues = nxyz
       Allocate(values(nvalues))
 
-      Call HYPRE_StructVectorCreate(MPI_COMM_WORLD, hypre%grid, hypre%b, Hypre%ier)
-      Call HYPRE_StructVectorCreate(MPI_COMM_WORLD, hypre%grid, hypre%x, Hypre%ier)
-
-      Call HYPRE_StructVectorInitialize(hypre%b, Hypre%ier)
-      Call HYPRE_StructVectorInitialize(hypre%x, Hypre%ier)
 
       kk = 1
       Do k = 1, nl(3)
@@ -486,6 +504,41 @@ Contains
   End Subroutine Hypre_SetSolver_GMRES
 
   !=============================
+  ! (5-1) SMG Preconditioner
+  !=============================
+  Subroutine Hypre_SetPreConditioner_SMG
+    Implicit None
+    External :: HYPRE_StructSMGCreate
+    External :: HYPRE_StructSMGSetMemoryUse, HYPRE_StructSMGSetMaxIter
+    External :: HYPRE_StructSMGSetTol, HYPRE_StructSMGSetZeroGuess
+    External :: HYPRE_StructSMGSetNumPreRelax, HYPRE_StructSMGSetNumPostRelax
+    Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
+    Call HYPRE_StructSMGSetMemoryUse(hypre%precond, 0, Hypre%ier)
+    Call HYPRE_StructSMGSetMaxIter(hypre%precond, 1, Hypre%ier)
+    Call HYPRE_StructSMGSetTol(hypre%precond, 0.0, Hypre%ier)
+    Call HYPRE_StructSMGSetZeroGuess(hypre%precond, Hypre%ier)
+    Call HYPRE_StructSMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
+    Call HYPRE_StructSMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
+  End Subroutine Hypre_SetPreConditioner_SMG
+
+  !=============================
+  ! (5-1) PFMG Preconditioner
+  !=============================
+  Subroutine Hypre_SetPreConditioner_PFMG
+    Implicit None
+    External :: HYPRE_StructPFMGCreate
+    External :: HYPRE_StructPFMGSetMaxIter
+    External :: HYPRE_StructPFMGSetTol, HYPRE_StructPFMGSetZeroGuess
+    External :: HYPRE_StructPFMGSetNumPreRelax, HYPRE_StructPFMGSetNumPostRelax
+    Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
+    Call HYPRE_StructPFMGSetMaxIter(hypre%precond, 1, Hypre%ier)
+    Call HYPRE_StructPFMGSetTol(hypre%precond, 0.0, Hypre%ier)
+    Call HYPRE_StructPFMGSetZeroGuess(hypre%precond, Hypre%ier)
+    Call HYPRE_StructPFMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
+    Call HYPRE_StructPFMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
+  End Subroutine Hypre_SetPreConditioner_PFMG
+
+  !=============================
   ! (6-1) SMG Solver
   !=============================
   Subroutine Hypre_Solver_SMG
@@ -538,33 +591,71 @@ Contains
     Call hypre_structGMRESgetfinalrelati(hypre%solver, residual_norm, hypre%ier)
   End Subroutine Hypre_Solver_GMRES
 
-  Subroutine Hypre_SetPreConditioner_SMG
-    Implicit None
-    External :: HYPRE_StructSMGCreate
-    External :: HYPRE_StructSMGSetMemoryUse, HYPRE_StructSMGSetMaxIter
-    External :: HYPRE_StructSMGSetTol, HYPRE_StructSMGSetZeroGuess
-    External :: HYPRE_StructSMGSetNumPreRelax, HYPRE_StructSMGSetNumPostRelax
-    Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
-    Call HYPRE_StructSMGSetMemoryUse(hypre%precond, 0, Hypre%ier)
-    Call HYPRE_StructSMGSetMaxIter(hypre%precond, 1, Hypre%ier)
-    Call HYPRE_StructSMGSetTol(hypre%precond, 0.0, Hypre%ier)
-    Call HYPRE_StructSMGSetZeroGuess(hypre%precond, Hypre%ier)
-    Call HYPRE_StructSMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
-    Call HYPRE_StructSMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
-  End Subroutine Hypre_SetPreConditioner_SMG
 
-  Subroutine Hypre_SetPreConditioner_PFMG
+  !=============================
+  ! (7-1) Destroy SMG solver
+  !=============================
+  Subroutine Hypre_Destroy_Solver_SMG
     Implicit None
-    External :: HYPRE_StructPFMGCreate
-    External :: HYPRE_StructPFMGSetMaxIter
-    External :: HYPRE_StructPFMGSetTol, HYPRE_StructPFMGSetZeroGuess
-    External :: HYPRE_StructPFMGSetNumPreRelax, HYPRE_StructPFMGSetNumPostRelax
-    Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
-    Call HYPRE_StructPFMGSetMaxIter(hypre%precond, 1, Hypre%ier)
-    Call HYPRE_StructPFMGSetTol(hypre%precond, 0.0, Hypre%ier)
-    Call HYPRE_StructPFMGSetZeroGuess(hypre%precond, Hypre%ier)
-    Call HYPRE_StructPFMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
-    Call HYPRE_StructPFMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
-  End Subroutine Hypre_SetPreConditioner_PFMG
+    External :: HYPRE_StructSMGDestroy
+    call HYPRE_StructsmgDestroy(hypre%solver, ierr)
+  End Subroutine Hypre_Destroy_Solver_SMG
+
+  !=============================
+  ! (7-2) Destroy PFMG solver
+  !=============================
+  Subroutine Hypre_Destroy_Solver_PFMG
+    Implicit None
+    External :: HYPRE_StructPFMGDestroy
+    call HYPRE_StructPFMGDestroy(hypre%solver, ierr)
+  End Subroutine Hypre_Destroy_Solver_PFMG
+
+  !=============================
+  ! (7-3) Destroy Bicgstab solver
+  !=============================
+  Subroutine Hypre_Destroy_Solver_BicgSTAB
+    Implicit None
+    External :: HYPRE_StructBicgSTABDestroy
+    call HYPRE_StructBicgStabDestroy(hypre%solver, ierr)
+  End Subroutine Hypre_Destroy_Solver_BicgSTAB
+
+  !=============================
+  ! (7-4) Destroy GMRES solver
+  !=============================
+  Subroutine Hypre_Destroy_Solver_GMRES
+    Implicit None
+    External :: HYPRE_StructGMRESDestroy
+    call HYPRE_StructGMRESDestroy(hypre%solver, ierr)
+  End Subroutine Hypre_Destroy_Solver_GMRES
+
+  !=============================
+  ! (7-5) Destroy SMG preconditioner
+  !=============================
+  Subroutine Hypre_Destroy_Preconsitioner_SMG
+    Implicit None
+    External :: HYPRE_StructSMGDestroy
+    call HYPRE_StructSMGDestroy(hypre%precond, ierr)
+  End Subroutine Hypre_Destroy_Preconsitioner_SMG
+
+  !=============================
+  ! (7-6) Destroy PFMG preconditioner
+  !=============================
+  Subroutine Hypre_Destroy_Preconsitioner_PFMG
+    Implicit None
+    External :: HYPRE_StructPFMGDestroy
+    call HYPRE_StructGMRESDestroy(hypre%precond, ierr)
+  End Subroutine Hypre_Destroy_Preconsitioner_PFMG
+
+  Subroutine Hypre_SetPreConditioner_None
+    Implicit None
+  End Subroutine Hypre_SetPreConditioner_None
+
+  Subroutine Hypre_Destroy_Preconsitioner_None
+    Implicit None
+  End Subroutine Hypre_Destroy_Preconsitioner_None
+
+  Subroutine Hypre_Destroy_Solver_None
+    Implicit None
+  End Subroutine Hypre_Destroy_Solver_None
 
 End Module HypreStruct

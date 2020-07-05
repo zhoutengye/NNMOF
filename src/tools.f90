@@ -56,28 +56,27 @@ Contains
     ! Create group
     h5_visual_group%groupname = "visual"
     Call HDF5CreateGroup(h5_visual_file, h5_visual_group)
+    Call h5gclose_f(h5_visual_group%group_id, h5error)
+    Call h5fclose_f(h5_visual_file%file_id, h5error)
     ! Write dataset
     data_name = 'vis01'
-    Call HDF5WriteData(h5_visual_group, f1, data_name)
+    Call HDF5WriteData(h5_visual_file,h5_visual_group, f1, data_name)
     if(present(f2))then
       data_name = 'vis02'
-      Call HDF5WriteData(h5_visual_group, f2, data_name)
+      Call HDF5WriteData(h5_visual_file,h5_visual_group, f2, data_name)
     end if
     if(present(f3))then
       data_name = 'vis03'
-      Call HDF5WriteData(h5_visual_group, f3, data_name)
+      Call HDF5WriteData(h5_visual_file,h5_visual_group, f3, data_name)
     end if
     if(present(f4))then
       data_name = 'vis04'
-      Call HDF5WriteData(h5_visual_group, f4, data_name)
+      Call HDF5WriteData(h5_visual_file,h5_visual_group, f4, data_name)
     end if
     if(present(f5))then
       data_name = 'vis05'
-      Call HDF5WriteData(h5_visual_group, f5, data_name)
+      Call HDF5WriteData(h5_visual_file,h5_visual_group, f5, data_name)
     End If
-
-    Call h5gclose_f(h5_visual_group%group_id, h5error)
-    Call h5fclose_f(h5_visual_file%file_id, h5error)
 
     if (present(slice_coord)) then
       write(slice_num , '(i5)') slice_coord
@@ -135,13 +134,15 @@ Contains
     ! Create group
     h5_visual_group%groupname = "visual"
     Call HDF5CreateGroup(h5_visual_file, h5_visual_group)
+    Call h5gclose_f(h5_visual_group%group_id, h5error)
+    Call h5fclose_f(h5_visual_file%file_id, h5error)
     ! Write dataset
     data_name = 'u'
-    Call HDF5WriteData(h5_visual_group, u, data_name)
+    Call HDF5WriteData(h5_visual_file, h5_visual_group, u, data_name)
     data_name = 'v'
-    Call HDF5WriteData(h5_visual_group, v, data_name)
+    Call HDF5WriteData(h5_visual_file, h5_visual_group, v, data_name)
     data_name = 'w'
-    Call HDF5WriteData(h5_visual_group, w, data_name)
+    Call HDF5WriteData(h5_visual_file, h5_visual_group, w, data_name)
 
     Call h5gclose_f(h5_visual_group%group_id, h5error)
     Call h5fclose_f(h5_visual_file%file_id, h5error)
@@ -202,24 +203,26 @@ Contains
     ! Create group
     h5_visual_group%groupname = "visual"
     Call HDF5CreateGroup(h5_visual_file, h5_visual_group)
+    Call h5gclose_f(h5_visual_group%group_id, h5error)
+    Call h5fclose_f(h5_visual_file%file_id, h5error)
     ! Write dataset
     data_name = 'vis01'
-    Call HDF5WriteData(h5_visual_group, f1, data_name)
+    Call HDF5WriteData(h5_visual_file, h5_visual_group, f1, data_name)
     if(present(f2))then
       data_name = 'vis02'
-      Call HDF5WriteData(h5_visual_group, f2, data_name)
+      Call HDF5WriteData(h5_visual_file, h5_visual_group, f2, data_name)
     end if
     if(present(f3))then
       data_name = 'vis03'
-      Call HDF5WriteData(h5_visual_group, f3, data_name)
+      Call HDF5WriteData(h5_visual_file, h5_visual_group, f3, data_name)
     end if
     if(present(f4))then
       data_name = 'vis04'
-      Call HDF5WriteData(h5_visual_group, f4, data_name)
+      Call HDF5WriteData(h5_visual_file, h5_visual_group, f4, data_name)
     end if
     if(present(f5))then
       data_name = 'vis05'
-      Call HDF5WriteData(h5_visual_group, f5, data_name)
+      Call HDF5WriteData(h5_visual_file, h5_visual_group, f5, data_name)
     End If
 
     Call h5gclose_f(h5_visual_group%group_id, h5error)
@@ -440,7 +443,6 @@ Contains
       Tree%vof = 1.0_sp
     End If
 
-
   End Subroutine VolumeOctree
 
   Integer Function InOut(xc, yc, zc, dx, dy, dz)
@@ -477,7 +479,6 @@ Contains
     Else
       Inout = 2
     EndIf
-
 
  End Function InOut
 

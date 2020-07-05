@@ -50,7 +50,7 @@ Module ModGlobal
 
   !! Control output
   Real(SP) :: output_inteval
-  Integer  :: startframe
+  Real(sp) :: time_out
 
   !! HDF5 parameters
   INTEGER(HSIZE_T), DIMENSION(3) :: h5_total_dims
@@ -145,13 +145,14 @@ Contains
     Logical  :: periodz = .false.
     Integer  :: nn, i
     logical :: file_exists
+    Real(sp) :: starttime
     Character(80) :: input_name
     Character(80) :: file_name
 
     namelist /mpivar/ px, py
     namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
     namelist /compvar/ dt, tstart, tend
-    namelist /outvar/ output_inteval, startframe
+    namelist /outvar/ output_inteval, starttime
     namelist /iofield/ n_vars, io_phi, io_p, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
 
     Call getarg(1,input_name)
@@ -215,7 +216,7 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(output_inteval, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(startframe, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(starttime, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     Call MPI_BCAST(output_name, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
@@ -242,6 +243,7 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     dt0 = dt
+    time_out = starttime
 
     ! Determine input variables for HDF5
     Allocate(h5_input_field(n_vars))
@@ -340,7 +342,6 @@ Contains
       Call h5open_f(h5error)
       Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, h5error)
       Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, h5error)
-      
       ! Open the file collectively.
       Call h5fopen_f(h5_input%filename, H5F_ACC_RDONLY_F, h5_input%file_id, h5error, access_prp = plist_id)
       Call h5pclose_f(plist_id, h5error)
@@ -359,6 +360,7 @@ Contains
 
     ! Load the initial field
     Call H5LoadInit(Inputfield)
+    Call h5fclose_f(h5_output%file_id, h5error)
 
   End Subroutine H5Init
 
@@ -369,7 +371,7 @@ Contains
   Subroutine H5LoadInit(inputfield)
     Implicit None
     logical :: inputfield
-    Integer :: i
+    Integer :: i, h5error
     Character(80) :: data_name
     data_name = 'init'
     If (inputfield) Then
@@ -420,6 +422,7 @@ Contains
       elseif ( Trim(h5_input_field(i)%groupname) .eq. 'p' ) Then
         Call HDF5CreateGroup(h5_output, h5_output_field(i))
       endif
+      Call H5gclose_f(H5_output_field(i)%group_id, h5error)
     end do
 
   End Subroutine H5LoadInit
@@ -444,9 +447,10 @@ Contains
 
   End Subroutine HDF5CreateGroup
 
-  Subroutine HDF5WriteData(h5group, data, data_name)
+  Subroutine HDF5WriteData(h5file, h5group, data, data_name)
     IMPLICIT NONE
 
+    Type(hdf5file) :: h5file
     Type(hdf5group) :: h5group
     Real(sp), Intent(In) :: data(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp) :: data_out(nl(1),nl(2),nl(3))
@@ -461,7 +465,17 @@ Contains
 
     Integer :: h5error
 
-    ! Create the data space for the  dataset. 
+    ! Open the file collectively.
+    Call h5open_f(h5error)
+    Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, h5error)
+    Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, h5error)
+    Call h5fopen_f(h5file%filename, H5F_ACC_RDWR_F, h5file%file_id, h5error, access_prp = plist_id)
+    Call h5pclose_f(plist_id, h5error)
+
+    ! Open group
+    Call h5gopen_f(h5file%file_id, h5group%groupname, h5group%group_id, h5error)
+
+    ! Create the data space for the  dataset.
     CALL h5screate_simple_f(rank, h5_total_dims, filespace, h5error)
 
     ! Create the dataset with default properties.
@@ -492,11 +506,11 @@ Contains
     CALL h5sclose_f(filespace, h5error)
     CALL h5sclose_f(memspace, h5error)
 
-    ! Close the dataset.
+    ! Close the dataset, space, group and file
     CALL h5dclose_f(dset_id, h5error)
-
     Call h5pclose_f(plist_id, h5error)
-
+    Call h5gclose_f(h5group%group_id, h5error)
+    Call h5fclose_f(h5file%file_id, h5error)
 
   end SUBROUTINE HDF5WriteData
 
@@ -564,23 +578,35 @@ Contains
     do nn = 1, n_vars
       Select Case(Trim(h5_output_field(nn)%groupname))
       Case('phi')
-        Call HDF5WriteData(h5_output_field(nn), phi,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), phi,data_name)
+      Case('p')
+        Call HDF5WriteData(h5_output, h5_output_field(nn), p,data_name)
       Case('u')
-        Call HDF5WriteData(h5_output_field(nn), u,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), u,data_name)
       Case('v')
-        Call HDF5WriteData(h5_output_field(nn), v,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), v,data_name)
       Case('w')
-        Call HDF5WriteData(h5_output_field(nn), w,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), w,data_name)
       Case('cx')
-        Call HDF5WriteData(h5_output_field(nn), cx,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), cx,data_name)
       Case('cy')
-        Call HDF5WriteData(h5_output_field(nn), cy,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), cy,data_name)
       Case('cz')
-        Call HDF5WriteData(h5_output_field(nn), cz,data_name)
+        Call HDF5WriteData(h5_output, h5_output_field(nn), cz,data_name)
       End Select
     end do
 
   end SUBROUTINE HDF5WriteFrame
+
+  Subroutine WriteFieldData
+    Implicit None
+    Character(80) :: frame_name
+    If (time > time_out ) Then
+      time_out = time_out + output_inteval
+      write(frame_name,'(F0.6)') time_out
+      Call HDF5WriteFrame(trim(frame_name))
+    End If
+  End Subroutine WriteFieldData
   !! -----End HDF5 for field IO------------
 
   !!------(5) MPI initialization and exchange------

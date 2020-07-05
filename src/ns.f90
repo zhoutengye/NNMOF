@@ -75,6 +75,7 @@ Module ModNavierStokes
   Use ModGlobal, only : Phi_bc, P_bc, U_bc, V_bc, W_bc
   Use ModGlobal, only : h5_input
   Use ModGlobal, only : myid, nproc, ierr
+  Use ModGlobal, only : left, right, top, bottom, front, back
   Use ModTools
   Use HypreStruct
   Use ModVOF
@@ -94,8 +95,9 @@ Module ModNavierStokes
   Real(sp) :: p_residual
   Real(sp) :: div_max
   Integer :: step_rank = 0
-
-  integer :: jacobiflag
+  Integer :: out_nn = 0
+  Real(sp) :: time_out
+  integer :: jacobiflag = 0
 
 Contains
 
@@ -182,7 +184,12 @@ Contains
       ! Calculate divergence
       Call Divergence(up, vp, wp, Div)
       ! Solve pressure Poisson equation
+      ! if (jacobiflag .eq.0) then
       Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
+        ! jacobiflag = 1
+      ! else
+        ! Call Jacobi(PP)
+      ! endif
       Call BC_P(PP)
       ! Preject the velocity to the divergence-free field
       Call Projection(PP, u, v, w, up, vp, wp)
@@ -662,25 +669,47 @@ Contains
     Implicit None
     real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
     Call U_bc%SetBCS(U)
+    Call V_bc%SetBCS(V)
+    Call W_bc%SetBCS(W)
+
+    ! If(left   .eq. MPI_PROC_NULL) U(    0,      :,      :) = 0.0_sp
+    ! If(right  .eq. MPI_PROC_NULL) U(nl(1),      :,      :) = 0.0_sp
+    ! If(front  .eq. MPI_PROC_NULL) U(    :,      0,      :) = - U(:,1,:)
+    ! If(back   .eq. MPI_PROC_NULL) U(    :,nl(2)+1,      :) = 1.0_sp
+    ! If(bottom .eq. MPI_PROC_NULL) U(    :,      :,      0) = - U(:,:,1)
+    ! If(top    .eq. MPI_PROC_NULL) U(    :,      :,nl(3)+1) = - U(:,:,nl(3))
+
+    ! If(left   .eq. MPI_PROC_NULL) V(      0,    :,      :) = - V(1,:,:)
+    ! If(right  .eq. MPI_PROC_NULL) V(nl(1)+1,    :,      :) = - V(nl(1),:,:)
+    ! If(front  .eq. MPI_PROC_NULL) V(      :,    0,      :) = 0.0_sp
+    ! If(back   .eq. MPI_PROC_NULL) V(      :,nl(2),      :) = 0.0_sp
+    ! If(bottom .eq. MPI_PROC_NULL) V(      :,    :,      0) = - V(:,:,1)
+    ! If(top    .eq. MPI_PROC_NULL) V(      :,    :,nl(3)+1) = - V(:,:,nl(3))
+
+    ! If(left   .eq. MPI_PROC_NULL) W(      0,      :,    :) = - W(1,:,:)
+    ! If(right  .eq. MPI_PROC_NULL) W(nl(1)+1,      :,    :) = - W(nl(1),:,:)
+    ! If(front  .eq. MPI_PROC_NULL) W(      :,      0,    :) = - W(:,1,:)
+    ! If(back   .eq. MPI_PROC_NULL) W(      :,nl(2)+1,    :) = - W(:,nl(2),:)
+    ! If(bottom .eq. MPI_PROC_NULL) W(      :,      :,    0) = 0.0_sp
+    ! If(top    .eq. MPI_PROC_NULL) W(      :,      :,nl(3)) = 0.0_sp
+
     ! U(    0,      :,      :) = 0.0_sp
     ! U(nl(1),      :,      :) = 0.0_sp
-    ! U(    :,      0,      :) = U(:,1,:)
+    ! U(    :,      0,      :) = - U(:,1,:)
     ! U(    :,nl(2)+1,      :) = 1.0_sp
-    ! U(    :,      :,      0) = U(:,:,1)
-    ! U(    :,      :,nl(3)+1) = U(:,:,nl(3))
+    ! U(    :,      :,      0) = - U(:,:,1)
+    ! U(    :,      :,nl(3)+1) = - U(:,:,nl(3))
 
-    Call V_bc%SetBCS(V)
-    ! V(      0,    :,      :) = V(1,:,:)
-    ! V(nl(1)+1,    :,      :) = V(nl(1),:,:)
+    ! V(      0,    :,      :) = - V(1,:,:)
+    ! V(nl(1)+1,    :,      :) = - V(nl(1),:,:)
     ! V(      :,    0,      :) = 0.0_sp
     ! V(      :,nl(2),      :) = 0.0_sp
-    ! V(      :,    :,      0) = V(:,:,1)
-    ! V(      :,    :,nl(3)+1) = V(:,:,nl(3))
+    ! V(      :,    :,      0) = - V(:,:,1)
+    ! V(      :,    :,nl(3)+1) = - V(:,:,nl(3))
 
-    Call W_bc%SetBCS(W)
-    ! W(      0,      :,    :) = W(1,:,:)
-    ! W(nl(1)+1,      :,    :) = W(nl(1),:,:)
-    ! W(      :,      0,    :) = W(:,1,:)
+    ! W(      0,      :,    :) = - W(1,:,:)
+    ! W(nl(1)+1,      :,    :) = - W(nl(1),:,:)
+    ! W(      :,      0,    :) = - W(:,1,:)
     ! W(      :,nl(2)+1,    :) = W(:,nl(2),:)
     ! W(      :,      :,    0) = 0.0_sp
     ! W(      :,      :,nl(3)) = 0.0_sp
@@ -972,7 +1001,7 @@ Contains
     Real(sp) :: PP(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: i, j, k, ll
 
-    Do ll = 1, 100
+    Do ll = 1, 1000
       Do k = 1, nl(3)
         Do j = 1, nl(2)
           Do i = 1, nl(1)
@@ -1011,5 +1040,6 @@ Contains
       End Do
     End Do
   End Subroutine Monitor
+
 
 End Module ModNavierStokes
