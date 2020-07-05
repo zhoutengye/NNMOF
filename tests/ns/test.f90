@@ -171,6 +171,7 @@ Subroutine test3
   Implicit None
   Real(sp),allocatable :: uvw(:,:,:)
   Integer :: i,j,k
+  Character(80) :: testname
 
   Call Init(inputfield=.false.)
   phi = 1.0_sp
@@ -226,19 +227,20 @@ Subroutine test3
   ! w_bc%bound_type(1,2) = 1
   ! w_bc%bound_value(1,2) = 1.0_sp
   ! ! Wcase 3
-  ! w_bc%ghost_flag(2,1) = .false.
-  ! w_bc%bound_type(2,1) = 1
-  ! w_bc%bound_value(2,1) = 1.0_sp
+  w_bc%ghost_flag(2,1) = .false.
+  w_bc%bound_type(2,1) = 1
+  w_bc%bound_value(2,1) = 1.0_sp
   !! Wcase 4
-  w_bc%ghost_flag(2,2) = .false.
-  w_bc%bound_type(2,2) = 1
-  w_bc%bound_value(2,2) = 1.0_sp
+  ! w_bc%ghost_flag(2,2) = .false.
+  ! w_bc%bound_type(2,2) = 1
+  ! w_bc%bound_value(2,2) = 1.0_sp
 
   time = tstart
   Do While (time < tend)
     Call SinglePhaseFlow(U, V, W, P)
     ! Call TwoPhaseFlow(U, V, W, Phi, P)
     Call Monitor(U,V,W)
+    Call WriteFieldData
     time = time + dt
     if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter,"div_max=", div_max
     ! Call Visual3DQUIVER(v,u,w)
@@ -251,6 +253,7 @@ Subroutine test3
       End Do
     End Do
   End Do
+  testname = 'sk'
   Call Visual3DCONTOUR(uvw)
 
   Call MPI_FINALIZE(ierr)

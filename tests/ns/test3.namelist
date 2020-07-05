@@ -17,13 +17,13 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 35.0
+tend  = 10.0
 dt = 0.05
 /
 
 &outvar
 output_inteval = 1.0
-startframe = 0
+starttime = 5.0
 /
 
 &iofield
@@ -51,18 +51,18 @@ body_force = 0.0, 0.0,0.0
 /
 
 &ns_solver
-rk_order = 1
+rk_order = 3
 iter_max = 50
-iter_tolerance = 1e-9
-hypre_solver = 3
+iter_tolerance = 1e-3
+hypre_solver = 1
 hypre_preconditioner = 0
 /
 
 &ns_bc
-bc_left   = 2
-bc_right  = 2
-bc_back   = 2
-bc_front  = 2
-bc_top    = 2
-bc_bottom = 2
+bc_left   = 1
+bc_right  = 1
+bc_back   = 1
+bc_front  = 1
+bc_top    = 1
+bc_bottom = 1
 /
