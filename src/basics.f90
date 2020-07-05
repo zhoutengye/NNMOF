@@ -320,7 +320,6 @@ Contains
     INTEGER(HID_T) :: plist_id      ! Property list identifier 
     logical :: inputfield
     Integer :: h5error
-    External :: system
 
     h5_total_dims(1) = n(1)
     h5_total_dims(2) = n(2)
@@ -604,7 +603,8 @@ Contains
     If (time > time_out ) Then
       time_out = time_out + output_inteval
       write(frame_name,'(F0.6)') time_out
-      Call HDF5WriteFrame(trim(frame_name))
+      frame_name = trim(frame_name)
+      Call HDF5WriteFrame(frame_name)
     End If
   End Subroutine WriteFieldData
   !! -----End HDF5 for field IO------------

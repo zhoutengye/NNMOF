@@ -26,3 +26,6 @@ libs/hypre-master
 *.log
 *.synctex.gz
 
+*.vtr
+*.pvd
+
