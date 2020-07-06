@@ -28,4 +28,10 @@ libs/hypre-master
 
 *.vtr
 *.pvd
+*.plt
+
+tecplot*
+paraview*
+gen_tecplot.py
+gen_paraview.py
 

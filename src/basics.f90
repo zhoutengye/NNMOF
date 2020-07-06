@@ -51,6 +51,7 @@ Module ModGlobal
   !! Control output
   Real(SP) :: output_inteval
   Real(sp) :: time_out
+  Integer  :: output_type = 0
 
   !! HDF5 parameters
   INTEGER(HSIZE_T), DIMENSION(3) :: h5_total_dims
@@ -148,11 +149,12 @@ Contains
     Real(sp) :: starttime
     Character(80) :: input_name
     Character(80) :: file_name
+    Character(10) :: output_format
 
     namelist /mpivar/ px, py
     namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
     namelist /compvar/ dt, tstart, tend
-    namelist /outvar/ output_inteval, starttime
+    namelist /outvar/ output_inteval, starttime, output_format
     namelist /iofield/ n_vars, io_phi, io_p, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
 
     Call getarg(1,input_name)
@@ -187,6 +189,11 @@ Contains
         periods(2) = periody
         periods(3) = periodz
         close(10)
+        if (trim(output_format) .eq. 'paraview') then
+          output_type = 1
+        else if (trim(output_format) .eq. 'tecplot') then
+          output_type = 2
+        endif
       Else
         print *, "======Fatal Error=============================="
         print *, Trim(file_name), " does not exist, please check"
@@ -359,6 +366,7 @@ Contains
 
     ! Load the initial field
     Call H5LoadInit(Inputfield)
+    Call HDF5_WRITE_PARAMETERS(h5_output)
     Call h5fclose_f(h5_output%file_id, h5error)
 
   End Subroutine H5Init
@@ -607,6 +615,115 @@ Contains
       Call HDF5WriteFrame(frame_name)
     End If
   End Subroutine WriteFieldData
+
+  SUBROUTINE HDF5_WRITE_PARAMETERS(h5file)
+    Implicit None
+    Type(hdf5file) :: h5file
+    Character(80) :: tmp_name
+
+    ! write the total grid information
+    tmp_name = 'nx'
+    Call add_Parameter_integer(h5file%file_id, tmp_name, n(1), 1)
+    tmp_name = 'ny'
+    Call add_Parameter_integer(h5file%file_id, tmp_name, n(2), 1)
+    tmp_name = 'nz'
+    Call add_Parameter_integer(h5file%file_id, tmp_name, n(3), 1)
+    ! write the grid resolution
+    tmp_name = 'dx'
+    Call add_Parameter_float(h5file%file_id, tmp_name, dl(1), 1)
+    tmp_name = 'dy'
+    Call add_Parameter_float(h5file%file_id, tmp_name, dl(2), 1)
+    tmp_name = 'dz'
+    Call add_Parameter_float(h5file%file_id, tmp_name, dl(3), 1)
+
+  END SUBROUTINE HDF5_WRITE_PARAMETERS
+
+  Subroutine add_Parameter_character(id, p_name, p_value)
+    Implicit None
+    Integer(HID_T) :: id
+    Character(80) :: p_name
+    Character(80) :: p_value
+    INTEGER(HID_T) :: aspace_id     ! Attribute Dataspace identifier
+    INTEGER(HID_T) :: attr_id       ! Attribute Dataspace identifier
+    INTEGER(HID_T) :: atype_id      ! Attribute Dataspace identifier
+    INTEGER(HSIZE_T), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
+    Integer(Size_T) :: attrlen=80
+    INTEGER(HSIZE_T), DIMENSION(1) :: data_dims = (/1/)
+    INTEGER     ::   arank = 1                      ! Attribure rank
+
+    Integer :: error
+
+    CALL h5screate_simple_f(arank, adims, aspace_id, error)
+    CALL h5tcopy_f(H5T_NATIVE_CHARACTER, atype_id, error)
+    CALL h5tset_size_f(atype_id, attrlen, error)
+    CALL h5acreate_f(id, p_name, atype_id, aspace_id, attr_id, error)
+    CALL h5awrite_f(attr_id, atype_id, p_value, data_dims, error)
+    CALL h5aclose_f(attr_id, error)
+    CALL h5tclose_f(atype_id, error)
+    CALL h5sclose_f(aspace_id, error)
+
+  End Subroutine add_Parameter_character
+
+  Subroutine add_Parameter_Integer(id, p_name, p_value, dim)
+    Implicit None
+    Integer(HID_T) :: id
+    Integer :: dim
+    Character(80) :: p_name
+    integer :: p_value
+    INTEGER(HID_T) :: aspace_id     ! Attribute Dataspace identifier
+    INTEGER(HID_T) :: attr_id       ! Attribute Dataspace identifier
+    INTEGER(HID_T) :: atype_id      ! Attribute Dataspace identifier
+    INTEGER(HSIZE_T), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
+    INTEGER(HSIZE_T), DIMENSION(1) :: data_dims = (/1/)
+    INTEGER     ::   arank = 1                      ! Attribure rank
+
+    Integer :: error
+
+    adims = dim
+    data_dims = dim
+
+    CALL h5screate_simple_f(arank, adims, aspace_id, error)
+    CALL h5tcopy_f(H5T_NATIVE_INTEGER, atype_id, error)
+    CALL h5acreate_f(id, p_name, atype_id, aspace_id, attr_id, error)
+    CALL h5awrite_f(attr_id, atype_id, p_value, data_dims, error)
+    CALL h5aclose_f(attr_id, error)
+    CALL h5tclose_f(atype_id, error)
+    CALL h5sclose_f(aspace_id, error)
+
+  End Subroutine add_Parameter_Integer
+
+  Subroutine add_Parameter_Float(id, p_name, p_value, dim)
+    Implicit None
+    Integer(HID_T) :: id
+    Integer :: dim
+    Character(80) :: p_name
+    Real(SP) :: p_value
+    INTEGER(HID_T) :: aspace_id     ! Attribute Dataspace identifier
+    INTEGER(HID_T) :: attr_id       ! Attribute Dataspace identifier
+    INTEGER(HID_T) :: atype_id      ! Attribute Dataspace identifier
+    INTEGER(HSIZE_T), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
+    INTEGER(HSIZE_T), DIMENSION(1) :: data_dims = (/1/)
+    INTEGER     ::   arank = 1                      ! Attribure rank
+
+    Integer :: error
+
+    adims = dim
+    data_dims = dim
+
+    CALL h5screate_simple_f(arank, adims, aspace_id, error)
+# if defined (DOUBLE_PRECISION)
+    CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error)
+# else
+    CALL h5tcopy_f(H5T_NATIVE_REAL, atype_id, error)
+# endif
+    CALL h5acreate_f(id, p_name, atype_id, aspace_id, attr_id, error)
+    CALL h5awrite_f(attr_id, atype_id, p_value, data_dims, error)
+    CALL h5aclose_f(attr_id, error)
+    CALL h5tclose_f(atype_id, error)
+    CALL h5sclose_f(aspace_id, error)
+
+  End Subroutine add_Parameter_Float
+
   !! -----End HDF5 for field IO------------
 
   !!------(5) MPI initialization and exchange------
@@ -883,5 +1000,20 @@ Contains
     var(0:nl(1)+1,0:nl(2)+1,0)       = var(0:nl(1)+1,0:nl(2)+1,nl(3))
     var(0:nl(1)+1,0:nl(2)+1,nl(3)+1) = var(0:nl(1)+1,0:nl(2)+1,1)
   End Subroutine Periodzbound
+
+  Subroutine Finalize
+    Implicit None
+    ! Output directory
+    If (myid .eq. 0) Then
+      If (output_type .eq. 1) Then
+        Call system('python gen_paraview.py')
+      Else
+        Call system('python gen_tecplot.py')
+      End If
+    End If
+
+    Call MPI_Finalize(ierr)
+
+  End Subroutine Finalize
 
 End Module ModGlobal

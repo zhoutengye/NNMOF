@@ -256,5 +256,6 @@ Subroutine test3
   testname = 'sk'
   Call Visual3DCONTOUR(uvw)
 
-  Call MPI_FINALIZE(ierr)
+  Call Finalize
+
 End Subroutine Test3

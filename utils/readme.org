@@ -1,0 +1,40 @@
+* Utility tools
+  Includes
+  - hotstart script
+  - generate paraview file
+  - generate tecplot 
+    
+** hotstart
+   Extract the desired data from =output.h5= and create the input =h5= file.
+   Modify the =dataset= and =input_name= before use.
+
+** paraview
+   Save the data set of each time frame to a =.vtr= file and collect them with a 
+   =.pvd= file.
+   
+   Run with 
+   
+   #+begin_src: bash
+   python gen_paraview.py [dir_name]
+   #+end_src
+   
+where =dir_name= is optional. The new paraview files will be created in =dir_name=.
+If =dir_name= is not set, it will create a directory named =paraview=.
+
+
+** tecplot
+   The way I do tecplot is clumsy. 
+It seems that newer version of tecplot does not provide very concise header file and
+data structure in its mannual, instead, it encourages uses to call their library to 
+generate the data file.
+Here I simply use the old-fashion to create ascii data file and convert the ascii data
+to binary.
+   
+   Run with 
+   
+   #+begin_src: bash
+   python gen_tecplot.py [dir_name]
+   #+end_src
+   
+   Note: =preplot= should be available. The path of the preplot should be setup 
+   at the beginning of the =gen_tecplot.py= file.
