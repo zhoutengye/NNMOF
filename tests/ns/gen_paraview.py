@@ -5,6 +5,7 @@ import h5py
 import os
 import sys
 
+# import data and extract key information
 f = h5py.File('output.h5','r')
 vars = list(f.keys())
 scalar_vars = []
@@ -15,12 +16,18 @@ for item in vars:
         scalar_vars_string.append(str(item))
 times = list(f['phi'].keys())
 
-nx, ny, nz = f['u'][times[0]].shape
+# nx, ny, nz for number of grid
+# dx, dy, dz for size of grid
+nz = f.attrs['nx'][0]
+ny = f.attrs['ny'][0]
+nx = f.attrs['nz'][0]
+dz = f.attrs['dx'][0]
+dy = f.attrs['dy'][0]
+dx = f.attrs['dz'][0]
 
-#Read data
-x = np.arange(nx) / 20.0
-y = np.arange(ny) / 20.0
-z = np.arange(nz) / 20.0
+x = np.arange(nx) * dx + dx * 0.5
+y = np.arange(ny) * dy + dy * 0.5
+z = np.arange(nz) * dz + dz * 0.5
 
 #Define some parameters
 start, end = (1,1,1), (nx, ny, nz) #Modify 0->1

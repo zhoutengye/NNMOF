@@ -4,8 +4,8 @@ py = 1
 /
 
 &gridvar
-nx = 20
-ny = 20
+nx = 40
+ny = 30
 nz = 20
 dx = 0.05
 dy = 0.05
@@ -24,6 +24,7 @@ dt = 0.05
 &outvar
 output_inteval = 1.0
 starttime = 5.0
+output_format = 'paraview'
 /
 
 &iofield
