@@ -1,15 +1,15 @@
 &mpivar
-px = 1
-py = 1
+px = 2
+py = 2
 /
 
 &gridvar
-nx = 20
-ny = 20
-nz = 20
-dx = 1.0
-dy = 1.0
-dz = 1.0
+nx = 100
+ny = 100
+nz = 50
+dx = 0.05
+dy = 0.05
+dz = 0.05
 periodx = .false.
 periody = .false.
 periodz = .false.
@@ -17,13 +17,14 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 1.0
+tend  = 40.0
 dt = 0.05
 /
 
 &outvar
 output_inteval = 1.0
-startframe = 0
+starttime = 5.0
+output_format = 'none'
 /
 
 &iofield
@@ -45,24 +46,25 @@ rho_l = 1.0e3
 rho_g = 1.0e0
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
+sigma = 5.0e-2
 cfl   = 0.5
 dt_min = 0.005
-body_force = 0.0, 0.0, -9.81
+body_force = 0.0, 0.0,0.0
 /
 
 &ns_solver
-rk_order = 3
-iter_max = 30
+rk_order = 1
+iter_max = 50
 iter_tolerance = 1e-3
-hypre_solver = 1
+hypre_solver = 3
 hypre_preconditioner = 0
 /
 
 &ns_bc
-bc_left   = 2
-bc_right  = 2
-bc_back   = 2
-bc_front  = 2
-bc_top    = 2
-bc_bottom = 2
+bc_left   = 1
+bc_right  = 1
+bc_back   = 1
+bc_front  = 1
+bc_top    = 1
+bc_bottom = 1
 /

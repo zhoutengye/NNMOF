@@ -80,6 +80,10 @@ Module ModNavierStokes
   Use HypreStruct
   Use ModVOF
   Implicit None
+
+  private
+  Public :: TwoPhaseFlow, SinglePhaseFlow, InitNavierStokes, Monitor
+  Public :: CSF, CSF_VOSET
   ! Module variables will not pass through the subroutine interface
   Real(sp), Allocatable :: Rho(:,:,:), Rhox(:,:,:), Rhoy(:,:,:), Rhoz(:,:,:), PP(:,:,:)
   Real(sp), Allocatable :: mu(:,:,:), muxy(:,:,:), muxz(:,:,:), muyz(:,:,:)
@@ -88,6 +92,7 @@ Module ModNavierStokes
   Real(sp) :: body_force(3)
   Real(sp) :: rho_l, rho_g
   Real(sp) ::  mu_l, mu_g
+  Real(sp) ::  sigma
   Integer :: rk_order
   Real(sp), Allocatable :: rkcoef(:,:)
   Integer :: n_iter
@@ -98,6 +103,16 @@ Module ModNavierStokes
   Integer :: out_nn = 0
   Real(sp) :: time_out
   integer :: jacobiflag = 0
+
+  PROCEDURE(InterfaceCSF), POINTER :: CSF => CSF_NULL
+  Interface
+    Subroutine InterfaceCSF(dudt, dvdt, dwdt, Phi)
+      import
+      Implicit None
+      real(sp), intent(in), dimension(0:,0:,0:) :: Phi
+      real(sp), intent(out), dimension(:,:,:) :: dudt, dvdt, dwdt
+    End Subroutine InterfaceCSF
+  End Interface
 
 Contains
 
@@ -128,13 +143,14 @@ Contains
     ! Runge-Kutta time integration
     Do irk=1,rk_order
       ! Runge-Kutta step for momentum
-      call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp)
+      call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp,phi)
+      Call Visual3DQuiver(VP,UP,WP)
       ! Boundary condition for intermediate velocity
       Call BC_UVW(UP, VP, WP)
       ! Calculate divergence
       Call Divergence(up, vp, wp, Div)
       ! Solve pressure Poisson equation
-        Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
+      Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
       Call BC_P(PP)
       ! Preject the velocity to the divergence-free field
       Call Projection(PP, u, v, w, up, vp, wp)
@@ -157,6 +173,7 @@ Contains
     Call Adjustdt(U, V, W, cfl)
 
   End Subroutine TwoPhaseFlow
+
   !==========================
   ! (1-1) Two phase flow solver
   ! Key steps:
@@ -217,12 +234,13 @@ Contains
   !   UP, VP, WP: u*star, v_star, w_star
   !   dudtrko, dvdtrko, dwdtrko: du/dt, dv/dt, dw/dt for time step k+1/2
   !==========================
-  Subroutine RungeKuttaMomentum(rkpar, u, v, w, p, dudtrko, dvdtrko, dwdtrko, up, vp, wp)
+  Subroutine RungeKuttaMomentum(rkpar, u, v, w, p, dudtrko, dvdtrko, dwdtrko, up, vp, wp, Phi)
     Implicit None
     real(sp), Intent(in), Dimension(0:,0:,0:) :: u,v,w, p
     real(sp), Intent(inout), Dimension(:,:,:) :: dudtrko,dvdtrko,dwdtrko
     real(sp), Intent(in), Dimension(2) :: rkpar
     real(sp), Intent(out), Dimension(0:,0:,0:)  :: up,vp,wp
+    real(sp), Intent(in), Dimension(0:,0:,0:),optional  :: phi
     real(sp), Dimension(nl(1),nl(2),nl(3)) :: dudtrk,dvdtrk,dwdtrk
     real(sp) :: factor1,factor2,factor12
     Integer :: i, j, k
@@ -251,6 +269,8 @@ Contains
     Call AdvDiffW(u, v, w, dwdtrk)
     ! Calculate Body force k+1/2 (Included in AD^k+1/2 term)
     Call BodyForce(dudtrk, dvdtrk, dwdtrk)
+
+    if ( present(phi) ) Call CSF(dudtrk, dvdtrk, dwdtrk, Phi)
 
     ! UP - U^start
     ! dUdtro = U^start - U^k-1/2
@@ -608,11 +628,10 @@ Contains
   ! Outputs:
   !   dudt, dvdt, dwdt: du/dt, dv/dt, dw/dt
   !===============================================================
-  Subroutine CSF(dudt, dvdt, dwdt, sigma, Phi)
+  Subroutine CSF_VOSET(dudt, dvdt, dwdt, Phi)
     Implicit None
-    real(sp), intent(in) :: sigma
     real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-    real(sp), intent(out), dimension(0:,0:,0:) :: dudt, dvdt, dwdt
+    real(sp), intent(out), dimension(:,:,:) :: dudt, dvdt, dwdt
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Phi_DS
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Ls
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_v
@@ -621,30 +640,33 @@ Contains
 
     !    (1) Scale volume function
     Call Smooth_Phi(Phi, Phi_DS, nl(1), nl(2), nl(3))
+    Call Phi_bc%SetBCS(Phi_DS)
 
     !    (2) Convert the VOF function to level set
-    Call VOF2LS(Phi, LS, nl(1), nl(2), nl(3), dl(1))
+    Call Get_LS_3D_init(Phi_DS, Ls, dl(1), dl(2), dl(3), nl(1), nl(2), nl(3))
 
+    Call Phi_bc%SetBCS(LS)
     !    (3) calculate curvature at grid center
     Kappa_v = 0.0_sp
     Do k=0,nl(3)
       Do j=0,nl(2)
         Do i=0,nl(1)
-          Kappa_v(i,j,k) = - ( ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i+1,j,k) ) / dl(1) / dl(1) &
-                    &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j+1,k) ) / dl(2) / dl(2) &
-                    &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j,k+1) ) / dl(3) / dl(3) )
+          Kappa_v(i,j,k) = &
+              (    ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i+1,j,k) ) / dl(1) / dl(1) &
+              &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j+1,k) ) / dl(2) / dl(2) &
+              &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j,k+1) ) / dl(3) / dl(3) )
         EndDo
       EndDo
     EndDo
     Call Phi_bc%SetBCS(kappa_v)
 
     !    (4) Interpolate the curvature to grid center
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          Kappa_sx(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(i-1,  j,  k) )
-          Kappa_sy(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,j-1,  k) )
-          Kappa_sz(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,  j,k-1) )
+    Do k=0,nl(3)
+      Do j=0,nl(2)
+        Do i=0,nl(1)
+          Kappa_sx(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(i+1,  j,  k) )
+          Kappa_sy(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,j+1,  k) )
+          Kappa_sz(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,  j,k+1) )
         EndDo
       EndDo
     EndDo
@@ -653,14 +675,20 @@ Contains
     Do k=1,nl(3)
       Do j=1,nl(2)
         Do i=1,nl(1)
-          dudt(i,j,k) = sigma * Kappa_sx(i,j,k) * ( Phi_DS(i+1,  j,  k) - Phi_DS(i,j,k) ) * rhox(i,j,k) / dl(1) * dt
-          dvdt(i,j,k) = sigma * Kappa_sy(i,j,k) * ( Phi_DS(  i,j+1,  k) - Phi_DS(i,j,k) ) * rhoy(i,j,k) / dl(2) * dt
-          dwdt(i,j,k) = sigma * Kappa_sz(i,j,k) * ( Phi_DS(  i,  j,k+1) - Phi_DS(i,j,k) ) * rhoz(i,j,k) / dl(3) * dt
+          dudt(i,j,k) = dudt(i,j,k) - sigma * Kappa_sx(i,j,k) * ( Phi_DS(i+1,  j,  k) - Phi_DS(i,j,k) ) * rhox(i,j,k) / dl(1) * dt
+          dvdt(i,j,k) = dvdt(i,j,k) - sigma * Kappa_sy(i,j,k) * ( Phi_DS(  i,j+1,  k) - Phi_DS(i,j,k) ) * rhoy(i,j,k) / dl(2) * dt
+          dwdt(i,j,k) = dvdt(i,j,k) - sigma * Kappa_sz(i,j,k) * ( Phi_DS(  i,  j,k+1) - Phi_DS(i,j,k) ) * rhoz(i,j,k) / dl(3) * dt
         EndDo
       EndDo
   EndDo
 
-  End Subroutine CSF
+  End Subroutine CSF_VOSET
+
+  Subroutine CSF_NULL(dudt, dvdt, dwdt, Phi)
+    Implicit None
+    real(sp), intent(in), dimension(0:,0:,0:) :: Phi
+    real(sp), intent(out), dimension(:,:,:) :: dudt, dvdt, dwdt
+  End Subroutine CSF_NULL
 
   !==========================
   ! (3-1) Boudnary conditions for u, v, w
@@ -762,7 +790,7 @@ Contains
     Integer :: i
 
     !  variables for physics
-    namelist /ns_physics/ rho_l, rho_g, mu_l, mu_g, body_force, cfl, dt_min
+    namelist /ns_physics/ rho_l, rho_g, mu_l, mu_g, sigma, body_force, cfl, dt_min
     namelist /ns_solver/ iter_tolerance, iter_max, rk_order, hypre_solver, Hypre_PreConditioner
     !  variables for boundary conditions
     namelist /ns_bc/ &
@@ -1040,6 +1068,5 @@ Contains
       End Do
     End Do
   End Subroutine Monitor
-
 
 End Module ModNavierStokes

@@ -4,8 +4,8 @@ py = 1
 /
 
 &gridvar
-nx = 40
-ny = 30
+nx = 20
+ny = 20
 nz = 20
 dx = 0.05
 dy = 0.05
@@ -17,14 +17,14 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 20.0
+tend  = 40.0
 dt = 0.05
 /
 
 &outvar
 output_inteval = 1.0
 starttime = 5.0
-output_format = 'paraview'
+output_format = 'tecplot'
 /
 
 &iofield

@@ -254,7 +254,7 @@ Subroutine test3
     End Do
   End Do
   testname = 'sk'
-  Call Visual3DCONTOUR(uvw)
+  ! Call Visual3DCONTOUR(uvw)
 
   Call Finalize
 

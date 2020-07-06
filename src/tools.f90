@@ -3,8 +3,9 @@ Module ModTools
   Use ModGlobal
   Implicit None
   Private
+  Public :: Octree, ShapeLevelSet
   Public ::  Visual3DContour, Visual3DQuiver, Visual2DContour
-  Public ::  Heaviside, ShapeLS, InOut, VolumeOctree, VolumeCentroidOctree
+  Public ::  Dirac, Heaviside, ShapeLS, InOut, VolumeOctree, VolumeCentroidOctree
 
   Type Octree
     Real(sp) :: xc(3)
@@ -499,6 +500,19 @@ Contains
      heaviside = 0.5_sp * ( 1.0_sp + dis / h + 1.0_sp / Pi * sin(Pi * dis / h) )
    End If
  End Function Heaviside
+
+ Real(sp) FUNCTION Dirac(d,e)
+   IMPLICIT REAL*8 (a-h,o-z)
+   PARAMETER (pi=3.1415926535898) 
+   !-------------------------------------
+   IF ( dabs(d) .gt. e ) THEN
+     Dirac = 0.0d0
+   ELSE 
+     Dirac = (1.0d0+dcos(pi*d/e))/(2*e)
+   ENDIF
+   !-------------------------------------
+ END FUNCTION DIRAC
+
 
  Subroutine Export_Paraview
    Implicit None

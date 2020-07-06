@@ -1007,7 +1007,7 @@ Contains
     If (myid .eq. 0) Then
       If (output_type .eq. 1) Then
         Call system('python gen_paraview.py')
-      Else
+      Else If (output_type .eq. 2) Then
         Call system('python gen_tecplot.py')
       End If
     End If

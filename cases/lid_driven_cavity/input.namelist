@@ -4,12 +4,12 @@ py = 2
 /
 
 &gridvar
-nx = 100
-ny = 100
+nx = 50
+ny = 50
 nz = 50
-dx = 0.05
-dy = 0.05
-dz = 0.05
+dx = 0.02
+dy = 0.02
+dz = 0.02
 periodx = .false.
 periody = .false.
 periodz = .false.
@@ -18,13 +18,13 @@ periodz = .false.
 &compvar
 tstart = 0.0
 tend  = 40.0
-dt = 0.05
+dt = 0.01
 /
 
 &outvar
 output_inteval = 1.0
-starttime = 5.0
-output_format = 'none'
+starttime = 0.0
+output_format = 'tecplot'
 /
 
 &iofield
@@ -46,9 +46,8 @@ rho_l = 1.0e0
 rho_g = 1.0e-3
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
-sigma = 5.0e-2
 cfl   = 0.5
-dt_min = 0.005
+dt_min = 0.001
 body_force = 0.0, 0.0,0.0
 /
 
