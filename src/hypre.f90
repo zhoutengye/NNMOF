@@ -324,7 +324,7 @@ Contains
     real(sp), intent(in), dimension(0:,0:,0:) :: P
     real(sp), intent(in), dimension(0:,0:,0:) :: Rhox, Rhoy, Rhoz
     real(sp), intent(in), dimension(:,:,:) :: Div
-    Integer , intent(in), dimension(:,:,:) :: flag
+    Integer , intent(in), dimension(0:,0:,0:) :: flag
     Integer :: i, j, k
     External :: HYPRE_StructMatrixSetBoxValues, HYPRE_StructMatrixAssemble
     External :: HYPRE_StructVectorSetBoxValues

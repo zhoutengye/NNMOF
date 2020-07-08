@@ -11,6 +11,7 @@ end program ZalesakInit
 
 
 Subroutine InitVolume
+  Use ModGlobal
   Use ModTools
   Use ModVOFFunc
   Use InitSH
@@ -109,29 +110,12 @@ Subroutine InitVolume
     End Do
   End Do
 
+
   Block
     Integer :: nn
     Character(80) :: data_name
     data_name = 'init'
-    print *, n_vars
-    do nn = 1, n_vars
-      Select Case(Trim(h5_output_field(nn)%groupname))
-      Case('phi')
-        Call HDF5WriteData(h5_output_field(nn), phi,data_name)
-      Case('u')
-        Call HDF5WriteData(h5_output_field(nn), u,data_name)
-      Case('v')
-        Call HDF5WriteData(h5_output_field(nn), v,data_name)
-      Case('w')
-        Call HDF5WriteData(h5_output_field(nn), w,data_name)
-      Case('cx')
-        Call HDF5WriteData(h5_output_field(nn), cx,data_name)
-      Case('cy')
-        Call HDF5WriteData(h5_output_field(nn), cy,data_name)
-      Case('cz')
-        Call HDF5WriteData(h5_output_field(nn), cz,data_name)
-      End Select
-    end do
+    Call HDF5WriteFrame(data_name)
   End Block
 
   Call Visual3DContour(f1=phi)

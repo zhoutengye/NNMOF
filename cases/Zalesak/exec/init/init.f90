@@ -1,4 +1,6 @@
+#include 'param.h'
 Module InitSH
+  use ModGlobal, only : sp
   use ModTools
 Contains
   Real(8) Function ShapeZalesak(x,y,z)

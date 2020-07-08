@@ -15,9 +15,11 @@ Program lid_driven_cavity
   Call InitNavierStokes(U, V, W, Phi, P)
 
   ! set tup velocity
-  u_bc%ghost_flag(2,1) = .false.
-  u_bc%bound_type(2,1) = 1
-  u_bc%bound_value(2,1) = 1.0_sp
+  u_bc%ghost_flag(3,2) = .false.
+  u_bc%bound_type(3,2) = 1
+  u_bc%bound_value(3,2) = 1.0_sp
+
+
 
   time = tstart
   ! Begin loop
@@ -28,6 +30,10 @@ Program lid_driven_cavity
     time = time + dt
     if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter,"div_max=", div_max
   End Do
+
+
+  Call visual3dcontour(w)
+
 
   Call Finalize
 

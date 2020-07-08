@@ -17,14 +17,14 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 40.0
+tend  = 2.0
 dt = 0.01
 /
 
 &outvar
 output_inteval = 1.0
 starttime = 0.0
-output_format = 'tecplot'
+output_format = 'none'
 /
 
 &iofield

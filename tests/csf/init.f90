@@ -5,7 +5,6 @@ Contains
   Real(8) Function ShapeZalesak(x,y,z)
     Implicit None
     Real(sp) :: x, y, z
-    Real(sp) :: lv1, lv2, lv3
     ! lv1 = 0.2_sp - sqrt(x**2+y**2+z**2)
     ! lv2 = min(0.04_sp-y, 0.04_sp+y)
     ! lv3 = 0.1_sp-x
@@ -14,11 +13,36 @@ Contains
 
   End Function ShapeZalesak
 
+  Real(8) Function ShapeDropImpact(x,y,z)
+    Implicit None
+    Real(sp) :: x, y, z
+    Real(sp) :: lvl1, lvl2
+    lvl1 = 0.2_sp - sqrt((x-0.5_sp)**2+(y-0.5_sp)**2+(z-0.05_sp)**2)
+    lvl2 = - z - 0.15_sp
+    ShapeDropImpact = max(lvl1, lvl2)
+
+  End Function ShapeDropImpact
+
+  Real(8) Function ShapeCube(x,y,z)
+    Implicit None
+    Real(sp) :: x, y, z
+    Real(sp) :: lv1, lv2, lv3
+    ! lv1 = 0.2_sp - sqrt(x**2+y**2+z**2)
+    ! lv2 = min(0.04_sp-y, 0.04_sp+y)
+    ! lv3 = 0.1_sp-x
+    ! ShapeZalesak = min( -min(lv3, lv2), lv1)
+
+    lv1 = min(x+0.1_sp, 0.1_sp-x)
+    lv2 = min(y+0.1_sp, 0.1_sp-y)
+    lv3 = min(z+0.1_sp, 0.1_sp-z)
+    ShapeCube = min(lv3, min(lv1, lv2))
+
+  End Function ShapeCube
+
   Subroutine InitVolume
     Use ModVOFFunc
     Implicit None
     Real(sp), Allocatable :: xc(:)
-    Real(sp), Allocatable :: xl(:)
     Real(sp), Allocatable :: ls(:,:,:)
     Type(Octree) :: gr
     Integer :: i,j,k
@@ -34,13 +58,10 @@ Contains
 
     dx = 1.0_sp / dble(ng)
     Allocate(xc(ng))
-    Allocate(xl(ng))
     Do k = 1, ng
       xc(k) = dble(k)/ dble(ng) - 0.5_sp * dx
-      xl(k) = dble(k)/ dble(ng) - 1.0_sp * dx
     End Do
     dx = 1.0_sp / dble(ng)
-    ShapeLevelSet => ShapeZalesak
 
     Do k = 1, ng / 2
       Do j = 1, ng
@@ -48,7 +69,7 @@ Contains
           xx = xc(i) - 0.5_sp
           yy = xc(j) - 0.5_sp
           zz = xc(k) - 0.25_sp
-          ls(i,j,k) = ShapeZalesak(xx,yy,zz)
+          ls(i,j,k) = ShapeLevelSet(xx,yy,zz)
         End Do
       End Do
     End Do

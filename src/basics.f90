@@ -52,6 +52,7 @@ Module ModGlobal
   Real(SP) :: output_inteval
   Real(sp) :: time_out
   Integer  :: output_type = 0
+  Integer  :: hotstart_type
 
   !! HDF5 parameters
   INTEGER(HSIZE_T), DIMENSION(3) :: h5_total_dims
@@ -312,6 +313,45 @@ Contains
     End If
 
   End Subroutine Init_param
+
+  Subroutine HotStart
+    Implicit None
+    Character(80) :: input_name
+    Character(80) :: hotstart_time
+    write(hotstart_time,'(F0.6)') time_out
+    Call getarg(1,input_name)
+    If ( myid .eq. 0 ) Then
+      Open(10,file='hotstart.py')
+      Write(10,'(a)') "import h5py"
+      Write(10,'(a)') "import numpy as np"
+      Write(10,'(a)') "import sys"
+      Write(10,'(a)') "input_name = '"//trim(input_name)//".h5'"
+      Write(10,'(a)') "f=h5py.File('output.h5','r')"
+      ! find the specific dataset
+      if (hotstart_type == 1) Then
+        Write(10,'(a)') "dataset = '"//trim(hotstart_time)//"'"
+      else
+        Write(10,'(a)') "times = f['u'].keys()"
+        Write(10,'(a)') "time_series1 = []"
+        Write(10,'(a)') "for item in times:"
+        Write(10,'(a)') "    time_series1.append(float(item))"
+        Write(10,'(a)') "time_series1 = np.sort(np.array(time_series1))"
+        Write(10,'(a)') "time_series2 = ['%.6f' % x for x in time_series1]"
+        Write(10,'(a)') "dataset = time_series2[-1]"
+        Write(10,'(a)') "if (dataset[0] == '0'):"
+        Write(10,'(a)') "    dataset = dataset[1:]"
+      endif
+      Write(10,'(a)') "f2 = h5py.File(input_name,'w')"
+      Write(10,'(a)') "for key in f:"
+      Write(10,'(a)') "    f2.create_group(key)"
+      Write(10,'(a)') "    grp = f2[key]"
+      Write(10,'(a)') "    grp.create_dataset('init', data=np.array(f[key][dataset]))"
+      Write(10,'(a)') "f.close()"
+      Write(10,'(a)') "f2.close()"
+      close(10)
+    End If
+
+  End Subroutine HotStart
   !! -----End Read parameters from namelist------------
 
 
@@ -950,10 +990,6 @@ Contains
       if (myid .eq. 0) print *,'Wrong bc isign value, should be -1 or 1'
       Call MPI_FINALIZE(ierr)
     end if
-    ! if(self%name=='u')then
-    !   print *, idir, isign, ind, hl, self%bound_value(idir,hl)
-    !   read(*,*)
-    ! endif
     Select Case(idir)
     Case(1)
       Select Case(self%bound_type(idir,hl))
@@ -966,6 +1002,8 @@ Contains
       Case(2)
         f(ind,:,:) = f(ind-isign,:,:) + &
             isign * f(ind-isign,:,:) * self%bound_value(idir,hl) / dl(1)
+      Case(3)
+        f(ind,:,:) = 2.0_sp * f(ind-isign,:,:) - f(ind-isign-isign,:,:)
       End Select
     Case(2)
       Select Case(self%bound_type(idir,hl))
@@ -978,6 +1016,8 @@ Contains
       Case(2)
         f(:,ind,:) = f(:,ind-isign,:) + &
             isign * f(:,ind-isign,:) * self%bound_value(idir,hl) / dl(2)
+      Case(3)
+        f(:,ind,:) = 2.0_sp * f(:,ind-isign,:) - f(:,ind-isign-isign,:)
       End Select
     Case(3)
       Select Case(self%bound_type(idir,hl))
@@ -990,6 +1030,8 @@ Contains
       Case(2)
         f(:,:,ind) = f(:,:,ind-isign) + &
             isign * f(:,:,ind-isign) * self%bound_value(idir,hl) / dl(3)
+      Case(3)
+        f(:,:,ind) = 2.0_sp * f(:,:,ind-isign) - f(:,:,ind-isign-isign)
       End Select
     End Select
   End Subroutine SetBC
