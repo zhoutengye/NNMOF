@@ -51,8 +51,11 @@ Module ModGlobal
   !! Control output
   Real(SP) :: output_inteval
   Real(sp) :: time_out
+  Real(sp) :: startoutputtime
   Integer  :: output_type = 0
+  Logical  :: hotstart = .false.
   Integer  :: hotstart_type
+  Real(sp)  :: hotstart_time
 
   !! HDF5 parameters
   INTEGER(HSIZE_T), DIMENSION(3) :: h5_total_dims
@@ -119,6 +122,7 @@ Contains
     Call InitShape
     ! Initialize HDF5 file
     Call H5Init(inputfield)
+
     ! Initialize Boundary conditions
     Call InitBound
 
@@ -147,15 +151,14 @@ Contains
     Logical  :: periodz = .false.
     Integer  :: nn, i
     logical :: file_exists
-    Real(sp) :: starttime
     Character(80) :: input_name
     Character(80) :: file_name
     Character(10) :: output_format
 
     namelist /mpivar/ px, py
     namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
-    namelist /compvar/ dt, tstart, tend
-    namelist /outvar/ output_inteval, starttime, output_format
+    namelist /compvar/ dt, tstart, tend, hotstart, hotstart_type, hotstart_time
+    namelist /outvar/ output_inteval, startoutputtime, output_format
     namelist /iofield/ n_vars, io_phi, io_p, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
 
     Call getarg(1,input_name)
@@ -220,11 +223,17 @@ Contains
     Call MPI_BCAST(tstart, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(tend, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(hotstart, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(hotstart_type, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(hotstart_time, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(output_inteval, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(starttime, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(startoutputtime, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     Call MPI_BCAST(output_name, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
@@ -251,7 +260,7 @@ Contains
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     dt0 = dt
-    time_out = starttime
+    time_out = startoutputtime
 
     ! Determine input variables for HDF5
     Allocate(h5_input_field(n_vars))
@@ -314,33 +323,50 @@ Contains
 
   End Subroutine Init_param
 
-  Subroutine HotStart
+  Subroutine Setup_HotStart
     Implicit None
     Character(80) :: input_name
-    Character(80) :: hotstart_time
-    write(hotstart_time,'(F0.6)') time_out
+    Character(80) :: h_time
+    Integer :: i
+    write(h_time,'(F0.6)') hotstart_time
+
     Call getarg(1,input_name)
+    if (INPUT_NAME .eq. '') Then
+      input_name = 'input'
+    endif
     If ( myid .eq. 0 ) Then
       Open(10,file='hotstart.py')
       Write(10,'(a)') "import h5py"
       Write(10,'(a)') "import numpy as np"
       Write(10,'(a)') "import sys"
-      Write(10,'(a)') "input_name = '"//trim(input_name)//".h5'"
-      Write(10,'(a)') "f=h5py.File('output.h5','r')"
-      ! find the specific dataset
-      if (hotstart_type == 1) Then
-        Write(10,'(a)') "dataset = '"//trim(hotstart_time)//"'"
-      else
-        Write(10,'(a)') "times = f['u'].keys()"
-        Write(10,'(a)') "time_series1 = []"
-        Write(10,'(a)') "for item in times:"
-        Write(10,'(a)') "    time_series1.append(float(item))"
-        Write(10,'(a)') "time_series1 = np.sort(np.array(time_series1))"
-        Write(10,'(a)') "time_series2 = ['%.6f' % x for x in time_series1]"
-        Write(10,'(a)') "dataset = time_series2[-1]"
-        Write(10,'(a)') "if (dataset[0] == '0'):"
-        Write(10,'(a)') "    dataset = dataset[1:]"
-      endif
+      Write(10,'(a)') "import os"
+      Write(10,'(a)') "os.system('cp output.h5 output_old.h5')"
+      Write(10,'(a)') "f=h5py.File('output_old.h5','r')"
+      Write(10,'(a)') "list_vars=f.keys()"
+      Write(10,'(a)') "f3=h5py.File('output.h5','r+')"
+      Write(10,'(a)') "times = f['u'].keys()"
+      Write(10,'(a)') "time_series1 = []"
+      Write(10,'(a)') "for item in times:"
+      Write(10,'(a)') "    time_series1.append(float(item))"
+      Write(10,'(a)') "time_series1 = np.sort(np.array(time_series1))"
+      Write(10,'(a)') "time_series2 = ['%.6f' % x for x in time_series1]"
+      Write(10,'(a)') "if (len(sys.argv) ==3):"
+      Write(10,'(a)') "    input_name = sys.argv[1]+'.h5'"
+      Write(10,'(a)') "    dataset = sys.argv[2]"
+      Write(10,'(a)') "    if (dataset[0] == '0'):"
+	    Write(10,'(a)') "        dataset = dataset[1:]"
+      Write(10,'(a)') "    d_frame = np.where(time_series1 == float(dataset))"
+      Write(10,'(a)') "    if (d_frame[0][0] < len(time_series2)-1):"
+      Write(10,'(a)') "        for item in time_series2[d_frame[0][0]+1:]:"
+      Write(10,'(a)') "            if(item[0]=='0'):"
+      Write(10,'(a)') "                item = item[1:]"
+      Write(10,'(a)') "            for key in list_vars:"
+      Write(10,'(a)') "                del f3[key][item]"
+      Write(10,'(a)') "else:"
+      Write(10,'(a)') "    input_name = '"//trim(input_name)//".h5'"
+      Write(10,'(a)') "    dataset = time_series2[-1]"
+      Write(10,'(a)') "    if (dataset[0] == '0'):"
+      Write(10,'(a)') "        dataset = dataset[1:]"
       Write(10,'(a)') "f2 = h5py.File(input_name,'w')"
       Write(10,'(a)') "for key in f:"
       Write(10,'(a)') "    f2.create_group(key)"
@@ -348,10 +374,30 @@ Contains
       Write(10,'(a)') "    grp.create_dataset('init', data=np.array(f[key][dataset]))"
       Write(10,'(a)') "f.close()"
       Write(10,'(a)') "f2.close()"
+      Write(10,'(a)') "f3.close()"
+      Write(10,'(a)') "f4=open('starttime.txt','w')"
+      Write(10,'(a)') "f4.write(dataset)"
+      Write(10,'(a)') "f4.close()"
+      Write(10,'(a)') "print('New input file ready')"
       close(10)
+      If (hotstart_type == 1) Then
+        Call system('python hotstart.py '//trim(input_name)//' '//trim(h_time))
+      Else
+        Call system('python hotstart.py')
+      End If
     End If
+    Call MPI_Barrier(MPI_COMM_WORLD, ierr)
+    Do i = 1, nproc
+      If (myid .eq. 0) Then
+        open(10,file='starttime.txt',status='old')
+      End If
+      Read(10,*) time
+      Close(10)
+      Call MPI_Barrier(MPI_COMM_WORLD, ierr)
+    End Do
+    time_out = max(time+output_inteval,startoutputtime)
 
-  End Subroutine HotStart
+  End Subroutine Setup_HotStart
   !! -----End Read parameters from namelist------------
 
 
@@ -382,8 +428,11 @@ Contains
 
     Call MPI_barrier(MPI_COMM_WORLD, h5error)
 
+    If ( hotstart ) Then
+      Call Setup_HotStart
+    EndIf
 
-    if ( inputfield ) then 
+    if ( inputfield ) then
       !   1. Open input file
       Call h5open_f(h5error)
       Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, h5error)
@@ -398,16 +447,25 @@ Contains
     Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, h5error)
     Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, h5error)
 
-    ! Create the file collectively.
     h5_output%filename = "output.h5"
-    if (myid .eq. 0 ) Call system('rm -f '//trim(h5_output%filename))
-    Call h5fcreate_f(h5_output%filename, H5F_ACC_TRUNC_F, h5_output%file_id, h5error, access_prp = plist_id)
-    Call h5pclose_f(plist_id, h5error)
+    If ( hotstart ) Then
+    ! Create the file collectively.
+      Call h5fopen_f(h5_output%filename, H5F_ACC_RDONLY_F, h5_output%file_id, h5error, access_prp = plist_id)
+      Call h5pclose_f(plist_id, h5error)
+    Else
+      if (myid .eq. 0 ) Call system('rm -f '//trim(h5_output%filename))
+      Call h5fcreate_f(h5_output%filename, H5F_ACC_TRUNC_F, h5_output%file_id, h5error, access_prp = plist_id)
+      Call h5pclose_f(plist_id, h5error)
+    EndIf
 
     ! Load the initial field
     Call H5LoadInit(Inputfield)
-    Call HDF5_WRITE_PARAMETERS(h5_output)
-    Call h5fclose_f(h5_output%file_id, h5error)
+    If ( hotstart .eqv. .false.) Then
+      ! Write attributes to the output file
+      Call HDF5_WRITE_PARAMETERS(h5_output)
+      Call h5fclose_f(h5_output%file_id, h5error)
+    EndIf
+
 
   End Subroutine H5Init
 
@@ -451,26 +509,49 @@ Contains
       end do
     End If
 
-    do i = 1, n_vars
-      if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      elseif ( Trim(h5_input_field(i)%groupname) .eq. 'p' ) Then
-        Call HDF5CreateGroup(h5_output, h5_output_field(i))
-      endif
-      Call H5gclose_f(H5_output_field(i)%group_id, h5error)
-    end do
+    If ( hotstart ) Then
+      do i = 1, n_vars
+        if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'p' ) Then
+          Call HDF5OpenGroup(h5_output, h5_output_field(i))
+        endif
+        Call H5gclose_f(H5_output_field(i)%group_id, h5error)
+      end do
+    Else
+      do i = 1, n_vars
+        if ( Trim(h5_input_field(i)%groupname) .eq. 'phi' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'u' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'v' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'w' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cx' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cy' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'cz' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        elseif ( Trim(h5_input_field(i)%groupname) .eq. 'p' ) Then
+          Call HDF5CreateGroup(h5_output, h5_output_field(i))
+        endif
+        Call H5gclose_f(H5_output_field(i)%group_id, h5error)
+      end do
+    End If
 
   End Subroutine H5LoadInit
 
@@ -648,11 +729,12 @@ Contains
   Subroutine WriteFieldData
     Implicit None
     Character(80) :: frame_name
-    If (time > time_out ) Then
-      time_out = time_out + output_inteval
+    If (time >= time_out ) Then
       write(frame_name,'(F0.6)') time_out
       frame_name = trim(frame_name)
       Call HDF5WriteFrame(frame_name)
+      If (myid .eq. 0 ) Print *, "Write data ",time_out," to output.h5"
+      time_out = time_out + output_inteval
     End If
   End Subroutine WriteFieldData
 
@@ -674,6 +756,8 @@ Contains
     tmp_name = 'dy'
     Call add_Parameter_float(h5file%file_id, tmp_name, dl(2), 1)
     tmp_name = 'dz'
+    Call add_Parameter_float(h5file%file_id, tmp_name, dl(3), 1)
+    tmp_name = 'out_inteval'
     Call add_Parameter_float(h5file%file_id, tmp_name, dl(3), 1)
 
   END SUBROUTINE HDF5_WRITE_PARAMETERS
@@ -763,6 +847,145 @@ Contains
     CALL h5sclose_f(aspace_id, error)
 
   End Subroutine add_Parameter_Float
+
+  Subroutine H5TOTecplot
+    Implicit None
+    If (myid .eq. 0) Then
+      open(10, file='gen_tecplot.py',status='unknown')
+      Write(10,'(a)') "import numpy as np"
+      Write(10,'(a)') "import h5py"
+      Write(10,'(a)') "import os"
+      Write(10,'(a)') "import sys"
+      Write(10,'(a)') "f = h5py.File('output.h5','r')"
+      Write(10,'(a)') "list_vars = list(f.keys())"
+      Write(10,'(a)') "times = list(f['phi'].keys())"
+      Write(10,'(a)') "time_series1 = []"
+      Write(10,'(a)') "time_series2 = []"
+      Write(10,'(a)') "for item in times:"
+      Write(10,'(a)') "    time_series1.append(float(item))"
+      Write(10,'(a)') "time_series1 = np.sort(np.array(time_series1))"
+      Write(10,'(a)') "time_series2 = ['%.6f' % x for x in time_series1]"
+      Write(10,'(a)') "times = []"
+      Write(10,'(a)') "for item in time_series2:"
+      Write(10,'(a)') "    if item[0] == '0':"
+      Write(10,'(a)') "       item = item[1:]"
+      Write(10,'(a)') "    times.append(item)"
+      Write(10,'(a)') "nx, ny, nz = f['u'][times[0]].shape"
+      Write(10,'(a)') "nz = f.attrs['nz'][0]"
+      Write(10,'(a)') "ny = f.attrs['ny'][0]"
+      Write(10,'(a)') "nx = f.attrs['nx'][0]"
+      Write(10,'(a)') "dz = f.attrs['dx'][0]"
+      Write(10,'(a)') "dy = f.attrs['dy'][0]"
+      Write(10,'(a)') "dx = f.attrs['dz'][0]"
+      Write(10,'(a)') "x = np.arange(nx) * dx + dx * 0.5"
+      Write(10,'(a)') "y = np.arange(ny) * dy + dy * 0.5"
+      Write(10,'(a)') "z = np.arange(nz) * dz + dz * 0.5"
+      Write(10,'(a)') "X, Y, Z = np.mgrid[dz*0.5:nz*dx+dz*0.5:dz,"
+      Write(10,'(a)') "                   dy*0.5:ny*dy+dy*0.5:dy,"
+      Write(10,'(a)') "                   dx*0.5:nx*dz+dx*0.5:dx"
+      Write(10,'(a)') "                   ]"
+      Write(10,'(a)') "num_xyz = nx * ny * nz"
+      Write(10,'(a)') "if (len(sys.argv) ==2):"
+      Write(10,'(a)') "    new_dir = sys.argv[1]"
+      Write(10,'(a)') "else:"
+      Write(10,'(a)') "    new_dir = 'tecplot'"
+      Write(10,'(a)') "os.system('mkdir -p ' + new_dir)"
+      Write(10,'(a)') "f2 = h5py.File(new_dir + '/tecplot.h5','w')"
+      Write(10,'(a)') "datacount = 1"
+      Write(10,'(a)') "X, Y, Z = np.meshgrid(x,y,z)"
+      Write(10,'(a)') "for group in times:"
+      Write(10,'(a)') "    dk = str(datacount).zfill(6)"
+      Write(10,'(a)') "    f2.create_group(dk)"
+      Write(10,'(a)') "    grp = f2[dk]"
+      Write(10,'(a)') "    for dat in list_vars:"
+      Write(10,'(a)') "        grp.create_dataset(dat, data=f[dat][group])"
+      Write(10,'(a)') "    grp.create_dataset('X', data=X)"
+      Write(10,'(a)') "    grp.create_dataset('Y', data=Y)"
+      Write(10,'(a)') "    grp.create_dataset('Z', data=Z)"
+      Write(10,'(a)') "    datacount+=1"
+      Write(10,'(a)') "    print('Write to data group ' + dk)"
+      Write(10,'(a)') "f2.close()"
+      Write(10,'(a)') "print('Write to    ' + new_dir + '/tecplot.h5      success')"
+      close(10)
+      Call system ('python gen_tecplot.py')
+    End If
+
+  End Subroutine H5ToTecplot
+
+  Subroutine H5TOParaview
+    Implicit None
+    If (myid .eq. 0) Then
+      open(10, file='gen_paraview.py',status='unknown')
+      Write(10,'(a)') "from pyevtk.vtk import VtkFile, VtkStructuredGrid"
+      Write(10,'(a)') "import numpy as np"
+      Write(10,'(a)') "from pyevtk.vtk import VtkGroup"
+      Write(10,'(a)') "import h5py"
+      Write(10,'(a)') "import os"
+      Write(10,'(a)') "import sys"
+      Write(10,'(a)') "f = h5py.File('output.h5','r')"
+      Write(10,'(a)') "vars = list(f.keys())"
+      Write(10,'(a)') "scalar_vars = []"
+      Write(10,'(a)') "scalar_vars_string = []"
+      Write(10,'(a)') "for item in vars:"
+      Write(10,'(a)') "    if (item != 'u' and item != 'v' and item != 'w'):"
+      Write(10,'(a)') "        scalar_vars.append(item)"
+      Write(10,'(a)') "        scalar_vars_string.append(str(item))"
+      Write(10,'(a)') "times = list(f['phi'].keys())"
+      Write(10,'(a)') "nz = f.attrs['nx'][0]"
+      Write(10,'(a)') "ny = f.attrs['ny'][0]"
+      Write(10,'(a)') "nx = f.attrs['nz'][0]"
+      Write(10,'(a)') "dz = f.attrs['dx'][0]"
+      Write(10,'(a)') "dy = f.attrs['dy'][0]"
+      Write(10,'(a)') "dx = f.attrs['dz'][0]"
+      Write(10,'(a)') "x = np.arange(nx) * dx + dx * 0.5"
+      Write(10,'(a)') "y = np.arange(ny) * dy + dy * 0.5"
+      Write(10,'(a)') "z = np.arange(nz) * dz + dz * 0.5"
+      Write(10,'(a)') "X, Y, Z = np.mgrid[dz*0.5:nz*dx+dz*0.5:dz,"
+      Write(10,'(a)') "                   dy*0.5:ny*dy+dy*0.5:dy,"
+      Write(10,'(a)') "                   dx*0.5:nx*dz+dx*0.5:dx"
+      Write(10,'(a)') "                   ]"
+      Write(10,'(a)') "start, end = (1,1,1), (nx, ny, nz) #Modify 0->1"
+      Write(10,'(a)') "if (len(sys.argv) ==2):"
+      Write(10,'(a)') "    new_dir = sys.argv[1]"
+      Write(10,'(a)') "else:"
+      Write(10,'(a)') "    new_dir = 'paraview'"
+      Write(10,'(a)') "new_data = new_dir + '/data'"
+      Write(10,'(a)') "os.system('mkdir -p ' + new_dir)"
+      Write(10,'(a)') "os.system('mkdir -p ' + new_data)"
+      Write(10,'(a)') "for step in times:"
+      Write(10,'(a)') "    filename=new_data + '/'+ str(step)"
+      Write(10,'(a)') "    w = VtkFile(filename, VtkStructuredGrid) #evtk_test0"
+      Write(10,'(a)') "    w.openGrid(start = start, end = end)"
+      Write(10,'(a)') "    w.openPiece( start = start, end = end)"
+      Write(10,'(a)') "    w.openData('Point', scalars = scalar_vars_string, vectors = 'Velocity')"
+      Write(10,'(a)') "    for key in scalar_vars:"
+      Write(10,'(a)') "        w.addData(str(key),np.array(f[key][step]))"
+      Write(10,'(a)') "    vx = np.array(f['u'][step])"
+      Write(10,'(a)') "    vy = np.array(f['v'][step])"
+      Write(10,'(a)') "    vz = np.array(f['w'][step])"
+      Write(10,'(a)') "    w.addData('Velocity', (vx,vy,vz))"
+      Write(10,'(a)') "    w.closeData('Point')"
+      Write(10,'(a)') "    w.openElement('Points')"
+      Write(10,'(a)') "    w.addData('points', (X, Y, Z))"
+      Write(10,'(a)') "    w.closeElement('Points')"
+      Write(10,'(a)') "    w.closePiece()"
+      Write(10,'(a)') "    w.closeGrid()"
+      Write(10,'(a)') "    for key in scalar_vars:"
+      Write(10,'(a)') "        w.appendData(data = np.array(f[key][step]))"
+      Write(10,'(a)') "    w.appendData(data = (vx,vy,vz))"
+      Write(10,'(a)') "    w.appendData((X, Y, Z))"
+      Write(10,'(a)') "    w.save()"
+      Write(10,'(a)') "    print('file: '+filename+' added')"
+      Write(10,'(a)') "g = VtkGroup(new_dir+'/group')"
+      Write(10,'(a)') "for step in times:"
+      Write(10,'(a)') "    g.addFile(filepath = new_data + '/' + str(step)+'.vts', sim_time = float(step))"
+      Write(10,'(a)') "g.save()"
+      Write(10,'(a)') "print('group file: group.pvd added')"
+      close(10)
+      Call system ('python gen_paraview.py')
+    End If
+
+  End Subroutine h5TOParaview
 
   !! -----End HDF5 for field IO------------
 
@@ -1045,12 +1268,13 @@ Contains
 
   Subroutine Finalize
     Implicit None
+    Call WriteFieldData
     ! Output directory
     If (myid .eq. 0) Then
       If (output_type .eq. 1) Then
-        Call system('python gen_paraview.py')
+        Call H5toParaview
       Else If (output_type .eq. 2) Then
-        Call system('python gen_tecplot.py')
+        Call H5toTecplot
       End If
     End If
 
