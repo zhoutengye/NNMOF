@@ -76,6 +76,7 @@ Module ModNavierStokes
   Use ModGlobal, only : h5_input
   Use ModGlobal, only : myid, nproc, ierr
   Use ModGlobal, only : left, right, top, bottom, front, back
+  Use ModGlobal, only : Field
   Use ModTools
   Use HypreStruct
   Use ModVOF
@@ -83,12 +84,15 @@ Module ModNavierStokes
 
   private
   Public :: TwoPhaseFlow, SinglePhaseFlow, InitNavierStokes, Monitor
-  Public :: CSF, CSF_VOSET
+  Public :: CSF, CSF_VOSET, body_force, bc_uvw
+  Public :: n_iter, div_max
   ! Module variables will not pass through the subroutine interface
   Real(sp), Allocatable :: Rho(:,:,:), Rhox(:,:,:), Rhoy(:,:,:), Rhoz(:,:,:), PP(:,:,:)
   Real(sp), Allocatable :: mu(:,:,:), muxy(:,:,:), muxz(:,:,:), muyz(:,:,:)
+  Real(sp), Allocatable :: ls(:,:,:)
   Real(sp), Allocatable :: Div(:,:,:)
   Integer, Allocatable :: flag(:,:,:)
+  Type(Field) :: ls_bc
   Real(sp) :: body_force(3)
   Real(sp) :: rho_l, rho_g
   Real(sp) ::  mu_l, mu_g
@@ -97,6 +101,7 @@ Module ModNavierStokes
   Real(sp), Allocatable :: rkcoef(:,:)
   Integer :: n_iter
   Real(sp) :: cfl, dt_min
+  Real(sp) :: iter_tolerance
   Real(sp) :: p_residual
   Real(sp) :: div_max
   Integer :: step_rank = 0
@@ -110,7 +115,7 @@ Module ModNavierStokes
       import
       Implicit None
       real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-      real(sp), intent(out), dimension(:,:,:) :: dudt, dvdt, dwdt
+      real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
     End Subroutine InterfaceCSF
   End Interface
 
@@ -140,23 +145,26 @@ Contains
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: up,vp,wp
     Integer :: irk
 
+
     ! Runge-Kutta time integration
     Do irk=1,rk_order
       ! Runge-Kutta step for momentum
       call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp,phi)
-      Call Visual3DQuiver(VP,UP,WP)
       ! Boundary condition for intermediate velocity
       Call BC_UVW(UP, VP, WP)
       ! Calculate divergence
       Call Divergence(up, vp, wp, Div)
       ! Solve pressure Poisson equation
       Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
+      ! Call Jacobi(PP)
       Call BC_P(PP)
       ! Preject the velocity to the divergence-free field
-      Call Projection(PP, u, v, w, up, vp, wp)
+      Call DuDtPartialP(up, vp, wp, PP, dt, u, v, w)
       ! Boundary condition for divergence-free velocity field
       Call BC_UVW(U, V, W)
+      ! Update p
       p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3)) + pp(1:nl(1),1:nl(2),1:nl(3))
+      p = p - sum(P) / (nl(1)+2) / (nl(2)+2) / (nl(3)+2)
       Call BC_P(P)
     End Do
 
@@ -165,6 +173,7 @@ Contains
     If (present(cx)) Then ! MOF
       Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3), cx, cy, cz)
     Else !VOF
+      ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
       Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
     End If
 
@@ -175,7 +184,7 @@ Contains
   End Subroutine TwoPhaseFlow
 
   !==========================
-  ! (1-1) Two phase flow solver
+  ! (1-1) Single phase flow solver
   ! Key steps:
   !  (1) Runge Kutta time advance for Navier-Stokes equations
   !  (2) Free surface using VOF/MOF
@@ -201,17 +210,14 @@ Contains
       ! Calculate divergence
       Call Divergence(up, vp, wp, Div)
       ! Solve pressure Poisson equation
-      ! if (jacobiflag .eq.0) then
       Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
-        ! jacobiflag = 1
-      ! else
         ! Call Jacobi(PP)
-      ! endif
       Call BC_P(PP)
       ! Preject the velocity to the divergence-free field
-      Call Projection(PP, u, v, w, up, vp, wp)
+      Call DuDtPartialP(up, vp, wp, PP, dt, u, v, w)
       ! Boundary condition for divergence-free velocity field
       Call BC_UVW(U, V, W)
+      ! Update p
       p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3)) + pp(1:nl(1),1:nl(2),1:nl(3))
       Call BC_P(P)
     End Do
@@ -250,18 +256,7 @@ Contains
     factor12 = factor1 + factor2
 
     ! Calculate -1 / \tho * \nabla p^k-1/2
-    Call PartialP(P, Rhox, dudtrk, 1)
-    Call PartialP(P, Rhoy, dvdtrk, 2)
-    Call PartialP(P, Rhoz, dwdtrk, 3)
-    do k=1,nl(3)
-      do j=1,nl(2)
-        do i=1,nl(1)
-          up(i,j,k) = u(i,j,k) + factor12*dudtrk(i,j,k)
-          vp(i,j,k) = v(i,j,k) + factor12*dvdtrk(i,j,k)
-          wp(i,j,k) = w(i,j,k) + factor12*dwdtrk(i,j,k)
-        enddo
-      enddo
-    enddo
+    Call DuDtPartialP(u, v, w, P, factor12, up, vp, wp)
 
     ! Calculate AD^k+1/2
     Call AdvDiffU(u, v, w, dudtrk)
@@ -436,7 +431,7 @@ Contains
           dwdyp = muxz(i,j,  k) * (w(  i,j+1,  k) - w(  i,  j,  k)) / dl(2)
           dwdym = muxz(i,j-1,k) * (w(  i,  j,  k) - w(  i,j-1,  k)) / dl(2)
           dwdzp =   mu(i,j,k+1) * (w(  i,  j,k+1) - w(  i,  j,  k)) / dl(3)
-          dwdzm =   mu(i,j,  k) * (w(  i,  j,  k) - w(  i,  j,k-1)) / dl(3)
+          dwdzm =   mu(i,j,k) * (w(  i,  j,  k) - w(  i,  j,k-1)) / dl(3)
           ! Momentum balance
           dwdt(i,j,k) = &
               ((-uwip + uwim) + (dwdxp-dwdxm)) * rhox(i,j,k) / dl(1) + &
@@ -471,9 +466,9 @@ Contains
   End Subroutine BodyForce
 
   !==========================
-  ! (2-2) Calculate partial P by
+  ! (2-2) Calculate advance of partial P by
   ! 1D view
-  ! du/dt_i = - (p_i+1/2 - p_i-1/2) / dx
+  ! u_i = up_i - (p_i+1/2 - p_i-1/2) * dt / dx
   !--------------------------
   ! Inputs:
   !    dir: direction
@@ -481,31 +476,24 @@ Contains
   ! Outputs:
   !    dudt: time integration of pressure
   !==========================
-  Subroutine PartialP(P, Rho_dir, dudt, dir)
-    Integer, intent(in) :: dir
-    real(sp), dimension(0:,0:,0:), intent(in) :: p
-    real(sp), dimension(0:,0:,0:), intent(in) :: rho_dir
-    real(sp), dimension(:,:,:), intent(out) :: dudt
+  Subroutine DuDtPartialP(U1, V1, W1, P, dt1, U2, V2, W2)
+    Real(sp), Intent(In) :: dt1
+    Real(sp), Dimension(0:,0:,0:), intent(in) :: U1, V1, W1
+    Real(sp), Dimension(0:,0:,0:), intent(in) :: p
+    Real(sp), Dimension(0:,0:,0:), intent(out) :: U2, V2, W2
     Integer :: i, j, k
-    Integer :: ip, jp, kp
 
-    If (dir .eq. 1) Then
-      ip = 1; jp = 0; kp = 0
-    ElseIf (dir .eq. 2) Then
-      ip = 0; jp = 1; kp = 0
-    Else
-      ip = 0; jp = 0; kp = 1
-    End If
-
-    do k=1, nl(3)
-      do j=1, nl(2)
-        do i=1, nl(1)
-          dudt(i,j,k) = - rho_dir(i,j,k) *  (p(i+ip,j+jp,k+kp) - p(i,j,k)) / dl(dir)
+    do k=1,nl(3)
+      do j=1,nl(2)
+        do i=1,nl(1)
+          U2(i,j,k) = U1(i,j,k) - rhox(i,j,k) * (p(i+1,  j,  k) - p(i,j,k)) * dt1 / dl(1)
+          V2(i,j,k) = V1(i,j,k) - rhoy(i,j,k) * (p(  i,j+1,  k) - p(i,j,k)) * dt1 / dl(2)
+          W2(i,j,k) = W1(i,j,k) - rhoz(i,j,k) * (p(  i,  j,k+1) - p(i,j,k)) * dt1 / dl(3)
         enddo
       enddo
     enddo
 
-  End Subroutine PartialP
+  End Subroutine DuDtPartialP
 
   !==========================
   ! (2-3) Calculate divergence by
@@ -535,35 +523,6 @@ Contains
     End Do
   End Subroutine Divergence
 
-  !==========================
-  ! (2-4) Projection method of Chorin
-  ! Corrects the velocity field by pressure gradient
-  ! 1-D view:
-  ! u_i = up_i - (p_i+1/2 - p_i-1/2) * dt / dx
-  !--------------------------
-  ! Inputs:
-  !    p: Pressure from Poisson equatiosn
-  !    up, vp, wp: Intermediate velocity field
-  ! Outputs:
-  !    u, v, w: Divergence-free velocity field
-  !==========================
-  Subroutine Projection(P, u, v, w, up, vp, wp)
-    Implicit None
-    real(sp), intent(in) , dimension(0:,0:,0:) :: p,up,vp,wp
-    real(sp), intent(out), dimension(0:,0:,0:) :: u,v,w
-    Integer :: i, j, k
-
-    do k=1,nl(3)
-      do j=1,nl(2)
-        do i=1,nl(1)
-          u(i,j,k) = up(i,j,k) - rhox(i,j,k) * (p(i+1,  j,  k) - p(i,j,k)) * dt / dl(1)
-          v(i,j,k) = vp(i,j,k) - rhoy(i,j,k) * (p(  i,j+1,  k) - p(i,j,k)) * dt / dl(2)
-          w(i,j,k) = wp(i,j,k) - rhoz(i,j,k) * (p(  i,  j,k+1) - p(i,j,k)) * dt / dl(3)
-        enddo
-      enddo
-    enddo
-
-  End Subroutine Projection
 
   !==========================
   ! (2-5) Update Rho and Mu
@@ -631,9 +590,8 @@ Contains
   Subroutine CSF_VOSET(dudt, dvdt, dwdt, Phi)
     Implicit None
     real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-    real(sp), intent(out), dimension(:,:,:) :: dudt, dvdt, dwdt
+    real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Phi_DS
-    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Ls
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_v
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_sx, kappa_sy, kappa_sz
     Integer :: i, j, k
@@ -645,16 +603,20 @@ Contains
     !    (2) Convert the VOF function to level set
     Call Get_LS_3D_init(Phi_DS, Ls, dl(1), dl(2), dl(3), nl(1), nl(2), nl(3))
 
-    Call Phi_bc%SetBCS(LS)
+    Call ls_bc%SetBCS(LS)
     !    (3) calculate curvature at grid center
     Kappa_v = 0.0_sp
-    Do k=0,nl(3)
-      Do j=0,nl(2)
-        Do i=0,nl(1)
-          Kappa_v(i,j,k) = &
-              (    ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i+1,j,k) ) / dl(1) / dl(1) &
-              &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j+1,k) ) / dl(2) / dl(2) &
-              &  + ( Ls(i,j,k) - 2.d0 * Ls(i,j,k) + Ls(i,j,k+1) ) / dl(3) / dl(3) )
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          If (Phi_DS(i,j,k) < 1.0_sp .or. Phi_DS(i,j,k) > 0.0_sp) Then
+            Kappa_v(i,j,k) = &
+                (    ( Ls(i-1,  j,  k) - 2.d0 * Ls(i,j,k) + Ls(i+1,  j,  k) ) / dl(1) / dl(1) &
+                &  + ( Ls(  i,j-1,  k) - 2.d0 * Ls(i,j,k) + Ls(  i,j+1,  k) ) / dl(2) / dl(2) &
+                &  + ( Ls(  i,  j,k-1) - 2.d0 * Ls(i,j,k) + Ls(  i,  j,k+1) ) / dl(3) / dl(3) )
+          Else
+            Kappa_v(i,j,k) = 0.0_sp
+          End If
         EndDo
       EndDo
     EndDo
@@ -675,9 +637,9 @@ Contains
     Do k=1,nl(3)
       Do j=1,nl(2)
         Do i=1,nl(1)
-          dudt(i,j,k) = dudt(i,j,k) - sigma * Kappa_sx(i,j,k) * ( Phi_DS(i+1,  j,  k) - Phi_DS(i,j,k) ) * rhox(i,j,k) / dl(1) * dt
-          dvdt(i,j,k) = dvdt(i,j,k) - sigma * Kappa_sy(i,j,k) * ( Phi_DS(  i,j+1,  k) - Phi_DS(i,j,k) ) * rhoy(i,j,k) / dl(2) * dt
-          dwdt(i,j,k) = dvdt(i,j,k) - sigma * Kappa_sz(i,j,k) * ( Phi_DS(  i,  j,k+1) - Phi_DS(i,j,k) ) * rhoz(i,j,k) / dl(3) * dt
+          dudt(i,j,k) = dudt(i,j,k) - sigma * Kappa_sx(i,j,k) * ( Phi_DS(i+1,  j,  k) - Phi_DS(i,j,k) ) * rhox(i,j,k) / dl(1)
+          dvdt(i,j,k) = dvdt(i,j,k) - sigma * Kappa_sy(i,j,k) * ( Phi_DS(  i,j+1,  k) - Phi_DS(i,j,k) ) * rhoy(i,j,k) / dl(2)
+          dwdt(i,j,k) = dwdt(i,j,k) - sigma * Kappa_sz(i,j,k) * ( Phi_DS(  i,  j,k+1) - Phi_DS(i,j,k) ) * rhoz(i,j,k) / dl(3)
         EndDo
       EndDo
   EndDo
@@ -687,70 +649,47 @@ Contains
   Subroutine CSF_NULL(dudt, dvdt, dwdt, Phi)
     Implicit None
     real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-    real(sp), intent(out), dimension(:,:,:) :: dudt, dvdt, dwdt
+    real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
   End Subroutine CSF_NULL
 
   !==========================
   ! (3-1) Boudnary conditions for u, v, w
   !==========================
+
   Subroutine BC_UVW(U, V, W)
     Implicit None
     real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
     Call U_bc%SetBCS(U)
     Call V_bc%SetBCS(V)
     Call W_bc%SetBCS(W)
+    ! U(0,:,:) = 0.0_sp
+    ! V(0,:,:) = V(1,:,:)
+    ! W(0,:,:) = W(1,:,:)
+    ! U(nl(1),:,:) = 0.0_sp
+    ! V(nl(1)+1,:,:) = V(nl(1),:,:)
+    ! W(nl(1)+1,:,:) = W(nl(1),:,:)
 
-    ! If(left   .eq. MPI_PROC_NULL) U(    0,      :,      :) = 0.0_sp
-    ! If(right  .eq. MPI_PROC_NULL) U(nl(1),      :,      :) = 0.0_sp
-    ! If(front  .eq. MPI_PROC_NULL) U(    :,      0,      :) = - U(:,1,:)
-    ! If(back   .eq. MPI_PROC_NULL) U(    :,nl(2)+1,      :) = 1.0_sp
-    ! If(bottom .eq. MPI_PROC_NULL) U(    :,      :,      0) = - U(:,:,1)
-    ! If(top    .eq. MPI_PROC_NULL) U(    :,      :,nl(3)+1) = - U(:,:,nl(3))
+    ! U(:,0,:) = U(:,1,:)
+    ! V(:,0,:) = 0.0_sp
+    ! W(:,0,:) = W(:,1,:)
+    ! U(:,nl(2)+1,:) = U(:,nl(2),:)
+    ! V(:,nl(2),:) = 0.0_sp
+    ! W(:,nl(2)+1,:) = W(:,nl(2),:)
 
-    ! If(left   .eq. MPI_PROC_NULL) V(      0,    :,      :) = - V(1,:,:)
-    ! If(right  .eq. MPI_PROC_NULL) V(nl(1)+1,    :,      :) = - V(nl(1),:,:)
-    ! If(front  .eq. MPI_PROC_NULL) V(      :,    0,      :) = 0.0_sp
-    ! If(back   .eq. MPI_PROC_NULL) V(      :,nl(2),      :) = 0.0_sp
-    ! If(bottom .eq. MPI_PROC_NULL) V(      :,    :,      0) = - V(:,:,1)
-    ! If(top    .eq. MPI_PROC_NULL) V(      :,    :,nl(3)+1) = - V(:,:,nl(3))
-
-    ! If(left   .eq. MPI_PROC_NULL) W(      0,      :,    :) = - W(1,:,:)
-    ! If(right  .eq. MPI_PROC_NULL) W(nl(1)+1,      :,    :) = - W(nl(1),:,:)
-    ! If(front  .eq. MPI_PROC_NULL) W(      :,      0,    :) = - W(:,1,:)
-    ! If(back   .eq. MPI_PROC_NULL) W(      :,nl(2)+1,    :) = - W(:,nl(2),:)
-    ! If(bottom .eq. MPI_PROC_NULL) W(      :,      :,    0) = 0.0_sp
-    ! If(top    .eq. MPI_PROC_NULL) W(      :,      :,nl(3)) = 0.0_sp
-
-    ! U(    0,      :,      :) = 0.0_sp
-    ! U(nl(1),      :,      :) = 0.0_sp
-    ! U(    :,      0,      :) = - U(:,1,:)
-    ! U(    :,nl(2)+1,      :) = 1.0_sp
-    ! U(    :,      :,      0) = - U(:,:,1)
-    ! U(    :,      :,nl(3)+1) = - U(:,:,nl(3))
-
-    ! V(      0,    :,      :) = - V(1,:,:)
-    ! V(nl(1)+1,    :,      :) = - V(nl(1),:,:)
-    ! V(      :,    0,      :) = 0.0_sp
-    ! V(      :,nl(2),      :) = 0.0_sp
-    ! V(      :,    :,      0) = - V(:,:,1)
-    ! V(      :,    :,nl(3)+1) = - V(:,:,nl(3))
-
-    ! W(      0,      :,    :) = - W(1,:,:)
-    ! W(nl(1)+1,      :,    :) = - W(nl(1),:,:)
-    ! W(      :,      0,    :) = - W(:,1,:)
-    ! W(      :,nl(2)+1,    :) = W(:,nl(2),:)
-    ! W(      :,      :,    0) = 0.0_sp
-    ! W(      :,      :,nl(3)) = 0.0_sp
-
+    ! U(:,:,0) = U(:,:,1)
+    ! V(:,:,0) = V(:,:,1)
+    ! W(:,:,0) = 0.0_sp
+    ! U(:,:,nl(3)+1) = U(:,:,nl(3))
+    ! V(:,:,nl(3)+1) = V(:,:,nl(3))
+    ! W(:,:,nl(3)) = 0.0_sp
   End Subroutine BC_UVW
-
-  Subroutine BC_UVW2(U, V, W)
-    Implicit None
-    real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
-    Call U_bc%SetBCS(U)
-    Call V_bc%SetBCS(V)
-    Call W_bc%SetBCS(W)
-  End Subroutine BC_UVW2
+  ! Subroutine BC_UVW(U, V, W)
+  !   Implicit None
+  !   real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
+  !   Call U_bc%SetBCS(U)
+  !   Call V_bc%SetBCS(V)
+  !   Call W_bc%SetBCS(W)
+  ! End Subroutine BC_UVW
 
   !==========================
   ! (3-2) Boudnary conditions for p
@@ -780,7 +719,6 @@ Contains
   Subroutine InitNavierStokes(u, v, w, phi, p)
     Implicit None
     real(sp), intent(inout) , dimension(0:,0:,0:) :: p,u,v,w,phi
-    Real(sp) :: iter_tolerance
     Integer :: iter_max
     Character(80) :: file_name
     Character(80) :: input_name
@@ -831,6 +769,7 @@ Contains
     Allocate(Muxy(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
     Allocate(Muxz(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
     Allocate(Muyz(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(  LS(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
     Allocate(Flag(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
     Allocate(PP(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
     Allocate( Div(nl(1), nl(2), nl(3)))
@@ -842,8 +781,15 @@ Contains
     Rhoz = 0.0_sp
     Mu   = 0.0_sp
     Div  = 0.0_sp
+    LS   = 0.0_sp
     Flag = 1
     rkcoef   = 0.0_sp
+
+    ls_bc%name = 'ls'
+    ls_bc%lohi(:,1) = 0
+    ls_bc%lohi(:,2) = nl(:)+1
+    phi_bc%bound_type(:,:) = 3
+    phi_bc%bound_value(:,:) = 0
 
     ! Boudnary conditions:
     ! 1. No-slip wall
@@ -1027,30 +973,40 @@ Contains
     Implicit None
     Real(sp), Intent(InOut) :: P(0:,0:,0:)
     Real(sp) :: PP(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp) :: res(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    Real(sp) :: res_max, res_max2
     Integer :: i, j, k, ll
 
-    Do ll = 1, 1000
+    Do ll = 1, 10000
       Do k = 1, nl(3)
         Do j = 1, nl(2)
           Do i = 1, nl(1)
-            PP(i,j,k) = - ( DIV(i,j,k) / dt &
+            res(i,j,k) = - ( DIV(i,j,k) / dt &
                 &  - rhox(i-1,j,k) * P(i-1,j,k) - rhox(i,j,k) * P(i+1,j,k)    &
                 &  - rhoy(i,j-1,k) * P(i,j-1,k) - rhoy(i,j,k) * P(i,j+1,k)  &
                 &  - rhoz(i,j,k-1) * P(i,j,k-1) - rhoz(i,j,k) * P(i,j,k+1) )  &
-                &  / ( rhox(i,j,k) + rhox(i-1,j,k) + rhoy(i,j,k) + rhoy(i,j-1,k) + rhoz(i,j,k) + rhoz(i,j,k-1) )
+                &  / ( rhox(i,j,k) + rhox(i-1,j,k) + rhoy(i,j,k) + rhoy(i,j-1,k) + rhoz(i,j,k) + rhoz(i,j,k-1) ) - P(i,j,k)
           End Do
         End Do
       End Do
 
+      res_max = 0.0_sp
       Do k = 1, nl(3)
         Do j = 1, nl(2)
           Do i = 1, nl(1)
-            P(i,j,k) = PP(i,j,k)
+            if (abs(res(i,j,k)) > res_max ) then
+              res_max = res(i,j,k)
+            end if
+              P(i,j,k) = P(i,j,k) + res(i,j,k)
           End Do
         End Do
       End Do
       Call P_bc%SetBCS(P)
+      Call MPI_AllReduce(res_max, res_max2, 1, MPI_REAL_SP, MPI_MAX, MPI_COMM_WORLD, ierr)
+      if (res_max2 < iter_tolerance) exit
     End Do
+
+    if (myid .eq.0 ) print *, myid,ll, res_max2
 
   End Subroutine Jacobi
 

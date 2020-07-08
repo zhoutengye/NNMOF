@@ -245,7 +245,7 @@ Contains
       End If
       Write(10,'(a)') "    plt.contourf(vis)"
       Write(10,'(a)') "f.close()"
-      ! Write(10,'(a)') "plt.colorbar()"
+      Write(10,'(a)') "plt.colorbar()"
       Write(10,'(a)') "plt.show()"
       close(10)
       Call system('python vis2dcontour.py')

@@ -3,6 +3,8 @@
 *.txt
 *.dat
 *.h5
+*.py
+*.exec
 *genmod.f90
 src/TEST-*
 src/buffer.f90
@@ -11,7 +13,6 @@ docs/ltximg/
 *TEST-2
 *TEST-3
 *TEST-4
-*.exec
 *.a
 libs/hypre
 libs/hdf5*

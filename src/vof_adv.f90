@@ -35,6 +35,8 @@ Module ModVOF
     Module Procedure MOFCIAM
   End Interface VOFAdvection
 
+  real(sp) :: epsc_vof = 1.0d-3
+
 Contains
 
   Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt, rank)
@@ -188,7 +190,6 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
   Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
   ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
-  Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -217,7 +218,7 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
         a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
@@ -261,9 +262,9 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
     do j=1,nl(2)
       do i=1,nl(1)
         f(i,j,k) = vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk)
-        if (f(i,j,k) < EPSC) then
+        if (f(i,j,k) < EPSC_VOF) then
           f(i,j,k) = 0.0_sp
-        elseif ( f(i,j,k) >  (1.d0 - EPSC)) then
+        elseif ( f(i,j,k) >  (1.d0 - EPSC_VOF)) then
           f(i,j,k) = 1.0_sp
         endif
       enddo
@@ -293,7 +294,6 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
   Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
   ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
-  Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -321,7 +321,7 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
         a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
 
@@ -360,9 +360,9 @@ Subroutine AdvWY(us, f, nl, dl, dt, dir)
         a2 = us(i,j,k)*dt/dl(dir)
         f(i,j,k) = f(i,j,k) - (vof3(i,j,k) - vof1(i+ii,j+jj,k+kk)) + & 
             (vof3(i-ii,j-jj,k-kk) - vof1(i,j,k)) + f(i,j,k)*(a2-a1);
-        if (f(i,j,k) < EPSC) then
+        if (f(i,j,k) < EPSC_VOF) then
           f(i,j,k) = 0.d0
-        elseif (f(i,j,k) >  (1.0_sp - EPSC)) then
+        elseif (f(i,j,k) >  (1.0_sp - EPSC_VOF)) then
           f(i,j,k) = 1.0_sp
         endif
       enddo
@@ -390,7 +390,6 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
   Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
   ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
-  Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -419,7 +418,7 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
         a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
@@ -471,9 +470,9 @@ Subroutine AdvTHINC(us, f, nl, dl, dt, dir)
         a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
         a2 = us(i,j,k) *dt/dl(dir)
         f(i,j,k) = vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk) + f(i,j,k) * (a2-a1)
-        if (f(i,j,k) < EPSC) then
+        if (f(i,j,k) < EPSC_VOF) then
           f(i,j,k) = 0.0_sp
-        elseif ( f(i,j,k) >  (1.d0 - EPSC)) then
+        elseif ( f(i,j,k) >  (1.d0 - EPSC_VOF)) then
           f(i,j,k) = 1.0_sp
         endif
       enddo
@@ -512,7 +511,6 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp) :: norm(3)
   Real(sp) :: c3(3)
   ! Real(sp) :: FloodSZ_Backward
-  Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -544,7 +542,7 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2xyz = 0.0_sp
         c3xyz = 0.0_sp
         ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
@@ -589,12 +587,12 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
 
         ! c2xyz(dir) = c2xyz(dir) + a1 - a2
 
-       If (vof1(i,j,k) .ge. epsc) Then
+       If (vof1(i,j,k) .ge. epsc_vof) Then
           ! c1xyz(dir) = c1xyz(dir) - a1
           ! Call Centroid_Eulerian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c1xyz(dir) = c1xyz(dir) + 1.0_sp
         End If
-        If (vof3(i,j,k) .ge. epsc) Then
+        If (vof3(i,j,k) .ge. epsc_vof) Then
           ! c3xyz(dir) = c3xyz(dir) + a2
           ! Call Centroid_Eulerian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c3xyz(dir) = c3xyz(dir) - 1.0_sp
@@ -648,12 +646,12 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         cx(i,j,k) = mx / ( f(i,j,k) + 1e-30 )
         cy(i,j,k) = my / ( f(i,j,k) + 1e-30 )
         cz(i,j,k) = mz / ( f(i,j,k) + 1e-30 )
-        if (f(i,j,k) < EPSC) then
+        if (f(i,j,k) < EPSC_VOF) then
           f(i,j,k) = 0.0_sp
           cx(i,j,k) = 0.0_sp
           cy(i,j,k) = 0.0_sp
           cz(i,j,k) = 0.0_sp
-        elseif ( f(i,j,k) >  (1.d0 - EPSC)) then
+        elseif ( f(i,j,k) >  (1.d0 - EPSC_VOF)) then
           f(i,j,k) = 1.0_sp
           cx(i,j,k) = 0.5_sp
           cy(i,j,k) = 0.5_sp
@@ -715,7 +713,6 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
   Real(sp),dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: c3x, c3y, c3z
   Real(sp) :: norm(3)
   Real(sp) :: f_block(3,3,3)
-  Real(sp) :: EPSC = 1.0e-12
 
   ! default, f = 0
   vof1 = 0.0_sp
@@ -747,7 +744,7 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         c2xyz = 0.0_sp
         c3xyz = 0.0_sp
         ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc) then
+        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(-a1,0.0_sp) - DMAX1(a2,0.0_sp)
@@ -786,14 +783,14 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           deltax(dir) = 1.0_sp - x0(dir) - DMAX1(0.0_sp,a2)
           Call FloodSZ_ForwardC(norm,alpha,x0,deltax,vof2(i,j,k),c2xyz)
         endif
-        If (vof1(i,j,k) > epsc) Then
+        If (vof1(i,j,k) > epsc_vof) Then
           Call Centroid_Lagrangian_Adv(c1xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c1xyz(dir) = c1xyz(dir) + 1.0_sp
         End If
-        If (vof2(i,j,k) > epsc) Then
+        If (vof2(i,j,k) > epsc_vof) Then
           Call Centroid_Lagrangian_Adv(c2xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
         End If
-        If (vof3(i,j,k) > epsc) Then
+        If (vof3(i,j,k) > epsc_vof) Then
           Call Centroid_Lagrangian_Adv(c3xyz, a1, a2, 0.0_sp, 1.0_sp, dir)
           c3xyz(dir) = c3xyz(dir) - 1.0_sp
         End If
@@ -846,12 +843,12 @@ Subroutine AdvWY_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
         cx(i,j,k) = mx / ( f(i,j,k) + 1e-30 )
         cy(i,j,k) = my / ( f(i,j,k) + 1e-30 )
         cz(i,j,k) = mz / ( f(i,j,k) + 1e-30 )
-        if (f(i,j,k) < EPSC) then
+        if (f(i,j,k) < EPSC_VOF) then
           f(i,j,k) = 0.0_sp
           cx(i,j,k) = 0.0_sp
           cy(i,j,k) = 0.0_sp
           cz(i,j,k) = 0.0_sp
-        elseif (f(i,j,k) >  (1.0_sp - EPSC)) then
+        elseif (f(i,j,k) >  (1.0_sp - EPSC_VOF)) then
           f(i,j,k) = 1.0_sp
           cx(i,j,k) = 0.5_sp
           cy(i,j,k) = 0.5_sp

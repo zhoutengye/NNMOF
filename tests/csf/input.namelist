@@ -4,12 +4,12 @@ py = 2
 /
 
 &gridvar
-nx = 100
-ny = 100
+nx = 50
+ny = 50
 nz = 50
-dx = 0.05
-dy = 0.05
-dz = 0.05
+dx = 0.001
+dy = 0.001
+dz = 0.001
 periodx = .false.
 periody = .false.
 periodz = .false.
@@ -17,14 +17,17 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 40.0
-dt = 0.05
+tend  = 1e2
+dt = 5e-4
 /
 
 &outvar
-output_inteval = 1.0
-starttime = 5.0
+output_inteval = 0.005
+starttime = 0.0
 output_format = 'none'
+hotstart = .true.
+hotstart_type = 0
+hotstart_time = 0.0
 /
 
 &iofield
@@ -48,23 +51,23 @@ mu_l  = 1.0e-3
 mu_g  = 1.0e-6
 sigma = 5.0e-2
 cfl   = 0.5
-dt_min = 0.005
-body_force = 0.0, 0.0,0.0
+dt_min = 1e-5
+body_force = 0.0, 0.0,-9.81
 /
 
 &ns_solver
-rk_order = 1
+rk_order = 3
 iter_max = 50
-iter_tolerance = 1e-3
-hypre_solver = 3
+iter_tolerance = 1e-5
+hypre_solver = 1
 hypre_preconditioner = 0
 /
 
 &ns_bc
-bc_left   = 1
-bc_right  = 1
-bc_back   = 1
-bc_front  = 1
-bc_top    = 1
-bc_bottom = 1
+bc_left   = 2
+bc_right  = 2
+bc_back   = 2
+bc_front  = 2
+bc_top    = 2
+bc_bottom = 2
 /
