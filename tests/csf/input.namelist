@@ -1,6 +1,6 @@
 &mpivar
-px = 2
-py = 2
+px = 1
+py = 1
 /
 
 &gridvar
@@ -17,17 +17,17 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 1e2
+tend  = 0.02
 dt = 5e-4
+hotstart = .false.
+hotstart_type = 0
+hotstart_time = 0.01
 /
 
 &outvar
 output_inteval = 0.005
-starttime = 0.0
-output_format = 'none'
-hotstart = .true.
-hotstart_type = 0
-hotstart_time = 0.0
+startoutputtime = 0.0
+output_format = 'tecplot'
 /
 
 &iofield

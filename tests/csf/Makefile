@@ -3,7 +3,7 @@ MOF_DIR    = ../..
 compiler   = intel
 EXEC       = TEST
 FC         = mpif90
-DEBUG      = false
+DEBUG      = true
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path

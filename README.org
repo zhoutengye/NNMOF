@@ -78,6 +78,22 @@ the main file and other extra code file should be added to the name
     | n_vars          | number of input/output field variable      | integer |    1 |
     | io_x            | whether use the variable as input/output   | logical | 1    |
 
+**** Computational vars
+    | Name            | Description                                      | Type    | Rank |
+    |-----------------+--------------------------------------------------+---------+------|
+    | tstart          | start of simulation time                         | float   |    1 |
+    | tend            | End of simulation time                           | flost   |    1 |
+    | dt              | time step                                        | float   |    1 |
+    | hotstart        | hotstart flag                                    | logical |    1 |
+    | hotstart_type   | 0 for automatic, 1 for manual                    | integer |    1 |
+    | hotstart_time   | when =hotstart_type = 1=, specify the start time | float   |    1 |
+    | outptu_inteval  | frequency of output                              | float   |    1 |
+    | startoutputtime | the time that output will start                  | float   |    1 |
+    | output_format   | 'tecplot', 'paraview', or 'hdf5'                 | float   |    1 |
+    
+    Note: Then =hotstart = .true.=, =tstart= will not work, instead, will be determined by
+the hotstart parameters
+
 **** Navier-Stokes related variables
     | Name                 | Description                                           | Type    | Rank |
     |----------------------+-------------------------------------------------------+---------+------|
@@ -119,11 +135,9 @@ Notes: Seems that SMG without preconditioner or SMG conditioner with GMRES work 
 
 ** Visualization
 *** Tecplot and paraview
-    Copy the correcponding python script from =utils= directory to the directory 
-    of the executable. And modify the options in the input =namelist= file. 
-    It will conver the data to the desired format after running the program.
-    You may also do it manually, simply run the python script with the same directory
-    of =output.h5=.
+    The output data is stored at =hdf5= format. 
+    The input file provide options to export =paraview= and =Tecplot= supported format.
+    It can also be done manuall by copying the python script from =utils=.
 
 *** Inline visualization
     Several inline visualiation functions are available in =src/tools.f90=,

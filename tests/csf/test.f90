@@ -175,7 +175,7 @@ Subroutine test4
   ! End Do
   Call BC_UVW(U, V, W)
   Call Visual3DContour(Phi)
-  Do i = 1,500
+  Do While (time < tend)
     Call TwoPhaseFlow(U, V, W, Phi, P)
     if (myid .eq. 0 ) print *, time, n_iter
     Call WriteFieldData
