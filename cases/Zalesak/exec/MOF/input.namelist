@@ -1,6 +1,7 @@
 &mpivar
-px = 1
-py = 1
+px = 2
+py = 2
+pz = 2
 /
 
 &gridvar
@@ -23,7 +24,6 @@ dt = 0.01
 
 &outvar
 output_inteval = 1.0
-startframe = 0
 /
 
 &iofield

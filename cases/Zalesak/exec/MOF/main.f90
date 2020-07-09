@@ -48,6 +48,7 @@ Subroutine zalesak
   u = u
   v = v
   w = w
+  w = 1.0_sp
 
   f_beg = phi
   f_exact = f_beg

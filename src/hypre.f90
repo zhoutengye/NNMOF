@@ -196,8 +196,8 @@ Contains
       Hypre%iupper(1) = ( coord(1) + 1 ) * nl(1)
       Hypre%ilower(2) = coord(2) * nl(2) + 1
       Hypre%iupper(2) = ( coord(2) + 1 ) * nl(2)
-      Hypre%ilower(3) = 1
-      Hypre%iupper(3) = nl(3)
+      Hypre%ilower(3) = coord(3) * nl(3) + 1
+      Hypre%iupper(3) = ( coord(3) + 1 ) * nl(3)
       nxyz = nl(1) * nl(2) * nl(3) 
     End Block
     

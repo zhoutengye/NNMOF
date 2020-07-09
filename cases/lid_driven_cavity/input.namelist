@@ -1,6 +1,7 @@
 &mpivar
 px = 2
 py = 2
+pz = 2
 /
 
 &gridvar
@@ -17,13 +18,12 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 5.0
+tend  = 1.0
 dt = 0.01
 /
 
 &outvar
 output_inteval = 1.0
-starttime = 0.0
 output_format = 'paraview'
 /
 
