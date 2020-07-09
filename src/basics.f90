@@ -34,6 +34,9 @@ Module ModGlobal
   Integer  :: blockx, blocky
   Integer  :: nproc
   Integer  :: dims(3)
+  Integer  :: nglevel = 1 ! Now only support one layer of ghost
+  Integer  :: nlo(3) = 0
+  Integer  :: nhi(3) = 0
 
   !! Computational parameters
   Integer  :: n(3)
@@ -180,9 +183,9 @@ Contains
         Read(10, nml = compvar)
         Read(10, nml = outvar)
         Read(10, nml = iofield)
-        dims(1) = px
-        dims(2) = py
-        dims(3) = pz
+        dims(1) = max(1,px)
+        dims(2) = max(1,py)
+        dims(3) = max(1,pz)
         n(1) = nx
         n(2) = ny
         n(3) = nz
@@ -198,6 +201,13 @@ Contains
         else if (trim(output_format) .eq. 'tecplot') then
           output_type = 2
         endif
+        If (dims(1)*dims(2)*dims(3) .ne. nproc) Then
+          print *, "======Fatal Error=============================="
+          print *, "nx * ny * nz != np, please check"
+          print *, "==============================================="
+          Call MPI_Finalize(ierr)
+          stop
+        End If
       Else
         print *, "======Fatal Error=============================="
         print *, Trim(file_name), " does not exist, please check"
@@ -1011,9 +1021,9 @@ Contains
     nl(1) = n(1) / dims(1)
     nl(2) = n(2) / dims(2)
     nl(3) = n(3) / dims(3)
-    ntx = nl(1)+2
-    nty = nl(2)+2
-    ntz = nl(3)+2
+    ntx = nl(1)+2*nglevel
+    nty = nl(2)+2*nglevel
+    ntz = nl(3)+2*nglevel
     ! Block
     !   Integer :: i
     !   Do i = 1, nproc
@@ -1037,9 +1047,9 @@ Contains
     !         * for fixed j, (k1+1) blocks of (i1+1) elements,
     !           with (i1+1)*(j1+1) elements between start and end
     !
-    call MPI_TYPE_VECTOR(nty*ntz,1  ,        ntx,MPI_REAL_SP,xhalo,ierr)
-    call MPI_TYPE_VECTOR(ntz    ,ntx,    ntx*nty,MPI_REAL_SP,yhalo,ierr)
-    call MPI_TYPE_VECTOR(1,  ntx*nty,ntx*nty,MPI_REAL_SP,zhalo,ierr)
+    call MPI_TYPE_VECTOR(nty*ntz,        nglevel,            ntx,MPI_REAL_SP,xhalo,ierr)
+    call MPI_TYPE_VECTOR(    ntz,    nglevel*ntx,        ntx*nty,MPI_REAL_SP,yhalo,ierr)
+    call MPI_TYPE_VECTOR(      1,nglevel*ntx*nty,nglevel*ntx*nty,MPI_REAL_SP,zhalo,ierr)
     call MPI_TYPE_COMMIT(xhalo,ierr)
     call MPI_TYPE_COMMIT(yhalo,ierr)
     call MPI_TYPE_COMMIT(zhalo,ierr)
