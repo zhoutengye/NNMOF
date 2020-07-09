@@ -26,15 +26,14 @@ Module ModGlobal
   !! MPI variables
   Integer  :: myid
   Integer  :: left,right,front,back,top,bottom
-  Integer, dimension(2) :: coord
+  Integer, dimension(3) :: coord
   logical, dimension(3) :: periods
   Integer  :: comm_cart,ierr
-  Integer  :: xhalo,yhalo
+  Integer  :: xhalo,yhalo,zhalo
   Integer  :: status(MPI_STATUS_SIZE)
   Integer  :: blockx, blocky
   Integer  :: nproc
-  Integer  :: dims(2)
-  Integer  :: nexch(2)
+  Integer  :: dims(3)
 
   !! Computational parameters
   Integer  :: n(3)
@@ -137,7 +136,7 @@ Contains
     Implicit None
     Integer  :: nx, ny, nz
     Real(sp) :: dx, dy, dz
-    Integer  :: px, py
+    Integer  :: px, py, pz
     Logical  :: io_phi = .false.
     Logical  :: io_p   = .false.
     Logical  :: io_u   = .false.
@@ -155,7 +154,7 @@ Contains
     Character(80) :: file_name
     Character(10) :: output_format
 
-    namelist /mpivar/ px, py
+    namelist /mpivar/ px, py, pz
     namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
     namelist /compvar/ dt, tstart, tend, hotstart, hotstart_type, hotstart_time
     namelist /outvar/ output_inteval, startoutputtime, output_format
@@ -183,6 +182,7 @@ Contains
         Read(10, nml = iofield)
         dims(1) = px
         dims(2) = py
+        dims(3) = pz
         n(1) = nx
         n(2) = ny
         n(3) = nz
@@ -208,7 +208,7 @@ Contains
     End If
 
     ! Broad values to all processors
-    Call MPI_BCAST(dims, 2, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(dims, 3, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(periods, 3, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
@@ -424,7 +424,7 @@ Contains
 
     h5_offset(1) = int(nl(1)) * coord(1)
     h5_offset(2) = int(nl(2)) * coord(2)
-    h5_offset(3) = 0
+    h5_offset(3) = int(nl(3)) * coord(3)
 
     Call MPI_barrier(MPI_COMM_WORLD, h5error)
 
@@ -1000,27 +1000,34 @@ Contains
     integer :: ntx,nty,ntz
     logical :: reorder = .true.
     !
-    call MPI_CART_CREATE( MPI_COMM_WORLD, 2, dims, &
+    call MPI_CART_CREATE( MPI_COMM_WORLD, 3, dims, &
         periods, reorder, comm_cart, ierr)
-    call MPI_CART_COORDS( comm_cart, myid, 2, coord, ierr)
+    call MPI_CART_COORDS( comm_cart, myid, 3, coord, ierr)
     !
     call MPI_CART_SHIFT(comm_cart,0,1,left,right,ierr)
     call MPI_CART_SHIFT(comm_cart,1,1,front,back,ierr)
-    If (periods(3)) Then
-      top    = myid
-      bottom = myid
-    Else
-      top    = -2
-      bottom = -2
-    EndIf
+    call MPI_CART_SHIFT(comm_cart,2,1,bottom,top,ierr)
     !
     nl(1) = n(1) / dims(1)
     nl(2) = n(2) / dims(2)
-    nl(3) = n(3)
+    nl(3) = n(3) / dims(3)
     ntx = nl(1)+2
     nty = nl(2)+2
     ntz = nl(3)+2
-    nexch = nl(1:2)
+    ! Block
+    !   Integer :: i
+    !   Do i = 1, nproc
+    !     if (myid .eq. i-1 ) Then
+    !       print *,'=============='
+    !       Print *, "myid:", myid
+    !       Print *, "coord:", coord
+    !       Print *, "neighbout:", left, right, front, back, bottom, top
+    !     end if
+    !     Call mpi_barrier(MPI_comm_world, ierr)
+    !   end do
+    !   call MPI_FINALIZE(ierr)
+    !   stop
+    ! End Block
     !
     ! Definitions of datatypes for velocity and pressure b.c.'s
     ! Note: array(i,j,k) is basically a 1-dim array;
@@ -1030,10 +1037,12 @@ Contains
     !         * for fixed j, (k1+1) blocks of (i1+1) elements,
     !           with (i1+1)*(j1+1) elements between start and end
     !
-    call MPI_TYPE_VECTOR(nty*ntz,1  ,ntx    ,MPI_REAL_SP,xhalo,ierr)
-    call MPI_TYPE_VECTOR(ntz    ,ntx,ntx*nty,MPI_REAL_SP,yhalo,ierr)
+    call MPI_TYPE_VECTOR(nty*ntz,1  ,        ntx,MPI_REAL_SP,xhalo,ierr)
+    call MPI_TYPE_VECTOR(ntz    ,ntx,    ntx*nty,MPI_REAL_SP,yhalo,ierr)
+    call MPI_TYPE_VECTOR(1,  ntx*nty,ntx*nty,MPI_REAL_SP,zhalo,ierr)
     call MPI_TYPE_COMMIT(xhalo,ierr)
     call MPI_TYPE_COMMIT(yhalo,ierr)
+    call MPI_TYPE_COMMIT(zhalo,ierr)
     return
   End Subroutine Initmpi
 
@@ -1063,7 +1072,7 @@ Contains
   !============================
   subroutine updthalo(n,idir,f)
     implicit none
-    integer , dimension(2), intent(in) :: n
+    integer , dimension(3), intent(in) :: n
     integer , intent(in) :: idir
     Real(sp), Intent(InOut) :: f(0:,0:,0:)
     ! Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
@@ -1105,6 +1114,22 @@ Contains
          !call MPI_ISSEND(p(0,n(2),0),1,yhalo,back ,1, &
          !               comm_cart,requests(4),error)
          !call MPI_WAITALL(4, requests, statuses, error)
+    case(3) ! z direction
+      call MPI_SENDRECV(f(0,0,     1),1,zhalo,bottom,0, &
+                        f(0,0,n(3)+1),1,zhalo,top ,0, &
+                        comm_cart,status,ierr)
+      call MPI_SENDRECV(f(0,0,n(3)),1,zhalo,top ,0, &
+                        f(0,0,   0),1,zhalo,bottom,0, &
+                        comm_cart,status,ierr)
+      ! call MPI_IRECV(p(0,0,n(3)+1),1,zhalo,bottom ,0, &
+                    ! comm_cart,requests(1),ierr)
+      ! call MPI_IRECV(p(0,0     ,0),1,zhalo,top,1, &
+      !               ! comm_cart,requests(2),ierror)
+      ! call MPI_ISSEND(p(0,0   ,1),1,zhalo,top,0, &
+      !               comm_cart,requests(3),ierr)
+      ! call MPI_ISSEND(p(0,0,n(3)),1,zhalo,bottom ,1, &
+      !               comm_cart,requests(4),ierror)
+      ! call MPI_WAITALL(4, requests, statuses, ierr)
     end select
     return
   end subroutine updthalo
@@ -1165,21 +1190,16 @@ Contains
   Subroutine SetBCS(self,f)
     Implicit None
     Class(Field) :: self
-    Integer :: nexch(2)
     Real(sp), Intent(InOut) :: f(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    nexch = nl(1:2)
-    Call updthalo(nexch,1,f)
-    Call updthalo(nexch,2,f)
+    Call updthalo(nl,1,f)
+    Call updthalo(nl,2,f)
+    Call updthalo(nl,3,f)
     If(left   .eq. MPI_PROC_NULL) Call self%setBC(1, -1, f)
     If(right  .eq. MPI_PROC_NULL) Call self%setBC(1,  1, f)
     If(front  .eq. MPI_PROC_NULL) Call self%setBC(2, -1, f)
     If(back   .eq. MPI_PROC_NULL) Call self%setBC(2,  1, f)
     If(bottom .eq. MPI_PROC_NULL) Call self%setBC(3, -1, f)
-    If(top    .eq. MPI_PROC_NULL) Then
-      Call self%setBC(3,  1, f)
-    Else
-      Call periodzbound(f)
-    EndIf
+    If(top    .eq. MPI_PROC_NULL) Call self%setBC(3,  1, f)
   End Subroutine SetBCS
 
   !===============================
@@ -1259,12 +1279,12 @@ Contains
     End Select
   End Subroutine SetBC
 
-  Subroutine Periodzbound(var)
-    Implicit None
-    Real(sp), Intent(InOut) :: var(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    var(0:nl(1)+1,0:nl(2)+1,0)       = var(0:nl(1)+1,0:nl(2)+1,nl(3))
-    var(0:nl(1)+1,0:nl(2)+1,nl(3)+1) = var(0:nl(1)+1,0:nl(2)+1,1)
-  End Subroutine Periodzbound
+  ! Subroutine Periodzbound(var)
+    ! Implicit None
+    ! Real(sp), Intent(InOut) :: var(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+    ! var(0:nl(1)+1,0:nl(2)+1,0)       = var(0:nl(1)+1,0:nl(2)+1,nl(3))
+    ! var(0:nl(1)+1,0:nl(2)+1,nl(3)+1) = var(0:nl(1)+1,0:nl(2)+1,1)
+  ! End Subroutine Periodzbound
 
   Subroutine Finalize
     Implicit None
