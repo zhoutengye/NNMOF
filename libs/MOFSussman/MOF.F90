@@ -7925,6 +7925,7 @@ module MOF_routines_module
        ! 2=>output errors when fastflag=0 
       INTEGER_T :: MOF_DEBUG_RECON
       INTEGER_T :: MOF_TURN_OFF_LS
+      INTEGER_T :: NN_ITER
 
 contains
 
@@ -10544,6 +10545,7 @@ contains
         iter=iter+1
       enddo ! while error>tol
 
+      nn_iter = iter
       iicrit=iter
       do ii=0,iter
 

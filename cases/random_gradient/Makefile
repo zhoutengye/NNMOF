@@ -1,9 +1,9 @@
 TEST_NUM = 1
 MOF_DIR    = ../..
-compiler   = intel
+compiler   = gnu
 EXEC       = rand
 FC         = mpif90
-DEBUG      = false
+DEBUG      = true
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path

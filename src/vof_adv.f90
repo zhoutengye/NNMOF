@@ -35,7 +35,7 @@ Module ModVOF
     Module Procedure MOFCIAM
   End Interface VOFAdvection
 
-  real(sp) :: epsc_vof = 1.0d-3
+  real(sp) :: epsc_vof = 1.0d-10
 
 Contains
 
