@@ -59,7 +59,7 @@ Subroutine test1
 
   block
     integer :: ii
-    integer :: nnn = 100000
+    integer :: nnn = 1
     real(8) :: tt1, tt2
     real(8) :: ttt1, ttt2
     real(8) :: nnn1(2), nnn2(2)

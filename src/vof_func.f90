@@ -966,6 +966,7 @@ Contains
       cen_array(dir,1)=cen_init(dir)
       err_array(1)=err_array(1) + d_array(dir,1) * d_array(dir,1)
     enddo
+    err_array(1) = sqrt(dot_product(d_array(:,1),d_array(:,1)))
     delta_theta = MOF_Pi / 1800.0_sp  ! 1 degree=pi/180
     delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
@@ -1042,7 +1043,7 @@ Contains
       HessianT(2,2) = +Hessian(1,1) / det
 
       ! Call matinv2(Hessian, HessianT, det)
-      If (det .lt. 1.0e-10) Then
+      If (det .lt. 1.0e-20) Then
         Singular_flag = 1
       End If
 
@@ -1144,7 +1145,7 @@ Contains
       iter=iter+1
     End Do
 
-    mof_niter(1) = iter+1
+    mof_niter(1) = iter
 #if defined(DEBUG)
     Block
       Integer :: ii
@@ -1311,7 +1312,7 @@ Contains
       err_array(iter+2)=err
       iter=iter+1
     End Do
-    mof_niter(1) = iter+1
+    mof_niter(1) = iter
 
     do dir=1,2
       new_angle(dir)=angle_array(dir,iter+1)
@@ -1450,6 +1451,7 @@ Contains
     lsnormal_valid = 1
 
     npredict = Norm_2
+    mof_niter = 0
 
     call find_cut_geom_slope( &
         ls_mof, &
@@ -1478,6 +1480,7 @@ Contains
         sussman%sdim)
 
     norm(1:3) = -norm
+    mof_niter(1) = nn_iter
 
   End Subroutine MOFSussmanGaussNewton
 
@@ -1756,11 +1759,15 @@ Contains
       Do j=1,ny
         Do i=1,nx
           PHI_DS(i,j,k) = 27.d0/64.d0 * PHI1A(i,j,k)+ &
-              9.d0/128.d0  * ( PHI1A(i,j,k+1) + PHI1A(i,j,k-1) + PHI1A(i,j+1,k) + PHI1A(i,j-1,k) + PHI1A(i+1,j,k) + PHI1A(i-1,j,k) ) + &
-              3.d0/256.d0  * ( PHI1A(i,j+1,k+1) + PHI1A(i,j+1,k-1) + PHI1A(i,j-1,k+1) + PHI1A(i,j-1,k-1) + &
+              9.d0/128.d0  * ( PHI1A(i,j,k+1) + PHI1A(i,j,k-1) + PHI1A(i,j+1,k) + PHI1A(i,j-1,k) + &
+              PHI1A(i+1,j,k) + PHI1A(i-1,j,k) ) + &
+              3.d0/256.d0  * ( PHI1A(i,j+1,k+1) + PHI1A(i,j+1,k-1) + PHI1A(i,j-1,k+1) + &
+              PHI1A(i,j-1,k-1) + &
               PHI1A(i+1,j,k+1) + PHI1A(i+1,j,k-1) + PHI1A(i-1,j,k+1) + PHI1A(i-1,j,k-1) + &
               PHI1A(i+1,j+1,k) + PHI1A(i+1,j-1,k) + PHI1A(i-1,j+1,k) + PHI1A(i-1,j-1,k)  )  + &
-              1.d0/512.d0 * ( PHI1A(i+1,j+1,k+1) + PHI1A(i+1,j+1,k-1) + PHI1A(i+1,j-1,k+1) + PHI1A(i+1,j-1,k-1) + PHI1A(i-1,j+1,k+1) + PHI1A(i-1,j+1,k-1) + PHI1A(i-1,j-1,k+1) + PHI1A(i-1,j-1,k-1) )
+              1.d0/512.d0 * ( PHI1A(i+1,j+1,k+1) + PHI1A(i+1,j+1,k-1) + PHI1A(i+1,j-1,k+1) + &
+              PHI1A(i+1,j-1,k-1) + PHI1A(i-1,j+1,k+1) + PHI1A(i-1,j+1,k-1) + PHI1A(i-1,j-1,k+1) + &
+              PHI1A(i-1,j-1,k-1) )
         Enddo
       Enddo
     Enddo

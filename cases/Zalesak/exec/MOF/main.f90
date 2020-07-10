@@ -48,15 +48,14 @@ Subroutine zalesak
   u = u
   v = v
   w = w
-  w = 1.0_sp
 
   f_beg = phi
   f_exact = f_beg
 
  
   !!! =====Method 1, Sussman numerical gradient, GaussNewton=========
-  ! Call MOFInit3d
-  ! MOFNorm => MOFSussmanGaussNewton
+  Call MOFInit3d
+  MOFNorm => MOFSussmanGaussNewton
 
   !!! =====Method 2, Lemoine numerical gradient, BFGS=========
   !! For numerical gradient in BFGS
@@ -92,6 +91,7 @@ Subroutine zalesak
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
+    ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
   End Do
