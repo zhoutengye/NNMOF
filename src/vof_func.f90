@@ -4,6 +4,7 @@
 !       (1-1) Norm calculation Parker and Youngs
 !       (1-2) Norm calculation Central difference
 !       (1-3) Norm calculation Mixed Central difference and Youngs (MYC)
+!       (1-3) Norm calculation ELVIRA
 !     (2) Flood algorithm (VOF Reconstruction)
 !       (2-1) Flood algorithm backward finding alpha
 !       (2-2) Flood algorithm backward finding centroid
@@ -45,7 +46,7 @@
 !         |+++++++++++++++++++|++++++++++++++++++|+++++++++++++++++++|
 !    While calling those functions, be carefully about the grid origin and size
 !
-!   A procefure pointer MOFNorm is used to determine which MOF to choose,
+!   A pMixed Central difference and Youngs (MYCorocefure pointer MOFNorm is used to determine which MOF to choose,
 !   by default, it is pointed to MOFZY. To change the target function, for example
 !   to MOFSussmanGaussNewton, use the following sentence in code
 !        MOFNorm => MOFSussmanGaussNewton
@@ -69,6 +70,16 @@ Module ModVOFFunc
   type(t_polyhedron) :: LemoinePoly
 
   PROCEDURE(InterfaceMOF), POINTER :: MOFNorm => MOFZY
+  PROCEDURE(InterfaceVOF), POINTER :: VOFNorm => NormMYCS
+
+  Interface
+    Subroutine InterfaceVOF(f,norm)
+      Implicit None
+      Real(8), Intent(In) :: f(3,3,3)
+      Real(8), Intent(Out) :: norm(3)
+    End Subroutine InterfaceVOF
+  End Interface
+
   Interface
     Subroutine InterfaceMOF(f,c,norm, init_norm)
       Implicit None
@@ -130,8 +141,8 @@ Contains
   Subroutine NormCS(c,norm)
     !***
     Implicit None
-    Real(8) c(3,3,3)
-    Real(8) norm(3)
+    Real(8), Intent(In)  :: c(3,3,3)
+    Real(8), Intent(Out) :: norm(3)
     Real(8) m1,m2,m(0:3,0:2),t0,t1,t2
     Integer cn
 
@@ -246,8 +257,8 @@ Contains
   Subroutine NormMYCS(c,norm)
     !***
     Implicit None
-    Real(8) c(3,3,3)
-    Real(8) norm(3)
+    Real(8), Intent(In)  :: c(3,3,3)
+    Real(8), Intent(Out) :: norm(3)
     Real(8) m1,m2,m(0:3,0:2),t0,t1,t2
     Real(8) mm(3)
     Integer cn
@@ -355,6 +366,141 @@ Contains
 
     return
   End Subroutine NormMYCS
+
+  !=======================================================
+  ! (1-3) Efficient Least-square volume averaging
+  ! * returns normal normalized so that |mx|+|my|+|mz| = 1*
+  ! In the ELVIRA reference paper, 5*5*5 stencil is used,
+  ! However, here 3*3*3 stencil is use.
+  ! For each direction, every 24 posible triplets that contains
+  ! The central cell are evaluated.
+  !-------------------------------------------------------
+  ! Input: c (vof function, 3*3*3 stencil)
+  ! Output: norm (normal vector)
+  !=======================================================
+  Subroutine NormELVIRA(c,norm)
+    Implicit None
+    Real(8), Intent(In) :: c(3,3,3)
+    Real(8), Intent(Out) :: norm(3)
+    Real(sp) :: HVolume(3,3)
+    Integer, Dimension(24) :: p1is, p1js, p3is, p3js
+    Integer :: p2i = 2
+    Integer :: p2j = 2
+    Integer :: p1i, p1j, p3i, p3j
+    Real(sp) :: block_vol
+    Real(sp) :: vol_e(3,3,3)
+    Real(sp) :: vec_1(3), vec_2(3)
+    Real(sp) :: dxl(3), x0(3)
+    Real(sp) :: alpha, norm_e(3)
+    Real(sp) :: err, err_min
+    Integer :: i, j, k, dir, nelvira
+
+    p1is =(/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3/)
+    p1js =(/1,1,1,1,1,1,2,2,2,2,2,3,3,3,3,1,1,1,3,3,3,1,1,2/)
+    p3is =(/1,1,2,2,3,3,1,2,2,3,3,2,2,3,3,3,3,3,3,3,3,3,3,3/)
+    p3js =(/2,3,1,3,2,3,3,1,3,1,3,1,3,2,3,1,2,3,1,2,3,2,3,3/)
+
+    block_vol = sum(c) / 27.0_sp
+
+    norm = 1.0/3.0_sp
+    err_min = 100.0_sp
+
+    Do Dir = 1, 3
+      If (dir == 1) Then
+        Do j = 1,3
+          Do i = 1,3
+            HVolume(i,j) = sum(c(i,j,:))
+          End Do
+        End Do
+      Else If (dir == 2) Then
+        Do j = 1,3
+          Do i = 1,3
+            HVolume(i,j) = sum(c(i,:,j))
+          End Do
+        End Do
+      Else
+        Do j = 1,3
+          Do i = 1,3
+            HVolume(i,j) = sum(c(:,i,j))
+          End Do
+        End Do
+      End If
+      ! Find the minimum normal voector at the 24 candidates
+      ! Note that the flip case of the 24 candidates should be calculated as well
+      ! So, actually 48 candidates
+      Do nelvira = 1, 24
+        p1i = p1is(nelvira)
+        p1j = p1js(nelvira)
+        p3i = p3is(nelvira)
+        p3j = p3js(nelvira)
+        If (dir == 1) Then
+          vec_1 = (/dble(p1i-p2i), dble(p1j-p2j), Hvolume(p1i,p1j)-Hvolume(p2i,p2j)/)
+          vec_2 = (/dble(p2i-p2i), dble(p3j-p2j), Hvolume(p3i,p3j)-Hvolume(p2i,p2j)/)
+        Else If (dir == 2) Then
+          vec_1 = (/dble(p1i-p2i), Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1j-p2j)/)
+          vec_2 = (/dble(p2i-p2i), Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3j-p2j)/)
+        Else
+          vec_1 = (/Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1i-p2i), dble(p1j-p2j)/)
+          vec_2 = (/Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p2i-p2i), dble(p3j-p2j)/)
+        End If
+        norm_e(1) = vec_1(2) * vec_2(3) - vec_1(3) * vec_2(2)
+        norm_e(2) = vec_1(3) * vec_2(1) - vec_1(1) * vec_2(3)
+        norm_e(3) = vec_1(1) * vec_2(2) - vec_1(2) * vec_2(1)
+        Call Normalization1(norm_e)
+
+        alpha =  3.0 * FloodSZ_backward(norm_e,block_vol)
+        dxl = 1.0_sp
+        Do k = 1, 3
+          Do j = 1, 3
+            Do i = 1, 3
+              x0(1) = dble(i-1)
+              x0(2) = dble(j-1)
+              x0(3) = dble(k-1)
+              vol_e(i,j,k) = FloodSZ_Forward(norm_e,alpha,x0,dxl)
+            End Do
+          End Do
+        End Do
+        err = sum( ((1.0_sp - vol_e) - c) * ((1.0_sp - vol_e) - c) )
+        If ( err < err_min) Then
+          norm = norm_e
+          err_min = err
+        End If
+        err = sum( (vol_e-c) * (vol_e-c) )
+        If ( err < err_min) Then
+          norm = norm_e
+          err_min = err
+        End If
+        norm_e(3) = - norm_e(3)
+        Call Normalization1(norm_e)
+
+        alpha =  3.0 * FloodSZ_backward(norm_e,block_vol)
+        dxl = 1.0_sp
+        Do k = 1, 3
+          Do j = 1, 3
+            Do i = 1, 3
+              x0(1) = dble(i-1)
+              x0(2) = dble(j-1)
+              x0(3) = dble(k-1)
+              vol_e(i,j,k) = FloodSZ_Forward(norm_e,alpha,x0,dxl)
+            End Do
+          End Do
+        End Do
+        err = sum( ((1.0_sp - vol_e) - c) * ((1.0_sp - vol_e) - c) )
+        If ( err < err_min) Then
+          norm = norm_e
+          err_min = err
+        End If
+        err = sum( (vol_e-c) * (vol_e-c) )
+        If ( err < err_min) Then
+          norm = norm_e
+          err_min = err
+        End If
+
+      End Do
+    End Do
+
+    return
+  End Subroutine NormELVIRA
 
   !=======================================================
   ! (2-1) Backward flooding algorithm of SZ finding alpha
@@ -1786,7 +1932,7 @@ Contains
     integer , Intent(In)  ::  nx,ny,nz
     REAL(8), intent(in) :: f(0:nx+1,0:ny+1,0:nz+1)
     REAL(8), intent(out) :: ls(0:nx+1,0:ny+1,0:nz+1)
-    REAL(8) :: s(nx,ny,nz)
+    Integer :: s(nx,ny,nz)
     REAL(8) :: ls_v1(0:nx+1,0:ny+1,0:nz+1)
     INTEGER :: I,J,K,L
     INTEGER   ::  Istart, Istep, Iend
@@ -1846,9 +1992,9 @@ Contains
               &         ls_v1(I,J,k)*ls_v1(I+1,J+1,k-1) .le. 0.0d0 .OR. &
               &         ls_v1(I,J,k)*ls_v1(I,J,k+1) .le. 0.0d0 .OR. &
               &         ls_v1(I,J,k)*ls_v1(I,J,k-1) .le. 0.0d0  ) THEN
-            s(I,J,k) = 1.0d0
+            s(I,J,k) = 1
           ELSE
-            s(I,J,k) = 0.0d0 
+            s(I,J,k) = 0
           ENDIF
         ENDDO
       ENDDO
@@ -1859,7 +2005,7 @@ Contains
       DO I=1,NX
         DO J=1,NY
 
-          IF ( s(I,J,k) .eq. 1.0d0 ) THEN
+          IF ( s(I,J,k) .eq. 1 ) THEN
             ls_v1(I,J,k) = 0.0d0
             hs = Heaviside(ls_v1(I,J,k),dsqrt(2.0d0)*dx)
             DO WHILE (dabs(hs-f(I,J,k)) .gt. 1.0d-15)
@@ -2008,7 +2154,7 @@ Contains
                 endif
               endif
 
-              IF ( s(I,J,k) .eq. 0.0d0 ) THEN
+              IF ( s(I,J,k) .eq. 0 ) THEN
                 ls_v1(I,J,k) = dmin1(ls_v1(I,J,k),dnew)
               ENDIF
               !ls<0
@@ -2027,7 +2173,7 @@ Contains
                 endif
               endif
 
-              IF ( s(I,J,k) .eq. 0.0d0 ) THEN
+              IF ( s(I,J,k) .eq. 0 ) THEN
                 ls_v1(I,J,k) = dmax1(ls_v1(I,J,k),dnew)
               ENDIF
             ENDIF
@@ -2037,7 +2183,6 @@ Contains
       Call Phi_bc%setbcs(ls_v1)
     ENDDO
 
-1050 format(5E14.5) 
 
 
 

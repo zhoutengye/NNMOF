@@ -6,8 +6,8 @@ DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path
-HDF5_DIR   = $(HOME)/HPC/hdf5/$(compiler)
-HYPRE_DIR  = $(HOME)/HPC/hypre/$(compiler)
+HDF5_DIR   = $(HOME)/hdf5/$(compiler)
+HYPRE_DIR  = $(HOME)/hypre/$(compiler)
 
 CASE_SRCS = init.f90 main.f90
 

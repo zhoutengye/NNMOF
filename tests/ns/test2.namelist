@@ -1,6 +1,7 @@
 &mpivar
-px = 2
-py = 2
+px = 1
+py = 1
+pz = 1
 /
 
 &gridvar
@@ -19,11 +20,15 @@ periodz = .false.
 tstart = 0.0
 tend  = 3.0
 dt = 0.01
+hotstart = .false.
+hotstart_type = 0
+hotstart_time = 0.01
 /
 
 &outvar
-output_inteval = 1.0
-startframe = 0
+output_inteval = 0.1
+startoutputtime = 0.0
+output_format = 'paraview'
 /
 
 &iofield

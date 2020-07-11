@@ -119,9 +119,9 @@ Subroutine InitVolume
   End Block
 
   Call Visual3DContour(f1=phi)
-  Call Visual3DContour(f1=cx)
-  Call Visual3DContour(f1=cy)
-  Call Visual3DContour(f1=cz)
+  ! Call Visual3DContour(f1=cx)
+  ! Call Visual3DContour(f1=cy)
+  ! Call Visual3DContour(f1=cz)
   Call Visual3DQuiver(U, V, W)
 
   Call MPI_FINALIZE(ierr)

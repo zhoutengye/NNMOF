@@ -35,20 +35,20 @@ Subroutine test1
   Do i = 1, 1
     If ( myid .eq. i-1) then
       print *, "=====id: ", myid, '=========='
-      print *, "rho_l: ", rho_l
-      print *, "rho_g: ", rho_g
-      print *, "mu_l: ", mu_l
-      print *, "mu_g: ", mu_g
-      print *, "body_force: ", body_force
-      print *, "rk_order: ", rk_order
-      print *, "phi_bc_types: ", phi_bc%bound_type
-      print *, "phi_bc_values: ", phi_bc%bound_value
-      print *, "u_bc_types: ", u_bc%bound_type
-      print *, "u_bc_values: ", u_bc%bound_value
-      print *, "v_bc_types: ", v_bc%bound_type
-      print *, "v_bc_values: ", v_bc%bound_value
-      print *, "w_bc_types: ", w_bc%bound_type
-      print *, "w_bc_values: ", w_bc%bound_value
+      ! print *, "rho_l: ", rho_l
+      ! print *, "rho_g: ", rho_g
+      ! print *, "mu_l: ", mu_l
+      ! print *, "mu_g: ", mu_g
+      ! print *, "body_force: ", body_force
+      ! print *, "rk_order: ", rk_order
+      ! print *, "phi_bc_types: ", phi_bc%bound_type
+      ! print *, "phi_bc_values: ", phi_bc%bound_value
+      ! print *, "u_bc_types: ", u_bc%bound_type
+      ! print *, "u_bc_values: ", u_bc%bound_value
+      ! print *, "v_bc_types: ", v_bc%bound_type
+      ! print *, "v_bc_values: ", v_bc%bound_value
+      ! print *, "w_bc_types: ", w_bc%bound_type
+      ! print *, "w_bc_values: ", w_bc%bound_value
     End If
   End Do
 
@@ -138,9 +138,11 @@ Subroutine test2
     End Do
   End Do
 
+  Call Visual3DContour(phi)
   time = tstart
   Do While (time < tend)
-    Call TwoPhaseFlow(U, V, W, Phi, P)
+    Call TwoPhaseFlow(U, V, W, Phi, P,cx,cy,cz)
+    Call WriteFieldData
     time = time + dt
     if (myid .eq. 0) print*, "time=", time, "n_iter=", n_iter
   End Do
@@ -161,7 +163,8 @@ Subroutine test2
 
   print *, vol1, vol2
 
-  Call MPI_FINALIZE(ierr)
+  Call Finalize
+
 End Subroutine Test2
 
 Subroutine test3

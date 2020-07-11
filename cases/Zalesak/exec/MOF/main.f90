@@ -45,17 +45,17 @@ Subroutine zalesak
   u = - u
   v = - v
   w = - w
-  u = u
-  v = v
-  w = w
+  ! u = u
+  ! v = v
+  ! w = w
 
   f_beg = phi
   f_exact = f_beg
 
  
   !!! =====Method 1, Sussman numerical gradient, GaussNewton=========
-  Call MOFInit3d
-  MOFNorm => MOFSussmanGaussNewton
+  ! Call MOFInit3d
+  ! MOFNorm => MOFSussmanGaussNewton
 
   !!! =====Method 2, Lemoine numerical gradient, BFGS=========
   !! For numerical gradient in BFGS
@@ -78,10 +78,10 @@ Subroutine zalesak
   !!! =====Method 4, Lemoine analytic gradient, Gauss Newton=========
   !  with little issue. Basically, the singular of det matters
   !  may chan the det criterion in line 1220
-  MOFNorm => MOFLemoine_GaussNewton
+  ! MOFNorm => MOFLemoine_GaussNewton
 
   !!! =====Method 5, My numerical gradient, Gauss Newton=========
-  ! MOFNorm => MOFZY
+  MOFNorm => MOFZY
 
   ! VOF advection
   Call CPU_Time(tt1)
@@ -94,11 +94,9 @@ Subroutine zalesak
     ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
+    Call WriteFieldData
   End Do
   Call CPU_Time(tt2)
-
-  data_name = 'final'
-  Call HDF5WriteFrame(data_name)
 
   f_end = phi
   err = 0.0_sp
@@ -119,14 +117,13 @@ Subroutine zalesak
     print *, 'cpu_time =', tt2-tt1
     print *, 'Initial volume:', v11
     print *, 'Initial volume:', v12
-    print *, err
+    print *, err / dble(n(1)) / dble(n(2)) / dble(n(3))
   endif
 
   Call Visual3DContour(f1=f_end)
   Call Visual2DContour(f1=f_end, slice_dir=3, slice_coord=nl(3)/2)
 
-
-  Call MPI_FINALIZE(ierr)
+  Call Finalize()
 
 
 end Subroutine zalesak

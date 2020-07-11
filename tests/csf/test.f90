@@ -3,10 +3,6 @@
 # define test_case test1
 # elif defined TEST2
 # define test_case test2
-# elif defined TEST3
-# define test_case test3
-# elif defined TEST4
-# define test_case test4
 # endif
 program test
   use ModGlobal
