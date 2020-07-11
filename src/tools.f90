@@ -143,10 +143,6 @@ Contains
     data_name = 'w'
     Call HDF5WriteData(h5_visual_file, h5_visual_group, w, data_name)
 
-    Call h5gclose_f(h5_visual_group%group_id, h5error)
-    Call h5fclose_f(h5_visual_file%file_id, h5error)
-
-
     If ( myid .eq. 0 ) Then
       open(10,file='vis3dquiver.py',status='unknown')
       Write(10,'(a)') "import numpy as np"
@@ -223,8 +219,6 @@ Contains
       Call HDF5WriteData(h5_visual_file, h5_visual_group, f5, data_name)
     End If
 
-    Call h5gclose_f(h5_visual_group%group_id, h5error)
-    Call h5fclose_f(h5_visual_file%file_id, h5error)
 
     write(slice_num , '(i5)') slice_coord-1
     print *, slice_num

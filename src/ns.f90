@@ -82,10 +82,11 @@ Module ModNavierStokes
   Use ModVOF
   Implicit None
 
-  private
-  Public :: TwoPhaseFlow, SinglePhaseFlow, InitNavierStokes, Monitor
-  Public :: CSF, CSF_VOSET, body_force, bc_uvw
-  Public :: n_iter, div_max
+  public
+  ! private
+  ! Public :: TwoPhaseFlow, SinglePhaseFlow, InitNavierStokes, Monitor
+  ! Public :: CSF, CSF_VOSET, body_force, bc_uvw
+  ! Public :: n_iter, div_max
   ! Module variables will not pass through the subroutine interface
   Real(sp), Allocatable :: Rho(:,:,:), Rhox(:,:,:), Rhoy(:,:,:), Rhoz(:,:,:), PP(:,:,:)
   Real(sp), Allocatable :: mu(:,:,:), muxy(:,:,:), muxz(:,:,:), muyz(:,:,:)
@@ -173,7 +174,6 @@ Contains
     If (present(cx)) Then ! MOF
       Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3), cx, cy, cz)
     Else !VOF
-      ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
       Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
     End If
 
@@ -972,7 +972,6 @@ Contains
   Subroutine Jacobi(P)
     Implicit None
     Real(sp), Intent(InOut) :: P(0:,0:,0:)
-    Real(sp) :: PP(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp) :: res(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp) :: res_max, res_max2
     Integer :: i, j, k, ll

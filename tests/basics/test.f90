@@ -26,8 +26,9 @@ end program test
 Subroutine test1
   use ModGlobal
   Implicit None
-  real(SP),allocatable :: p(:,:,:)
+  real(SP),allocatable :: p1(:,:,:)
   Character(80) :: data_name
+  Integer(HID_T) :: plist_id
 
   Call MPI_INIT(ierr)
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
@@ -35,7 +36,7 @@ Subroutine test1
 
   ! ! case 1
   n = (/4,8,2/)
-  dims = (/2,2/)
+  dims = (/2,2,1/)
   ! ! case 2
   ! n = (/4,8,2/)
   ! dims = (/4,1/)
@@ -47,9 +48,9 @@ Subroutine test1
   Call InitMPI(n)
 
 
-  Allocate(p(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
+  Allocate(p1(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1))
 
-  p = ToFloat(myid)
+  p1 = ToFloat(myid)
 
 
   ! do i = 1,4
@@ -65,10 +66,19 @@ Subroutine test1
   Allocate(h5_output_field(1))
   h5_output_field%groupname = 'phi'
   print *, h5_output_field(1)%groupname
+  ! Open the file collectively.
+  Call h5open_f(ierr)
+  Call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, ierr)
+  Call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, ierr)
+  Call h5fopen_f(h5_output%filename, H5F_ACC_RDWR_F, h5_output%file_id, ierr, access_prp = plist_id)
+  Call h5pclose_f(plist_id, ierr)
+
   Call HDF5CreateGroup(h5_output, h5_output_field(1))
+  Call H5gclose_f(H5_output_field(1)%group_id, ierr)
+  Call H5fclose_f(H5_output%file_id, ierr)
 
   data_name = 'test'
-  Call HDF5WriteData(h5_output_field(1), p, data_name)
+  Call HDF5WriteData(h5_output, h5_output_field(1), p1, data_name)
 
   Call MPI_FINALIZE(ierr)
 
@@ -84,7 +94,7 @@ End Subroutine test1
 Subroutine test2
   use ModGlobal
   Implicit None
-  real(SP),allocatable :: p(:,:,:)
+  real(SP),allocatable :: p1(:,:,:)
   Character(80) :: data_name
 
   Call MPI_INIT(ierr)
@@ -211,12 +221,6 @@ Subroutine test4
  ! if all comment, it will use the default Nuemann
  phi_bc%bound_type(:,:) = 1
  phi_bc%bound_value(:,:) = 10
- cx_bc%bound_type(:,:) = 1
- cx_bc%bound_value(:,:) = 10
- cy_bc%bound_type(:,:) = 1
- cy_bc%bound_value(:,:) = 10
- cy_bc%bound_type(:,:) = 1
- cz_bc%bound_value(:,:) = 10
  u_bc%bound_type(:,:) = 1
  u_bc%bound_value(:,:) = 10
  v_bc%bound_type(:,:) = 1
