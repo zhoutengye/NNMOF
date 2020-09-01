@@ -1843,8 +1843,8 @@ Contains
       angle = angle2
       error = err2
     endif
-    print *, 'norm', norm_2
-    print *, 'angle2', angle2
+    ! print *, 'norm', norm_2
+    ! print *, 'angle2', angle2
 
   End Subroutine Initial_Guess
 

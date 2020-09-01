@@ -1,4 +1,4 @@
-TEST_NUM = 2
+TEST_NUM = 3
 MOF_DIR    = ../../..
 compiler   = intel
 EXEC       = rand
@@ -17,7 +17,7 @@ include $(MOF_DIR)/Make-Essential
 
 # Case specific makefile variables, not necessary
 CPP := $(CPP) -DTEST$(TEST_NUM)
-EXEC       = TEST$(TEST_NUM)
+EXEC       = TEST$(TEST_NUM).exec
 
 # If external libraries needed, append after following lines
 LIBS := $(LIBS)
