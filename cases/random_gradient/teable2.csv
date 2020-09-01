@@ -1,0 +1,38 @@
+,iter,ls,time,time2
+"Lemoine, BFGS, analytic_info.dat",5.403802,10.047486,4.763934667,4.253748811
+"Lemoine, BFGS, analytic_old_info.dat",6.263508667,12.556611,5.134615667,5.292727171
+"Lemoine, BFGS, numerical_info.dat",5.567518333,10.871817,783.7289023,747.5683532
+"Lemoine, BFGS, numerical_old_info.dat",6.429807,13.38061867,868.7186487,948.2876804
+"Lemoine, Gauss-Newton_info.dat",2.480153,0,1.112108333,1
+"Lemoine, Gauss-Newton_old_info.dat",3.3388,0,1.312360333,1.380614036
+,,,,
+,,,,
+,exponential,uniform,extreme,
+"Lemoine, BFGS, analytic_info.dat",2.08E-09,2.01E-09,1.93E-09,
+"Lemoine, BFGS, analytic_old_info.dat",2.08E-09,2.27E-09,2.74E-09,
+"Lemoine, BFGS, numerical_info.dat",2.39E-09,2.58E-09,2.84E-09,
+"Lemoine, BFGS, numerical_old_info.dat",3.40E-09,2.85E-09,3.65E-09,
+"Lemoine, Gauss-Newton_info.dat",1.97E-09,1.93E-09,1.85E-09,
+"Lemoine, Gauss-Newton_old_info.dat",1.98E-09,2.92E-06,1.19E-05,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,"Averaged
+iteration","Averaged
+ line search","run-time 
+ratio",
+Gauss-Newton,3.34 ,0.00 ,1.38 ,
+Gauss-Newton (Improved initial guess),2.48 ,0.00 ,1.00 ,
+BFGS,6.26 ,12.56 ,5.29 ,
+BFGS  (Improved initial guess),5.40 ,10.05 ,4.25 ,
+,,,,
+,,,,
+,,,,
+,,,,
+,exponential,uniform,extreme,
+Gauss-Newton,1.98E-09,2.92E-06,1.19E-05,
+Gauss-Newton (Improved initial guess),1.97E-09,1.93E-09,1.85E-09,
+BFGS,2.08E-09,2.27E-09,2.74E-09,
+BFGS  (Improved initial guess),2.08E-09,2.01E-09,1.93E-09,

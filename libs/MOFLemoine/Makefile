@@ -1,6 +1,6 @@
-INSTALL_DIR = intel
+INSTALL_DIR = gnu
 MOFLIB = lemoinemof.a
-FC         = ifort
+FC         = gfortran
 PRECISION  = DOUBLE_PRECISION
 
 SRCS_GEOMETRY = transformations.f90 points.f90 polyhedron.f90 complete_polyhedron_structure.f90  flood_polyhedron.f90

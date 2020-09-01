@@ -1,5 +1,5 @@
-LIB_DIR = intel
-FC = ifort
+LIB_DIR = gnu
+FC = gfortran
 FCOPT = -O3
 DIM = 3
 
