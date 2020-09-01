@@ -172,9 +172,13 @@ Contains
     ! VOF/MOF advection
     step_rank = step_rank+1
     If (present(cx)) Then ! MOF
-      Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3), cx, cy, cz)
+      ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
+      Call MOFWY(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
+      ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
     Else !VOF
-      Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,3))
+      ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
+      Call VOFWY(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
+      ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
     End If
 
     ! Update Rho, Mu, and adjust time step

@@ -13,7 +13,7 @@ program test
   use ModGlobal
   Implicit None
 
-  call test_case
+  call InitVolume
 
 end program test
 
@@ -25,7 +25,7 @@ end program test
 !    (4) MOFZY
 !===============
 Subroutine test1
-  ! Use ModGlobal
+  Use ModGlobal
   Use ModTools
   Use InitSH
   Implicit None
@@ -70,19 +70,26 @@ Subroutine test1
 end Subroutine test1
 
 Subroutine InitVolume
+  Use ModGlobal
+  Use ModVOFFunc
   Use ModTools
   Use InitSH
   Implicit None
   Real(sp), Allocatable :: xc(:)
+  Real(sp), Allocatable :: ls(:,:,:)
   Type(Octree) :: gr
   Integer :: i,j,k
   Integer :: flag
   Real(sp) :: dx
+  Real(sp) :: xx, yy, zz
+  Real(sp) :: n3(3), c3(3)
   Integer :: Octreelevel = 3
 
   Call Init(inputfield=.false.)
 
 
+  Allocate(ls(0:101,0:101,0:51))
+  ls = 0.0_sp
   ! ---------------------------------
   ! Hollow cube
   Allocate(xc(100))
@@ -91,6 +98,16 @@ Subroutine InitVolume
   End Do
   dx = 1.0_sp
   ShapeLevelSet => GShapeCube
+  Do k = 1, 50
+    Do j = 1, 50
+      Do i = 1, 50
+        xx = xc(i)
+        yy = xc(j)
+        zz = xc(k)
+        ls(i,j,k) = ShapeLevelSet(xx,yy,zz)
+      End Do
+    End Do
+  End Do
   Do k = 1, 50
     Do j = 1, 50
       Do i = 1, 50
@@ -110,6 +127,14 @@ Subroutine InitVolume
           gr%dx(3) = dx
           Call VolumeOctree(gr)
           phi(i,j,k) = gr%vof
+          n3(1) = ls(i-1,  j,  k) - ls(i+1,  j,  k)
+          n3(2) = ls(  i,j-1,  k) - ls(  i,j+1,  k)
+          n3(3) = ls(  i,  j,k-1) - ls(  i,  j,k+1)
+          Call Normalization1(n3)
+          Call FloodSZ_BackwardC(n3,phi(i,j,k),c3)
+          cx(i,j,k) = c3(1)
+          cy(i,j,k) = c3(2)
+          cz(i,j,k) = c3(3)
         EndIf
       End Do
     End Do
@@ -120,6 +145,16 @@ Subroutine InitVolume
   !----------------------------------
   ! Hollow Sphere
   ShapeLevelSet => GShapesphere
+  Do k = 1, 50
+    Do j = 51, 100
+      Do i = 1, 50
+        xx = xc(i)
+        yy = xc(j)
+        zz = xc(k)
+        ls(i,j,k) = ShapeLevelSet(xx,yy,zz)
+      End Do
+    End Do
+  End Do
   Do k = 1, 50
     Do j = 51, 100
       Do i = 1, 50
@@ -139,6 +174,14 @@ Subroutine InitVolume
           gr%dx(3) = dx
           Call VolumeOctree(gr)
           phi(i,j,k) = gr%vof
+          n3(1) = ls(i-1,  j,  k) - ls(i+1,  j,  k)
+          n3(2) = ls(  i,j-1,  k) - ls(  i,j+1,  k)
+          n3(3) = ls(  i,  j,k-1) - ls(  i,  j,k+1)
+          Call Normalization1(n3)
+          Call FloodSZ_BackwardC(n3,phi(i,j,k),c3)
+          cx(i,j,k) = c3(1)
+          cy(i,j,k) = c3(2)
+          cz(i,j,k) = c3(3)
         EndIf
       End Do
     End Do
@@ -150,6 +193,16 @@ Subroutine InitVolume
   !----------------------------------
   ! Tilt hollow cube
   ShapeLevelSet => GShapeTCube
+  Do k = 1, 50
+    Do j = 1, 50
+      Do i = 51, 100
+        xx = xc(i)
+        yy = xc(j)
+        zz = xc(k)
+        ls(i,j,k) = ShapeLevelSet(xx,yy,zz)
+      End Do
+    End Do
+  End Do
   Do k = 1, 50
     Do j = 1, 50
       Do i = 51, 100
@@ -169,6 +222,14 @@ Subroutine InitVolume
           gr%dx(3) = dx
           Call VolumeOctree(gr)
           phi(i,j,k) = gr%vof
+          n3(1) = ls(i-1,  j,  k) - ls(i+1,  j,  k)
+          n3(2) = ls(  i,j-1,  k) - ls(  i,j+1,  k)
+          n3(3) = ls(  i,  j,k-1) - ls(  i,  j,k+1)
+          Call Normalization1(n3)
+          Call FloodSZ_BackwardC(n3,phi(i,j,k),c3)
+          cx(i,j,k) = c3(1)
+          cy(i,j,k) = c3(2)
+          cz(i,j,k) = c3(3)
         EndIf
       End Do
     End Do
@@ -180,6 +241,16 @@ Subroutine InitVolume
   !----------------------------------
   ! Tilt letter A
   ShapeLevelSet => GShapeLA
+  Do k = 1, 50
+    Do j = 51, 100
+      Do i = 51, 100
+        xx = xc(i)
+        yy = xc(j)
+        zz = xc(k)
+        ls(i,j,k) = ShapeLevelSet(xx,yy,zz)
+      End Do
+    End Do
+  End Do
   Do k = 1, 50
     Do j = 51, 100
       Do i = 51, 100
@@ -199,6 +270,15 @@ Subroutine InitVolume
           gr%dx(3) = dx
           Call VolumeOctree(gr)
           phi(i,j,k) = gr%vof
+          phi(i,j,k) = gr%vof
+          n3(1) = ls(i-1,  j,  k) - ls(i+1,  j,  k)
+          n3(2) = ls(  i,j-1,  k) - ls(  i,j+1,  k)
+          n3(3) = ls(  i,  j,k-1) - ls(  i,  j,k+1)
+          Call Normalization1(n3)
+          Call FloodSZ_BackwardC(n3,phi(i,j,k),c3)
+          cx(i,j,k) = c3(1)
+          cy(i,j,k) = c3(2)
+          cz(i,j,k) = c3(3)
         EndIf
       End Do
     End Do
@@ -215,27 +295,14 @@ Subroutine InitVolume
     u = 1.0_sp
     v = 1.0_sp
     w = 1.0_sp
-    do nn = 1, n_vars
-      Select Case(Trim(h5_output_field(nn)%groupname))
-      Case('phi')
-        Call HDF5WriteData(h5_output_field(nn), phi,data_name)
-      Case('u')
-        Call HDF5WriteData(h5_output_field(nn), u,data_name)
-      Case('v')
-        Call HDF5WriteData(h5_output_field(nn), v,data_name)
-      Case('w')
-        Call HDF5WriteData(h5_output_field(nn), w,data_name)
-      Case('cx')
-        Call HDF5WriteData(h5_output_field(nn), cx,data_name)
-      Case('cy')
-        Call HDF5WriteData(h5_output_field(nn), cy,data_name)
-      Case('cz')
-        Call HDF5WriteData(h5_output_field(nn), cz,data_name)
-      End Select
-    end do
+    Call HDF5WriteFrame(data_name)
   End Block
 
   Call Visual3DContour(f1=phi)
+  Call Visual3DContour(f1=ls)
+  Call Visual3DContour(f1=cx)
+  Call Visual3DContour(f1=cy)
+  Call Visual3DContour(f1=cz)
 
   Call MPI_FINALIZE(ierr)
 
@@ -243,6 +310,7 @@ End Subroutine InitVolume
 
 
 Subroutine InitVolumeCentroid
+  Use ModGlobal
   Use ModTools
   Use InitSH
   Implicit None
@@ -424,24 +492,8 @@ Subroutine InitVolumeCentroid
     u = 1.0_sp
     v = 1.0_sp
     w = 1.0_sp
-    do nn = 1, n_vars
-      Select Case(Trim(h5_output_field(nn)%groupname))
-      Case('phi')
-        Call HDF5WriteData(h5_output_field(nn), phi,data_name)
-      Case('u')
-        Call HDF5WriteData(h5_output_field(nn), u,data_name)
-      Case('v')
-        Call HDF5WriteData(h5_output_field(nn), v,data_name)
-      Case('w')
-        Call HDF5WriteData(h5_output_field(nn), w,data_name)
-      Case('cx')
-        Call HDF5WriteData(h5_output_field(nn), cx,data_name)
-      Case('cy')
-        Call HDF5WriteData(h5_output_field(nn), cy,data_name)
-      Case('cz')
-        Call HDF5WriteData(h5_output_field(nn), cz,data_name)
-      End Select
-    end do
+
+    Call HDF5WriteFrame(data_name)
   End Block
 
   Call Visual3DContour(f1=phi)

@@ -1,4 +1,5 @@
 Module InitSH
+  Use MOdGlobal, only: sp
   use ModTools
 Contains
   Real(8) Function ShapeTest(x,y,z)

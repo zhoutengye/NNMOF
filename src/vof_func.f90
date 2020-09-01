@@ -59,13 +59,15 @@ Module ModVOFFunc
   public
 
   ! MOF iteration parameters
-  Integer, Parameter :: MOFITERMAX = 10
-  Real(sp), Parameter :: tol = 1.0e-8
-  Real(sp), Parameter :: local_tol = 1.0e-8
-  ! Real(sp), Parameter :: GaussNewtonTol = 1e-13
-  Real(sp), Parameter :: MOF_Pi = 3.1415926535897932d0
-  Real(sp), Parameter :: epsc = 1.0e-12
+  Integer :: MOFITERMAX = 10
+  Real(sp) :: mof_tol = 1.0e-8
+  Real(sp) :: mof_tol_dangle = 1.0e-8
+  Real(sp) :: det_lim = 1.0e-30
+  Real(sp),parameter :: MOF_Pi = 3.1415926535897932d0
+  Real(sp) :: epsc = 1.0e-12
   Real(sp) :: mof_niter(2)
+  Real(sp) :: delta_theta =1e-5
+  Real(sp) :: delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   type(t_polyhedron) :: LemoinePoly
 
@@ -370,10 +372,15 @@ Contains
   !=======================================================
   ! (1-3) Efficient Least-square volume averaging
   ! * returns normal normalized so that |mx|+|my|+|mz| = 1*
-  ! In the ELVIRA reference paper, 5*5*5 stencil is used,
-  ! However, here 3*3*3 stencil is use.
+  ! In the ELVIRA reference paper
+  !    A Conservative Three-Dimensional Eulerian Method for Coupled Solid–Fluid Shock Capturing
+  ! by G.H Miller and P.Colella, 5*5*5 stencil is used,
+  ! However, here we use 3*3*3 stencil.
+  ! 
   ! For each direction, every 24 posible triplets that contains
   ! The central cell are evaluated.
+  ! The symmetric and flip cases are estimated as well.
+  ! It is 24 * 6 = 144 in total
   !-------------------------------------------------------
   ! Input: c (vof function, 3*3*3 stencil)
   ! Output: norm (normal vector)
@@ -393,7 +400,7 @@ Contains
     Real(sp) :: dxl(3), x0(3)
     Real(sp) :: alpha, norm_e(3)
     Real(sp) :: err, err_min
-    Integer :: i, j, k, dir, nelvira
+    Integer :: i, j, k, dir, nelvira, ii
 
     p1is =(/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3/)
     p1js =(/1,1,1,1,1,1,2,2,2,2,2,3,3,3,3,1,1,1,3,3,3,1,1,2/)
@@ -435,66 +442,44 @@ Contains
         p3j = p3js(nelvira)
         If (dir == 1) Then
           vec_1 = (/dble(p1i-p2i), dble(p1j-p2j), Hvolume(p1i,p1j)-Hvolume(p2i,p2j)/)
-          vec_2 = (/dble(p2i-p2i), dble(p3j-p2j), Hvolume(p3i,p3j)-Hvolume(p2i,p2j)/)
+          vec_2 = (/dble(p3i-p2i), dble(p3j-p2j), Hvolume(p3i,p3j)-Hvolume(p2i,p2j)/)
         Else If (dir == 2) Then
           vec_1 = (/dble(p1i-p2i), Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1j-p2j)/)
-          vec_2 = (/dble(p2i-p2i), Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3j-p2j)/)
+          vec_2 = (/dble(p3i-p2i), Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3j-p2j)/)
         Else
           vec_1 = (/Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1i-p2i), dble(p1j-p2j)/)
-          vec_2 = (/Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p2i-p2i), dble(p3j-p2j)/)
+          vec_2 = (/Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3i-p2i), dble(p3j-p2j)/)
         End If
         norm_e(1) = vec_1(2) * vec_2(3) - vec_1(3) * vec_2(2)
         norm_e(2) = vec_1(3) * vec_2(1) - vec_1(1) * vec_2(3)
         norm_e(3) = vec_1(1) * vec_2(2) - vec_1(2) * vec_2(1)
         Call Normalization1(norm_e)
 
-        alpha =  3.0 * FloodSZ_backward(norm_e,block_vol)
-        dxl = 1.0_sp
-        Do k = 1, 3
-          Do j = 1, 3
-            Do i = 1, 3
-              x0(1) = dble(i-1)
-              x0(2) = dble(j-1)
-              x0(3) = dble(k-1)
-              vol_e(i,j,k) = FloodSZ_Forward(norm_e,alpha,x0,dxl)
+        Do ii = 1, 2
+          norm_e(3) = - norm_e(3)
+          alpha =  3.0 * FloodSZ_backward(norm_e,block_vol)
+          dxl = 1.0_sp
+          Do k = 1, 3
+            Do j = 1, 3
+              Do i = 1, 3
+                x0(1) = dble(i-1)
+                x0(2) = dble(j-1)
+                x0(3) = dble(k-1)
+                vol_e(i,j,k) = FloodSZ_Forward(norm_e,alpha,x0,dxl)
+              End Do
             End Do
           End Do
+          err = sum( ((1.0_sp - vol_e) - c) * ((1.0_sp - vol_e) - c) )
+          If ( err < err_min) Then
+            norm = - norm_e
+            err_min = err
+          End If
+          err = sum( (vol_e-c) * (vol_e-c) )
+          If ( err < err_min) Then
+          norm = norm_e
+          err_min = err
+        End If
         End Do
-        err = sum( ((1.0_sp - vol_e) - c) * ((1.0_sp - vol_e) - c) )
-        If ( err < err_min) Then
-          norm = norm_e
-          err_min = err
-        End If
-        err = sum( (vol_e-c) * (vol_e-c) )
-        If ( err < err_min) Then
-          norm = norm_e
-          err_min = err
-        End If
-        norm_e(3) = - norm_e(3)
-        Call Normalization1(norm_e)
-
-        alpha =  3.0 * FloodSZ_backward(norm_e,block_vol)
-        dxl = 1.0_sp
-        Do k = 1, 3
-          Do j = 1, 3
-            Do i = 1, 3
-              x0(1) = dble(i-1)
-              x0(2) = dble(j-1)
-              x0(3) = dble(k-1)
-              vol_e(i,j,k) = FloodSZ_Forward(norm_e,alpha,x0,dxl)
-            End Do
-          End Do
-        End Do
-        err = sum( ((1.0_sp - vol_e) - c) * ((1.0_sp - vol_e) - c) )
-        If ( err < err_min) Then
-          norm = norm_e
-          err_min = err
-        End If
-        err = sum( (vol_e-c) * (vol_e-c) )
-        If ( err < err_min) Then
-          norm = norm_e
-          err_min = err
-        End If
 
       End Do
     End Do
@@ -1057,7 +1042,7 @@ Contains
   ! Output:
   !      norm: vof function
   !=======================================================
-  Subroutine MOFZY(f, c, norm, Init_Norm)
+  Subroutine MOFZY2(f, c, norm, Init_Norm)
     ! Use ModOptimizer
     Implicit None
     Real(sp), Intent(In)  :: f
@@ -1067,8 +1052,6 @@ Contains
 
     Real(sp)  :: c_mof(3)
     Real(sp), Dimension(3)   :: norm_2
-    Real(sp) :: delta_theta
-    Real(sp) :: delta_theta_max
     Real(sp), Dimension(2)   :: delangle, angle_init, angle_previous, new_angle
     Real(sp), Dimension(2)   :: angle_base, angle_plus, angle_minus
     Real(sp), Dimension(2)   :: err_plus, err_minus
@@ -1090,14 +1073,12 @@ Contains
 
     c_mof = c - 0.5_sp
 
-
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
     Else
-      Norm_2(1) = - c_mof(1)
-      Norm_2(2) = - c_mof(2)
-      Norm_2(3) = - c_mof(3)
+      ! Call Initial_Guess(c_mof-0.5_sp, f, angle_init, c_diff)
+      norm_2 = - c_mof
     EndIf
 
     Call Normalization2(Norm_2)
@@ -1108,21 +1089,20 @@ Contains
     enddo
     Call FindCentroid(angle_init,f,cen_init)
     do dir=1,3
-      d_array(dir,1) = c_mof(dir) - cen_init(dir)
+      d_array(dir,1) = cen_init(dir) - c_mof(dir)
       cen_array(dir,1)=cen_init(dir)
       err_array(1)=err_array(1) + d_array(dir,1) * d_array(dir,1)
     enddo
-    err_array(1) = sqrt(dot_product(d_array(:,1),d_array(:,1)))
-    delta_theta = MOF_Pi / 1800.0_sp  ! 1 degree=pi/180
-    delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+    ! err_array(1) = sqrt(dot_product(d_array(:,1),d_array(:,1)))
+    err_array(1) = dot_product(d_array(:,1),d_array(:,1))
 
     iter = 0
     err = err_array(1)
     err_local_min = err_array(1)
     mof_niter = 0
     Do While ((iter.lt.MOFITERMAX).and. &
-        (err.gt.tol).and. &
-        (err_local_min.gt.local_tol))
+        (err.gt.mof_tol).and. &
+        (err_local_min.gt.mof_tol))
 
       do dir=1,3
         dbase(dir)=d_array(dir,iter+1)
@@ -1149,7 +1129,7 @@ Contains
           d_plus(dir,i_angle)=dp(dir)
           cen_plus(dir,i_angle)=cenp(dir)
         end do
-        err_plus(i_angle)=sqrt(err_plus(i_angle))
+        ! err_plus(i_angle)=sqrt(err_plus(i_angle))
         Call FindCentroid(angle_minus,f,cenm)
         err_minus(i_angle)= 0.0_sp
         do dir=1,3
@@ -1158,18 +1138,18 @@ Contains
           d_minus(dir,i_angle)=dm(dir)
           cen_minus(dir,i_angle)=cenm(dir)
         enddo
-        err_minus(i_angle)=sqrt(err_minus(i_angle))
+        ! err_minus(i_angle)=sqrt(err_minus(i_angle))
 
         ! jacobian matrix (numerical partial gradient):
         do dir=1,3
-          Jacobian(dir,i_angle)=(dp(dir)-dm(dir))/(2.0_sp*delta_theta)
+          Jacobian(dir,i_angle)=(cenp(dir)-cenm(dir))/(2.0_sp*delta_theta)
         enddo
 
       End Do ! end theta phi shift angle
 
       ! JT * X
       Do i_angle=1,2
-        gradient(i_angle) = 2.0_sp * dot_product(dbase, Jacobian(:,i_angle))
+        gradient(i_angle) = dot_product(dbase, Jacobian(:,i_angle))
       EndDo
 
 
@@ -1177,9 +1157,10 @@ Contains
       Singular_flag = 0
       Do i=1,2
         Do j=1,2
-          Hessian(i,j) = 2.0_sp * dot_product(Jacobian(:,i), Jacobian(:,j))
+          Hessian(i,j) = dot_product(Jacobian(:,i), Jacobian(:,j))
         EndDo
       EndDo
+
 
       det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
       ! Calculate the inverse of the matrix
@@ -1189,7 +1170,7 @@ Contains
       HessianT(2,2) = +Hessian(1,1) / det
 
       ! Call matinv2(Hessian, HessianT, det)
-      If (det .lt. 1.0e-20) Then
+      If (det .lt. det_lim) Then
         Singular_flag = 1
       End If
 
@@ -1198,19 +1179,28 @@ Contains
         delangle(i) = - dot_product(HessianT(:,i), gradient)
       End Do
 
+      Do i_angle = 1,2
+        If (delangle(i_angle).gt.delta_theta_max) then
+          delangle(i_angle)=delta_theta_max
+        Else If (delangle(i_angle).lt.-delta_theta_max) then
+          delangle(i_angle)=-delta_theta_max
+        End If
+      End Do
+
       !! End Gauss Newton
       ! call GaussNewton(Jacobian, gradient, 3, 2, delangle, Singular_flag)
 
       ! Find delta angle
       if (singular_flag.eq.0) then
         ! -pi<angle<pi
+        call advance_angle(angle_base,delangle)
         do i_angle=1,2
           angle_previous(i_angle)=angle_base(i_angle)
-          call advance_angle(angle_base(i_angle),delangle(i_angle))
+          ! call advance_angle(angle_base(i_angle),delangle(i_angle))
         enddo
         Call FindCentroid(angle_base,f, cenopt)
         do dir=1,3
-          dopt(dir) = c_mof(dir) - cenopt(dir)
+          dopt(dir) = cenopt(dir) - c_mof(dir)
         enddo
 
       else if (singular_flag.eq.1) then
@@ -1220,7 +1210,8 @@ Contains
           dopt(dir)=dbase(dir)
         enddo
         do i_angle=1,2
-          angle_base(i_angle)=angle_array(i_angle,iter+1)
+          ! angle_base(i_angle)=angle_array(i_angle,iter+1)
+          angle_array(i_angle,iter+1)=angle_base(i_angle)
         enddo
       else
         print *,"singular_flag invalid"
@@ -1231,7 +1222,7 @@ Contains
       do dir=1,3
         err=err+dopt(dir)**2
       enddo
-      err=sqrt(err)
+      ! err=sqrt(err)
 
       if (singular_flag.eq.1) then
         ! do nothing
@@ -1319,6 +1310,194 @@ Contains
     print *, 'Normal vector:', norm
     print *, '=============================='
 #endif
+  End Subroutine MOFZY2
+
+  Subroutine MOFZY(f, c, norm, Init_Norm)
+    ! Use ModOptimizer
+    Implicit None
+    Real(sp), Intent(In)  :: f
+    Real(sp), Intent(In)  :: c(3)
+    Real(sp), Intent(Out) :: norm(3)
+    Real(sp), Optional, Intent(In) :: Init_Norm(3)
+    Real(sp)  :: vof
+    Real(sp)  :: c_mof(3) ,c_mof_sym(3)
+    Real(sp), Dimension(3)   :: norm_2
+    Real(sp), Dimension(2)   :: delangle, angle_init, angle_previous, new_angle
+    Real(sp), Dimension(2)   :: angle_base, angle_plus, angle_minus
+    Real(sp), Dimension(2)   :: err_plus, err_minus
+    Real(sp), Dimension(3)   :: dbase, dopt, dp, dm
+    Real(sp), Dimension(3,2) :: d_plus, d_minus
+    Real(sp), Dimension(3)   :: cenopt, cenp, cenm, cen_init
+    Real(sp), Dimension(3)   :: cenopt_sym, cen_init_sym
+    Real(sp), Dimension(3,2) :: cen_plus, cen_minus
+    Real(sp), Dimension(3,2) :: Jacobian
+    Real(sp), Dimension(2,2) :: Hessian, HessianT
+    Real(sp), Dimension(2)   :: gradient
+    Real(sp), Dimension(3)   :: c_diff, c_diff_sym
+    Real(sp)   :: det
+    Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
+    Real(sp), Dimension(MOFITERMAX+1)   :: err_array
+
+    Real(sp) :: err
+    Real(sp) :: mof_tol2
+    Integer :: singular_flag = 0
+    Integer :: i_angle, j_angle, dir, iter, i, j
+
+    c_mof = c - 0.5_sp
+
+    if (f .ge. 0.5_sp) then
+      vof = 1.0_sp - f
+      c_mof =  - c_mof * f / vof
+    else
+      vof = f
+      c_mof = c_mof
+    endif
+    c_mof_sym = - c_mof * f / (1.0_sp - f)
+
+    ! Initialize angle
+    If(present(Init_Norm))then
+      norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
+      Call Norm2Angle(angle_init,norm_2)
+      Call FindCentroid(angle_init,vof,cen_init)
+      c_diff = cen_init - c_mof
+      err = dot_product(c_diff,c_diff)
+    Else
+      Call Initial_Guess(c_mof, vof, angle_init, err)
+    EndIf
+
+    ! Initialize other data
+    do dir=1,2
+      angle_array(dir,1)= angle_init(dir)
+    enddo
+    do dir=1,3
+      err_array(1) = err
+    enddo
+
+    iter = 0
+    err = err_array(1)
+    mof_niter = 0
+
+    mof_tol2 = mof_tol * (1.0_sp-f)**2
+    mof_tol2 = mof_tol
+
+    Do While ((iter.lt.MOFITERMAX).and. &
+        (err.gt.mof_tol2))
+
+      Do i_angle=1,2
+        angle_base(i_angle) = angle_array(i_angle, iter+1)
+      End Do
+
+      ! theta phi shift angle
+      ! to calculate the numerical gradient
+      Do i_angle=1,2
+        Do j_angle=1,2
+          angle_plus(j_angle)=angle_base(j_angle)
+          angle_minus(j_angle)=angle_base(j_angle)
+        End Do
+        angle_plus(i_angle)=angle_plus(i_angle)+delta_theta
+        angle_minus(i_angle)=angle_minus(i_angle)-delta_theta
+        Call FindCentroid(angle_plus,vof,cenp)
+        do dir=1,3
+          cen_plus(dir,i_angle)=cenp(dir)
+        end do
+        Call FindCentroid(angle_minus,vof,cenm)
+        do dir=1,3
+          cen_minus(dir,i_angle)=cenm(dir)
+        enddo
+
+        ! jacobian matrix (numerical partial gradient):
+        do dir=1,3
+          Jacobian(dir,i_angle)=(cenp(dir)-cenm(dir))/(2.0_sp*delta_theta)
+        enddo
+
+      End Do ! end theta phi shift angle
+
+      Call FindCentroid(angle_base,vof,cenopt)
+      cenopt_sym = - cenopt * f / (1.0_sp - f)
+      c_diff = cenopt - c_mof
+      c_diff_sym = cenopt_sym - c_mof_sym
+
+      Do i=1,2
+        Do j=1,2
+          Hessian(i,j) = dot_product(Jacobian(:,i), Jacobian(:,j))
+        EndDo
+        gradient(i) = dot_product(c_diff, Jacobian(:,i))
+      EndDo
+      ! err = dot_product(c_diff, c_diff) &
+      !     + dot_product(c_diff_sym, c_diff_sym)
+      err = dot_product(c_diff, c_diff)
+
+      det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
+      ! Calculate the inverse of the matrix
+      HessianT(1,1) = +Hessian(2,2) / det
+      HessianT(2,1) = -Hessian(2,1) / det
+      HessianT(1,2) = -Hessian(1,2) / det
+      HessianT(2,2) = +Hessian(1,1) / det
+
+      ! Call matinv2(Hessian, HessianT, det)
+      If (det .lt. det_lim) Then
+        Singular_flag = 1
+      End If
+
+      ! Delta angle
+      Do i=1,2
+        delangle(i) = - dot_product(HessianT(:,i), gradient)
+      End Do
+
+      If (singular_flag.eq.1) then
+        delangle(1:2)=0.0_sp
+        err = 0.0_sp
+      Else
+        Do i_angle = 1,2
+          If (delangle(i_angle).gt.delta_theta_max) then
+            delangle(i_angle)=delta_theta_max
+          Else If (delangle(i_angle).lt.-delta_theta_max) then
+            delangle(i_angle)=-delta_theta_max
+          End If
+        End Do
+      End If
+
+
+      call advance_angle(angle_base,delangle)
+      do i_angle=1,2
+        ! call advance_angle(angle_base(i_angle),delangle(i_angle))
+        angle_array(i_angle,iter+2)=angle_base(i_angle)
+      enddo
+
+      err_array(iter+2)=err
+      iter=iter+1
+      if ( dot_product(delangle,delangle) .lt. mof_tol_dangle) exit
+
+    End Do
+
+    mof_niter(1) = iter
+#if defined(DEBUG)
+    Block
+      Integer :: ii
+      Do ii = 1, mof_niter(1)
+        print *, '=====step',ii-1,'=========='
+        print *, cen_array(:,ii)
+        print *, angle_array(:,ii)
+        print *, err_array(ii)
+      End Do
+    End Block
+#endif
+
+    do dir=1,2
+      new_angle(dir)=angle_array(dir,iter+1)
+    enddo
+
+    ! Convert angle to norm
+    call Angle2Norm(new_angle,norm)
+    Call Normalization1(norm)
+
+    if (f .ge. 0.5_sp) norm = -norm
+#if defined(DEBUG)
+    print *, '=====MOF Reconc norm=========='
+    print *, 'Normal vector:', norm
+    print *, '=============================='
+#endif
   End Subroutine MOFZY
 
   !=======================================================
@@ -1345,8 +1524,8 @@ Contains
 
     Real(sp)  :: vof
     Real(sp)  :: c_mof(3)
+    Real(sp)  :: int_c_mof(3)
     Real(sp), Dimension(3)   :: norm_2
-    Real(sp) :: delta_theta_max
     Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
     Real(sp), Dimension(2)   :: angle_base
     Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
@@ -1355,7 +1534,7 @@ Contains
     Real(sp) :: err
     Integer :: singular_flag
     Integer :: i_angle, dir, iter, i, j
-    Real(sp) :: dxs(3)
+    real(sp) :: dxs(3)
     Real(sp) :: c_diff(3)
     Real(sp) :: gradient(2)
     Real(sp) :: Jacobian(3,2)
@@ -1364,7 +1543,6 @@ Contains
     Real(sp) :: det
 
     dxs = 1.0_sp
-    delta_theta_max = 4.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
     if (f .ge. 0.5_sp) then
       vof = 1.0_sp - f
@@ -1377,29 +1555,26 @@ Contains
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
+      Call Norm2Angle(angle_init,norm_2)
+      Call mof3d_compute_analytic_gradient_GN(angle_init, c_mof, vof, dxs, c_diff, Jacobian)
+      err = norm2(c_diff)
     Else
-      Norm_2(1) = 0.5_sp - c_mof(1)
-      Norm_2(2) = 0.5_sp - c_mof(2)
-      Norm_2(3) = 0.5_sp - c_mof(3)
+      Call Initial_Guess(c_mof-0.5_sp, vof, angle_init, err)
     EndIf
 
-    Call Normalization2(Norm_2)
-    Call Norm2Angle(angle_init,norm_2)
     do dir=1,2
       angle_array(dir,1)= angle_init(dir)
     enddo
-    Call mof3d_compute_analytic_gradient_GN(angle_init, c_mof, vof, dxs, c_diff, Jacobian)
-    err = dot_product(c_diff, c_diff)
+
     do dir=1,3
       err_array(1) = err
     enddo
 
     iter = 0
     err = err_array(1)
-    ! print *, err
-    ! print *, iter, err, err_local_min
     mof_niter = 0
-    Do While ((iter.lt.MOFITERMAX) .and. (err.gt.tol))
+    Do While ((iter.lt.MOFITERMAX) .and. (err.gt.mof_tol))
 
       Do i_angle=1,2
         angle_base(i_angle) = angle_array(i_angle, iter+1)
@@ -1424,7 +1599,7 @@ Contains
       HessianT(1,2) = - Hessian(1,2) / det
       HessianT(2,2) = + Hessian(1,1) / det
 
-      If (det .lt. 1.0e-10) Then
+      If (det .lt. det_lim) Then
         Singular_flag = 1
       End If
 
@@ -1447,8 +1622,9 @@ Contains
         End Do
       End If
 
+      call advance_angle(angle_base,delangle)
       do i_angle=1,2
-        call advance_angle(angle_base(i_angle),delangle(i_angle))
+        ! call advance_angle(angle_base(i_angle),delangle(i_angle))
         angle_array(i_angle,iter+2)=angle_base(i_angle)
       enddo
 
@@ -1457,6 +1633,8 @@ Contains
       ! print *, norm
       err_array(iter+2)=err
       iter=iter+1
+
+      if ( dot_product(delangle,delangle) .lt. mof_tol_dangle) exit
     End Do
     mof_niter(1) = iter
 
@@ -1495,17 +1673,17 @@ Contains
     Real(sp), Optional, Intent(In) :: Init_Norm(3)
 
     Real(sp) :: vof
-    Real(sp) :: c_mof(3)
+    Real(sp) :: c_mof(3), c_mof_sym(3)
     Real(sp), Dimension(3)   :: norm_2
     Real(sp) :: delta_theta_max
     Real(sp), Dimension(2)   :: angle_init
+    Real(sp) :: err
 
     Real(sp) :: dxs(3)
     Integer :: nstat(2)
     Real(sp) :: residual(2)
 
     dxs = 1.0_sp
-    delta_theta_max = 10.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
     if (f .ge. 0.5_sp) then
       vof = 1.0_sp - f
@@ -1514,39 +1692,22 @@ Contains
       vof = f
       c_mof = c
     endif
+    c_mof_sym = ( 0.5 - c_mof * vof ) / (1.0_sp - vof)
 
     ! Initialize angle
     If(present(Init_Norm))then
       norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
+      Call Norm2Angle(angle_init,norm_2)
     Else
-      Norm_2(1) = 0.5_sp - c_mof(1)
-      Norm_2(2) = 0.5_sp - c_mof(2)
-      Norm_2(3) = 0.5_sp - c_mof(3)
+      Call Initial_Guess(c_mof-0.5_sp, vof, angle_init, err)
     EndIf
 
-    ! print *, c_mof
-    ! print *, vof
-    Call Normalization2(Norm_2)
-    ! norm_2 = - norm_2
-    Call Norm2Angle(angle_init,norm_2)
-    ! Call direction_to_spherical_angles(norm_2, angle_init)
-    ! print *, norm_2
-
-    ! volume = vol
-    ! ref_centroid = ref_c
-    ! angles = ang
-    ! print *, c, f, angle_init
-    call mof3d_bfgs(LemoinePoly, c_mof, c_mof, vof, angle_init, norm, nstat, residual)
-
-    ! print *, nstat
-    ! print *, residual
+    call mof3d_bfgs(LemoinePoly, c_mof, c_mof_sym, vof, angle_init, norm, nstat, residual)
 
     mof_niter = nstat
 
-
     Call Normalization1(norm)
-    ! call Angle2Norm(new_angle,norm)
-    ! print *, norm
 
     if (f .ge. 0.5_sp) norm = -norm
 
@@ -1579,6 +1740,7 @@ Contains
     Real(8) :: norm_2(3)
     Integer :: lsnormal_valid(1)
     Real(8) :: npredict(3)
+    Real(8) :: angle_init(2), err
     Real(8) :: intercept
     Integer :: default_one = 1
 
@@ -1586,13 +1748,13 @@ Contains
 
     If(present(Init_Norm))then
       norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
     Else
-        Norm_2(1) = c_mof(1)
-        Norm_2(2) = c_mof(2)
-        Norm_2(3) = c_mof(3)
+      Call Initial_Guess(c_mof-0.5_sp, vof, angle_init, err)
+      Call Angle2Norm(angle_init,norm_2)
     EndIf
 
-    norm_2 = norm_2 / norm2(norm_2)
+    Norm_2 = -norm_2
 
     lsnormal_valid = 1
 
@@ -1627,8 +1789,65 @@ Contains
 
     norm(1:3) = -norm
     mof_niter(1) = nn_iter
+    mof_niter(2) = 0
 
   End Subroutine MOFSussmanGaussNewton
+
+  Subroutine Initial_Guess(C_mof, vof, angle, error)
+    Implicit None
+    Real(sp), Intent(In) :: C_mof(3)
+    Real(sp), Intent(In) :: vof
+    Real(sp), Intent(Out) :: angle(2)
+    Real(sp), Intent(Out) :: error
+    Real(sp) :: norm_1(3), norm_2(3)
+    Real(sp) :: C2_mof(3)
+    Real(sp) :: cen1(3), cen2(3)
+    Real(sp) :: angle1(2), angle2(2)
+    Real(sp) :: err1, err2, err3
+    Real(sp) :: permutation(3)
+    Real(sp) :: relative_c(3)
+    Integer :: dir
+
+    Norm_1(1) = - c_mof(1)
+    Norm_1(2) = - c_mof(2)
+    Norm_1(3) = - c_mof(3)
+
+    relative_c = 1.0_sp
+    Do dir = 1, 3
+      If ( c_mof(dir) .gt. 0.0_sp) Then
+        permutation(dir) = -1.0_sp
+        relative_c(dir) = 0.5-c_mof(dir)
+      Else
+        permutation(dir) = 1.0_sp
+        relative_c(dir) = 0.5+c_mof(dir)
+      End If
+      norm_2(dir) = 1.0_sp / ( relative_c(dir) + 1e-10)
+    End Do
+    norm_2(:) = norm_2(:) * permutation(:)
+
+    call normalization2(norm_1)
+    call norm2angle(angle1,norm_1)
+    call findcentroid(angle1,vof,cen1)
+    call normalization2(norm_2)
+    call norm2angle(angle2,norm_2)
+    call findcentroid(angle2,vof,cen2)
+
+    err1 = dot_product(cen1-c_mof,cen1-c_mof)
+    err2 = dot_product(cen2-c_mof,cen2-c_mof)
+    err1 = norm2(cen1-c_mof)
+    err2 = norm2(cen2-c_mof)
+    if (err1 < err2) then
+      angle = angle1
+      error = err1
+    else
+      angle = angle2
+      error = err2
+    endif
+    print *, 'norm', norm_2
+    print *, 'angle2', angle2
+
+  End Subroutine Initial_Guess
+
 
   !=======================================================
   ! (3-5) MOF reconstruction using Machine Learning
@@ -1812,30 +2031,65 @@ Contains
   ! Input:  angle (angle, theta, phi)
   ! Output: norm (normalized normal vector, nx, ny, nz)
   !=======================================================
+  ! Subroutine Norm2Angle(angle, norm)
+  !   Implicit None
+  !   Integer, Parameter  :: sp = 8
+  !   Real(sp), Intent(Out)  :: angle(2)
+  !   Real(sp), Intent(In) :: norm(3)
+  !   angle(1) = acos(norm(3))
+  !   If (norm(1) > epsc) Then
+  !     angle(1) = atan(norm(2) / norm(1) )
+  !   Else If (norm(1) < -epsc) Then
+  !     If (norm(2) .ge. epsc) Then
+  !       angle(1) = atan2(norm(2) / norm(1) ) + MOF_Pi
+  !     Else
+  !       angle(1) = atan(norm(2) / norm(1) ) - MOF_Pi
+  !     EndIf
+  !   Else
+  !     If (norm(2) .gt. epsc) Then
+  !       angle(1) = MOF_Pi / 2.0_sp
+  !     Else If (norm(2) .lt. -epsc) Then
+  !       angle(1) = - MOF_Pi / 2.0_sp
+  !     Else
+  !       angle(1) = 0.0_sp
+  !     End If
+  !   End If
+
+  ! End Subroutine Norm2Angle
+
+  ! Subroutine Norm2Angle(angle, norm)
+  !   Implicit None
+  !   Integer, Parameter  :: sp = 8
+  !   Real(sp), Intent(Out)  :: angle(2)
+  !   Real(sp), Intent(In) :: norm(3)
+  !   angle(2) = acos(norm(3))
+  !   If (norm(1) > epsc) Then
+  !     angle(1) = atan(norm(2) / norm(1) )
+  !   Else If (norm(1) < -epsc) Then
+  !     If (norm(2) .ge. epsc) Then
+  !       angle(1) = atan(norm(2) / norm(1) ) + MOF_Pi
+  !     Else
+  !       angle(1) = atan(norm(2) / norm(1) ) - MOF_Pi
+  !     EndIf
+  !   Else
+  !     If (norm(2) .gt. epsc) Then
+  !       angle(1) = MOF_Pi / 2.0_sp
+  !     Else If (norm(2) .lt. -epsc) Then
+  !       angle(1) = - MOF_Pi / 2.0_sp
+  !     Else
+  !       angle(1) = 0.0_sp
+  !     End If
+  !   End If
+
+  ! End Subroutine Norm2Angle
+
   Subroutine Norm2Angle(angle, norm)
     Implicit None
     Integer, Parameter  :: sp = 8
     Real(sp), Intent(Out)  :: angle(2)
     Real(sp), Intent(In) :: norm(3)
-    angle(2) = acos(norm(3))
-    If (norm(1) > epsc) Then
-      angle(1) = atan(norm(2) / norm(1) )
-    Else If (norm(1) < -epsc) Then
-      If (norm(2) .ge. epsc) Then
-        angle(1) = atan(norm(2) / norm(1) ) + MOF_Pi
-      Else
-        angle(1) = atan(norm(2) / norm(1) ) - MOF_Pi
-      EndIf
-    Else
-      If (norm(2) .gt. epsc) Then
-        angle(1) = MOF_Pi / 2.0_sp
-      Else If (norm(2) .gt. epsc) Then
-        angle(1) = - MOF_Pi / 2.0_sp
-      Else
-        angle(1) = 0.0_sp
-      End If
-    End If
-
+    angle(2) = dacos(norm(3))
+    angle(1) = datan2(norm(2), norm(1))
   End Subroutine Norm2Angle
 
   !=======================================================
@@ -1881,13 +2135,20 @@ Contains
   Subroutine advance_angle(angle,delangle)
     Implicit None
     Integer, Parameter  :: sp = 8
-    REAL(sp) angle,delangle
+    REAL(sp) angle(2),delangle(2)
+    ! REAL(sp) angle,delangle
     angle=angle+delangle
-    if (angle.lt.-MOF_Pi) then
-      angle=angle+2.0_sp*MOF_Pi
+    if (angle(1).lt.-MOF_Pi) then
+      angle(1)=angle(1)+2.0_sp*MOF_Pi
     endif
-    if (angle.gt.MOF_Pi) then
-      angle=angle-2.0_sp*MOF_Pi
+    if (angle(1).gt.MOF_Pi) then
+      angle(1)=angle(1)-2.0_sp*MOF_Pi
+    end if
+    if (angle(2).lt.0.0_sp) then
+      angle(2)=-MOF_Pi
+    endif
+    if (angle(2).gt.MOF_Pi) then
+      angle(2)=2.0_sp * MOF_Pi - angle(2)
     end if
   End Subroutine advance_angle
 

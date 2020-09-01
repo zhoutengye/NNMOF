@@ -29,7 +29,7 @@ ifeq ($(DEBUG), true)
 ifeq ($(compiler), intel)
         FC_OPT = -O0 -g -warn -all -traceback -check all -debug all
 else
-        FC_OPT = -O0 -g -Wall -Wextra  -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
+        FC_OPT = -O0 -g -Wall  -Wextra -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
 endif
         EXEC:= DEBUG-$(EXEC)
         EXEC:= DEBUG-$(EXEC)
