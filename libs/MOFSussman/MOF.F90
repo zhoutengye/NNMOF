@@ -18,7 +18,6 @@
 #define MAXTET (5)
 #define MAXAREA (5)
 #define INTERCEPT_TOL (1.0E-10)
-#define GAUSSNEWTONTOL (1.0E-8)
 #define RADIUS_CUTOFF (6.0)
 #define VOF_CUTOFF (1.0E-8)
 #define UNCAPT_TOL (2.0E-2)
@@ -33,7 +32,7 @@
 
 module geometry_intersect_module
 
-implicit none
+  implicit none
 
 INTEGER_T, PARAMETER :: MAX_NUM_MATERIALS=20
 
@@ -7926,6 +7925,7 @@ module MOF_routines_module
       INTEGER_T :: MOF_DEBUG_RECON
       INTEGER_T :: MOF_TURN_OFF_LS
       INTEGER_T :: NN_ITER
+      Real(8) :: GAUSSNEWTONTOL = 1.0e-8
 
 contains
 

@@ -28,6 +28,10 @@ Subroutine zalesak
   Real(sp) :: ddx(3)
 
   Integer :: rank
+  Real(sp) :: error_rr
+  Real(sp) :: error_r
+  Real(sp) :: error_g
+  Real(sp) :: error_m
 
   Call Init(inputfield=.true.)
 
@@ -78,20 +82,23 @@ Subroutine zalesak
   !!! =====Method 4, Lemoine analytic gradient, Gauss Newton=========
   !  with little issue. Basically, the singular of det matters
   !  may chan the det criterion in line 1220
-  ! MOFNorm => MOFLemoine_GaussNewton
+  !MOFNorm => MOFLemoine_GaussNewton
 
   !!! =====Method 5, My numerical gradient, Gauss Newton=========
-  MOFNorm => MOFZY
+  ! MOFNorm => MOFZY
 
   ! VOF advection
   Call CPU_Time(tt1)
   Do While (time < tend)
     if (myid .eq. 0) print *, 'step =', nn
-    rank = mod(nn+1,3)
+    rank = mod(nn+1,6)
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
-    Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
+    ! Call VOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
     Call WriteFieldData
@@ -111,13 +118,35 @@ Subroutine zalesak
   v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3)))
   v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3)))
 
+  Do k = 1, nl(3)
+    Do j = 1, nl(2)
+      Do i = 1, nl(1)
+        error_rr = error_rr + abs(f_beg(i,j,k) - f_end(i,j,k))
+      End Do
+    End Do
+  End Do
+
+
   Call MPI_Reduce(v1, v11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
   Call MPI_Reduce(v1, v12, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
+  Call MPI_Reduce(error_rr, error_r, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
+
+
+  error_m = (v11 - v12) / v11
+  error_g = (error_r) / dble(n(1)) / dble(n(2)) / dble(n(3))
+  error_r = (error_r) / v11
+
   if (myid .eq.0) then
-    print *, 'cpu_time =', tt2-tt1
-    print *, 'Initial volume:', v11
-    print *, 'Initial volume:', v12
-    print *, err / dble(n(1)) / dble(n(2)) / dble(n(3))
+    print *, 'cpu_time = ', tt2-tt1
+    print *, 'realtive distortion error = ', error_r
+    print *, 'absolute error = ', error_g
+    print *, 'conservation error = ', error_m
+    open(10,file='errors.dat')
+    write(10,*) , 'cpu_time = ', tt2-tt1
+    write(10,*) , 'realtive distortion error = ', error_r
+    write(10,*) , 'absolute error = ', error_g
+    write(10,*) , 'conservation error = ', error_m
+    close(10)
   endif
 
   Call Visual3DContour(f1=f_end)

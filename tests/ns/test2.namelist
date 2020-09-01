@@ -18,7 +18,7 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 3.0
+tend  = 1.0
 dt = 0.01
 hotstart = .false.
 hotstart_type = 0
@@ -51,7 +51,7 @@ rho_g = 1.0e0
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
 cfl   = 0.5
-dt_min = 0.005
+dt_min = 0.001
 body_force = 0.0, 0.0, -9.81
 /
 

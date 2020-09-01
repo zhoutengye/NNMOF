@@ -22,7 +22,7 @@ dt = 0.05
 /
 
 &outvar
-output_inteval = 1.0
+output_inteval = 3.0
 starttime = 5.0
 hotstart = .true.
 output_format = 'tecplot'

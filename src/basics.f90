@@ -902,7 +902,6 @@ Contains
       Write(10,'(a)') "os.system('mkdir -p ' + new_dir)"
       Write(10,'(a)') "f2 = h5py.File(new_dir + '/tecplot.h5','w')"
       Write(10,'(a)') "datacount = 1"
-      Write(10,'(a)') "X, Y, Z = np.meshgrid(x,y,z)"
       Write(10,'(a)') "for group in times:"
       Write(10,'(a)') "    dk = str(datacount).zfill(6)"
       Write(10,'(a)') "    f2.create_group(dk)"
