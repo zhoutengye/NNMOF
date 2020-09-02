@@ -1,6 +1,7 @@
 &mpivar
 px = 1
 py = 1
+pz = 1
 /
 
 &gridvar
@@ -22,8 +23,9 @@ dt = 0.02
 /
 
 &outvar
-output_inteval = 1.0
-startframe = 0
+output_inteval = 1.5
+startoutputtime = 0.0
+output_format = 'tecplot'
 /
 
 &iofield

@@ -1,0 +1,12 @@
+{
+    "grid": 50,
+    "inputfile_path":"../../../inputs/",
+    "exec_list": [
+        "MOF",
+        "MOFBFGS",
+        "MOFZY",
+        "MOFLemoineGN",
+        "PLIC",
+        "THINC"
+    ]
+}

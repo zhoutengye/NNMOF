@@ -57,38 +57,12 @@ Subroutine zalesak
   f_beg = phi
   f_exact = f_beg
 
- 
-  !!! =====Method 1, Sussman numerical gradient, GaussNewton=========
-  ! Call MOFInit3d
-  ! MOFNorm => MOFSussmanGaussNewton
-
-  !!! =====Method 2, Lemoine numerical gradient, BFGS=========
-  !! For numerical gradient in BFGS
-  ! MOFNorm => MOFLemoine_BFGS
-  ! ddx = 1.0_sp
-  ! mof_use_symmetric_reconstruction = .false.
-  ! mof3d_internal_is_analytic_gradient_enabled = .false.
-  ! mof3d_use_optimized_centroid = .true.
-  ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
-
-  !!! =====Method 3, Lemoine analytic gradient, BFGS=========
-  !! For numerical gradient in BFGS
-  ! MOFNorm => MOFLemoine_BFGS
-  ! ddx = 1.0_sp
-  ! mof_use_symmetric_reconstruction = .false.
-  ! mof3d_internal_is_analytic_gradient_enabled = .true.
-  ! mof3d_use_optimized_centroid = .true.
-  ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
-
-  !!! =====Method 4, Lemoine analytic gradient, Gauss Newton=========
-  !  with little issue. Basically, the singular of det matters
-  !  may chan the det criterion in line 1220
-  MOFNorm => MOFLemoine_GaussNewton
-  GAUSSNEWTONTOL = 1.0e-8
-  delta_theta = 1e-8
-  mof_tol = 1e-4
-  delta_theta_max = 1.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
-  MOFITERMAX = 10
+  MOFNorm => MOFLemoine_BFGS
+  ddx = 1.0_sp
+  mof_use_symmetric_reconstruction = .false.
+  mof3d_internal_is_analytic_gradient_enabled = .true.
+  mof3d_use_optimized_centroid = .true.
+  Call Lemoine_create_cuboid(ddx, LemoinePoly)
 
   !!! =====Method 5, My numerical gradient, Gauss Newton=========
   ! MOFNorm => MOFZY
@@ -101,6 +75,7 @@ Subroutine zalesak
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     sum_iter = sum_iter+num_iter
+    print *, sum_iter, grid_iter
     ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
@@ -145,7 +120,9 @@ Subroutine zalesak
 
   if (myid .eq.0) then
     print *, 'cpu_time = ', tt2-tt1
-    print *, 'iter = ', sum_iter
+    print *, 'sum_iter = ', sum_iter
+    print *, 'grid_iter = ', grid_iter 
+    print *, 'average_iter = ', float(sum_iter)/float(grid_iter)
     print *, 'realtive distortion error = ', error_r
     print *, 'absolute error = ', error_g
     print *, 'conservation error = ', error_m
@@ -164,4 +141,5 @@ Subroutine zalesak
 
 
 end Subroutine zalesak
+
 

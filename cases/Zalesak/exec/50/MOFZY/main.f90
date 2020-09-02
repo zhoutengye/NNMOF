@@ -32,6 +32,7 @@ Subroutine zalesak
   Real(sp) :: error_r
   Real(sp) :: error_g
   Real(sp) :: error_m
+  Integer :: sum_iter(2) = 0
 
   Call Init(inputfield=.true.)
 
@@ -94,6 +95,7 @@ Subroutine zalesak
     rank = mod(nn+1,6)
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    sum_iter = sum_iter+mof_niter
     ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
@@ -138,6 +140,7 @@ Subroutine zalesak
 
   if (myid .eq.0) then
     print *, 'cpu_time = ', tt2-tt1
+    print *, 'iter = ', sum_iter
     print *, 'realtive distortion error = ', error_r
     print *, 'absolute error = ', error_g
     print *, 'conservation error = ', error_m

@@ -32,6 +32,7 @@ Subroutine zalesak
   Real(sp) :: error_r
   Real(sp) :: error_g
   Real(sp) :: error_m
+  Integer :: sum_iter(2) = 0
 
   Call Init(inputfield=.true.)
 
@@ -72,12 +73,16 @@ Subroutine zalesak
 
   !!! =====Method 3, Lemoine analytic gradient, BFGS=========
   !! For numerical gradient in BFGS
-  ! MOFNorm => MOFLemoine_BFGS
-  ! ddx = 1.0_sp
-  ! mof_use_symmetric_reconstruction = .false.
-  ! mof3d_internal_is_analytic_gradient_enabled = .true.
-  ! mof3d_use_optimized_centroid = .true.
-  ! Call Lemoine_create_cuboid(ddx, LemoinePoly)
+  MOFNorm => MOFLemoine_BFGS
+  ddx = 1.0_sp
+  mof_use_symmetric_reconstruction = .false.
+  mof3d_internal_is_analytic_gradient_enabled = .true.
+  mof3d_use_optimized_centroid = .true.
+  Call Lemoine_create_cuboid(ddx, LemoinePoly)
+  mof_tol = 1d-8
+  mof_tol = 1.0e-8
+  mof3d_tol_derivative = 1d-8
+  mof3d_max_iter = 10
 
   !!! =====Method 4, Lemoine analytic gradient, Gauss Newton=========
   !  with little issue. Basically, the singular of det matters
@@ -94,6 +99,7 @@ Subroutine zalesak
     rank = mod(nn+1,6)
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    sum_iter = sum_iter+num_iter
     ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
@@ -138,6 +144,7 @@ Subroutine zalesak
 
   if (myid .eq.0) then
     print *, 'cpu_time = ', tt2-tt1
+    print *, 'iter = ', sum_iter
     print *, 'realtive distortion error = ', error_r
     print *, 'absolute error = ', error_g
     print *, 'conservation error = ', error_m

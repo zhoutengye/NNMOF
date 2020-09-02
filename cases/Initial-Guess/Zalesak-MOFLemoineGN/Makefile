@@ -1,6 +1,6 @@
-MOF_DIR    = ../../../../../
+MOF_DIR    = ../../../
 compiler   = intel
-EXEC       = Zalesak-mof.exec
+EXEC       = Zalesak-lemoinegn.exec
 FC         = mpif90
 DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
