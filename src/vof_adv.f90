@@ -38,6 +38,9 @@ Module ModVOF
 
   real(sp) :: epsc_vof = 1.0d-4
 
+  Integer(sp) :: num_iter(2) = 0
+  Integer(sp) :: grid_iter = 0
+
 Contains
 
   Subroutine VOFCIAM(Phi, u, v, w, nl, dl, dt, rank)
@@ -141,6 +144,7 @@ Contains
     Real(sp),Intent(In)       :: v(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Real(sp),Intent(In)       :: w(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
     Integer :: rank
+    num_iter = 0
     if (rank == 0 .or. rank == 4) Then
       call AdvCIAM_MOF(u, cx, cy, cz, phi, nl, dl, dt, 1)
       call AdvCIAM_MOF(v, cx, cy, cz, phi, nl, dl, dt, 2)
@@ -638,7 +642,8 @@ Subroutine AdvCIAM_MOF(us, cx, cy, cz, f, nl, dl, dt, dir)
           ! Call NormMYCS(f_block, norm)
           ! Call NormMOF(f(i,j,k), c3, norm, init_norm=init_norm)
           Call MOFNorm(f(i,j,k), c3, norm)
-          Call Normalization1(norm)
+          num_iter = num_iter + mof_niter
+          grid_iter = grid_iter + 1
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
           norm(dir) = norm(dir)/(1.0_sp - a1 + a2)

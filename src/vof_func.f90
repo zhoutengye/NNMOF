@@ -65,7 +65,7 @@ Module ModVOFFunc
   Real(sp) :: det_lim = 1.0e-30
   Real(sp),parameter :: MOF_Pi = 3.1415926535897932d0
   Real(sp) :: epsc = 1.0e-12
-  Real(sp) :: mof_niter(2)
+  Integer :: mof_niter(2)
   Real(sp) :: delta_theta =1e-5
   Real(sp) :: delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
@@ -1282,7 +1282,7 @@ Contains
       iter=iter+1
     End Do
 
-    mof_niter(1) = iter
+    mof_niter(1) = iter + 1
 #if defined(DEBUG)
     Block
       Integer :: ii
@@ -1471,7 +1471,7 @@ Contains
 
     End Do
 
-    mof_niter(1) = iter
+    mof_niter(1) = iter + 1
 #if defined(DEBUG)
     Block
       Integer :: ii
@@ -1636,7 +1636,7 @@ Contains
 
       if ( dot_product(delangle,delangle) .lt. mof_tol_dangle) exit
     End Do
-    mof_niter(1) = iter
+    mof_niter(1) = iter+1 
 
     do dir=1,2
       new_angle(dir)=angle_array(dir,iter+1)
@@ -1705,7 +1705,7 @@ Contains
 
     call mof3d_bfgs(LemoinePoly, c_mof, c_mof_sym, vof, angle_init, norm, nstat, residual)
 
-    mof_niter = nstat
+    mof_niter = nstat 
 
     Call Normalization1(norm)
 
@@ -1788,7 +1788,7 @@ Contains
         sussman%sdim)
 
     norm(1:3) = -norm
-    mof_niter(1) = nn_iter
+    mof_niter(1) = nn_iter + 1
     mof_niter(2) = 0
 
   End Subroutine MOFSussmanGaussNewton
@@ -1843,8 +1843,7 @@ Contains
       angle = angle2
       error = err2
     endif
-    ! print *, 'norm', norm_2
-    ! print *, 'angle2', angle2
+    ! angle = angle1
 
   End Subroutine Initial_Guess
 
