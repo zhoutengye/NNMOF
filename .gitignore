@@ -5,6 +5,7 @@
 *.h5
 *.py
 *.exec
+*.so
 *genmod.f90
 src/TEST-*
 src/buffer.f90
