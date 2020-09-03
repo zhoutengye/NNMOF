@@ -1,7 +1,7 @@
 TEST_NUM = 1
 MOF_DIR    = ../../..
 compiler   = intel
-EXEC       = gen_data
+EXEC       = gen_data.exec
 FC         = mpif90
 DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
