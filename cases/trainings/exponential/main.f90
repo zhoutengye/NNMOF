@@ -17,7 +17,7 @@ end program test
 Subroutine gen_data
   Use ModVOFFunc
   Implicit None
-  Integer, Parameter  :: num_sampling = 100000
+  Integer, Parameter  :: num_sampling = 1000000
   Real(sp) :: n1(num_sampling)
   Real(sp) :: n2(num_sampling)
   Real(sp) :: n3(num_sampling)
@@ -64,7 +64,7 @@ Subroutine compare
   use MODSussman
   use variables_mof
   Implicit None
-  Integer,parameter :: num_sampling = 100000
+  Integer,parameter :: num_sampling = 1000000
   Real(sp) :: data(7,num_sampling)
   Real(sp) :: norm_exact(3,num_sampling)
   Real(sp) :: norm_ZY(3,num_sampling)
@@ -91,25 +91,27 @@ Subroutine compare
 
   norm_exact = data(1:3,:)
 
+  MOFITERMAX = 100
   mof_tol = 1d-8
   mof3d_tol_derivative = 1d-8
   mof_tol_derivative = 1d-8
   GAUSSNEWTONTOL = 1.0e-8
   delta_theta = MOF_Pi / 180.0_sp  ! 1 degree=pi/180
-  ! delta_theta_max = 2.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+  delta_theta = 1e-8
+  ! delta_theta_max = 5.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   ! ZY
-  sum_iter = 0
-  MOFNorm => MOFZY
-  method = 'MOFZY'
-  Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iter(1,:), error(1,:))
+  ! sum_iter = 0
+  ! MOFNorm => MOFZY
+  ! method = 'MOFZY'
+  ! Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iter(1,:), error(1,:))
 
   ! Lemoine GN with analytic gradient
   sum_iter = 0
   MOFNorm => MOFLemoine_GaussNewton
   ddx = 1.0_sp
   mof3d_internal_is_analytic_gradient_enabled = .true.
-  mof3d_use_optimized_centroid = .true.
+  mof_use_symmetric_reconstruction = .false.
   Call Lemoine_create_cuboid(ddx, LemoinePoly)
   method = 'Lemoine, Gauss-Newton'
   Call onemethod(method,num_sampling, data, Norm_GN, tt(2), num_iter(2,:), error(2,:))
@@ -118,10 +120,8 @@ Subroutine compare
   sum_iter = 0
   MOFNorm => MOFLemoine_BFGS
   ddx = 1.0_sp
-  mof_use_symmetric_reconstruction = .false.
   mof3d_internal_is_analytic_gradient_enabled = .true.
-  mof3d_use_optimized_centroid = .false.
-  Call Lemoine_create_cuboid(ddx, LemoinePoly)
+  mof_use_symmetric_reconstruction = .true.
   method = 'Lemoine, BFGS, analytic'
   Call onemethod(method,num_sampling, data, Norm_BFGS1, tt(3), num_iter(3,:), error(3,:))
 
@@ -135,12 +135,12 @@ Subroutine compare
   Call onemethod(method, num_sampling, data, Norm_BFGS2, tt(4), num_iter(4,:), error(4,:))
 
   ! Sussman Gauss Newton with numerical gradient
-  Call MOFInit3d
-  MOFNorm => MOFSussmanGaussNewton
-  method = 'Sussman, Gauss-Newton'
-  Call onemethod(method, num_sampling, data, Norm_Sussman, tt(5), num_iter(5,:), error(5,:))
+  ! Call MOFInit3d
+  ! MOFNorm => MOFSussmanGaussNewton
+  ! method = 'Sussman, Gauss-Newton'
+  ! Call onemethod(method, num_sampling, data, Norm_Sussman, tt(5), num_iter(5,:), error(5,:))
 
-  Call MPI_FINALIZE(ierr)
+  ! Call MPI_FINALIZE(ierr)
 
   Open(10,file='norm_BFGS1.dat')
   Do i = 1, num_sampling
@@ -204,6 +204,7 @@ Subroutine onemethod(method, num_sampling, data_in, norm_out, times, iter, error
   Real(sp) :: angle_error
   Real(sp) :: tot_angle_error = 0.0_sp
   Real(sp) :: Norm_analytic(3,num_sampling)
+  Real(sp) :: Norm_analytic1(3)
   Real(sp) :: Angle_analytic(2)
   Integer :: sum_iter(2)
   Integer :: i
@@ -211,11 +212,17 @@ Subroutine onemethod(method, num_sampling, data_in, norm_out, times, iter, error
   Real(sp) :: c(3)
   Real(sp) :: c_cal(3)
   Real(sp) :: norm(3)
+  Real(sp) :: angle_init(2), norm_init(3)
+  Real(sp) :: angle_error_init(3)
+  Real(sp) :: norm_error_init(3)
+  Real(sp) :: cen_error_init(3)
+  Real(sp) :: f_error_init
   Real(sp) :: t1,t2
   Real(sp) :: max_error
   Real(sp) :: norm_error_max(3)
   Real(sp) :: norm_c_error_max(3)
   Real(sp) :: f_error_max
+  Real(sp) :: err_temp
 
   max_error = 0.0_sp
 
@@ -235,24 +242,48 @@ Subroutine onemethod(method, num_sampling, data_in, norm_out, times, iter, error
   norm_analytic = data_in(1:3,:)
   angle_error = 0.0_sp
   c_error = 0.0_sp
+  angle_error_init = 0.0_sp
   Do i = 1, num_sampling
+    f = data_in(4,i)
+    c = data_in(5:7,i)
     Call Norm2Angle(angle_out(:,i),  norm_out(:,i))
     Call FloodSZ_BackwardC(norm_out(:,i),data_in(4,i),c_cal)
     f = data_in(4,i)
     c = data_in(5:7,i)
+    Norm_analytic1 = norm_analytic(:,i)
     error(1) = error(1) + sum(abs(norm_out(:,i)-norm_analytic(:,i)))
     error(2) = error(2) + sum((norm_out(:,i)-norm_analytic(:,i)) * (norm_out(:,i)-norm_analytic(:,i)))
     c_error = c_error + sum(abs(c_cal-data_in(5:7,i)))
-    Call Norm2Angle(angle_analytic,  norm_analytic(:,i))
+    Call Initial_Guess(c-0.5_sp, f, angle_init,err_temp)
+    Call Normalization2(Norm_analytic1)
+    Call Norm2Angle(angle_analytic,  norm_analytic1)
     angle_error = sum(abs(angle_out(:,i)-angle_analytic))
     tot_angle_error = tot_angle_error + angle_error
+    if (f>0.5_sp) cycle
     if ( angle_error > max_error) then
       max_error = angle_error
-      norm_error_max = norm_analytic(:,i)
-      ! norm_error_max = data_in(5:7,i)
+      norm_error_max = norm_analytic1
       call Angle2Norm(angle_out(:,i),norm_c_error_max)
       f_error_max = f
     end if
+    if ( angle_error_init(1) < abs(angle_init(1)-angle_analytic(1)) ) then
+      ! angle_error_init(1) = abs(angle_out(1,i)-angle_analytic(1))
+      angle_error_init(1) = abs(angle_init(1)-angle_analytic(1))
+    endif
+    if ( angle_error_init(2) < abs(angle_init(2)-angle_analytic(2)) ) then
+      ! angle_error_init(2) = abs(angle_out(2,i)-angle_analytic(2))
+      angle_error_init(2) = abs(angle_init(2)-angle_analytic(2))
+    endif
+    if ( angle_error_init(3) < abs(angle_init(1)-angle_analytic(1))+ abs(angle_init(2)-angle_analytic(2)) ) then
+      ! angle_error_init(2) = abs(angle_out(2,i)-angle_analytic(2))
+      angle_error_init(3) = abs(angle_init(1)-angle_analytic(1)) + abs(angle_init(2)-angle_analytic(2))
+      norm_error_init = norm_analytic(:,i)
+    ! Call Norm2Angle(angle_init,  norm_init)
+    !  norm_error_init = norm_init
+      cen_error_init  = c
+      f_error_init  = f
+    endif
+
   End Do
 
   error = error / dble(num_sampling)
@@ -267,6 +298,10 @@ Subroutine onemethod(method, num_sampling, data_in, norm_out, times, iter, error
   print *, 'error:', error
   print *, 'angle_error:', tot_angle_error
   print *, 'centroid_error:', c_error
+  print *, 'initial_guess_error_max:', angle_error_init
+  print *, 'initial_norm_error_max:', norm_error_init
+  print *, 'initial_cen_error_max:', cen_error_init
+  print *, 'f_cen_error_max:', f_error_init
   ! print *,'----------------------------------------'
   ! print *, 'max_error:', max_error
   ! print *, 'vof:', f_error_max
@@ -286,6 +321,7 @@ Subroutine onemethod(method, num_sampling, data_in, norm_out, times, iter, error
   close(10)
 End Subroutine onemethod
 
+
 Subroutine compare_old_initial
   Use ModGlobal
   Use ModTools
@@ -294,7 +330,7 @@ Subroutine compare_old_initial
   use MODSussman
   use variables_mof
   Implicit None
-  Integer,parameter :: num_sampling = 100000
+  Integer,parameter :: num_sampling = 1000000
   Real(sp) :: data(7,num_sampling)
   Real(sp) :: norm_exact(3,num_sampling)
   Real(sp) :: norm_ZY(3,num_sampling)
@@ -331,10 +367,10 @@ Subroutine compare_old_initial
   ! delta_theta_max = 5.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   ! ZY
-  sum_iter = 0
-  MOFNorm => MOFZY
-  method = 'MOFZY'
-  Call onemethod_old(method,num_sampling, data, Norm_ZY, tt(1), num_iter(1,:), error(1,:))
+  ! sum_iter = -4
+  ! MOFNorm => MOFZY
+  ! method = 'MOFZY'
+  ! Call onemethod_old(method,num_sampling, data, Norm_ZY, tt(1), num_iter(1,:), error(1,:))
 
   ! Lemoine GN with analytic gradient
   sum_iter = 0
@@ -365,10 +401,10 @@ Subroutine compare_old_initial
   Call onemethod_old(method, num_sampling, data, Norm_BFGS2, tt(4), num_iter(4,:), error(4,:))
 
   ! Sussman Gauss Newton with numerical gradient
-  Call MOFInit3d
-  MOFNorm => MOFSussmanGaussNewton
-  method = 'Sussman, Gauss-Newton'
-  Call onemethod_old(method, num_sampling, data, Norm_Sussman, tt(5), num_iter(5,:), error(5,:))
+  ! Call MOFInit3d
+  ! MOFNorm => MOFSussmanGaussNewton
+  ! method = 'Sussman, Gauss-Newton'
+  ! Call onemethod_old(method, num_sampling, data, Norm_Sussman, tt(5), num_iter(5,:), error(5,:))
 
   Call MPI_FINALIZE(ierr)
 

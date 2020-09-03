@@ -14,4 +14,4 @@
 
 - If other cases is to be done, it would be similar with Zalesak
 
-- There are not a lot of data to deal with, so the cpu time are simpled obtaiend from the print-screen
+- There are not a lot of data to deal with, so the cpu time are simpled obtaiend from the print-screen.

@@ -1,7 +1,7 @@
-TEST_NUM = 3
+TEST_NUM = 1
 MOF_DIR    = ../../..
 compiler   = intel
-EXEC       = rand
+EXEC       = gen_data
 FC         = mpif90
 DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
@@ -17,7 +17,7 @@ include $(MOF_DIR)/Make-Essential
 
 # Case specific makefile variables, not necessary
 CPP := $(CPP) -DTEST$(TEST_NUM)
-EXEC       = TEST$(TEST_NUM)
+# EXEC       = TEST$(TEST_NUM).exec
 
 # If external libraries needed, append after following lines
 LIBS := $(LIBS)
