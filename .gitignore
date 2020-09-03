@@ -35,7 +35,7 @@ libs/hypre-master
 *.vtr
 *.pvd
 *.plt
-*,npy
+*.npy
 
 tecplot*
 paraview*
