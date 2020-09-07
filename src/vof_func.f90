@@ -17,13 +17,17 @@
 !       (3-2) MOF reconstruction using Lemoine's analytic gradient and Gauss-Newton iteration
 !       (3-3) MOF reconstruction using Lemoine's analytic gradient and BFGS iteration
 !       (3-4) MOF reconstruction using Sussman's computational geometry and Gauss-Newton iteration
-!       (3-5) Find centroid for given norm and volume function
+!       (3-5) MOF reconstruction using machine learning (NNMOF)
+!       (3-6) Find centroid for given norm and volume function
 !     (4) Misc
 !       (4-1) Normalization vector 1 (nx+ny+nz=1)
 !       (4-2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
 !       (4-3) Cartesian norm to Spherical angle
 !       (4-4) Spherical angle to Cartesian norm
 !       (4-5) Anvance of angle
+!       (4-6) Initial_Guess 
+!       (4-7) Initialize NNMOF
+!       (4-8) Initialize Lemoine's algorithm
 !     (5) Level set related
 !       (5-1) Smooth vof function
 !       (5-2) VOF to level set function near interface
@@ -53,6 +57,7 @@
 !=================
 Module ModVOFFunc
   Use ModGlobal, only : sp
+  Use NueralNetwork
   use mod_cg3_polyhedron
   use mod_cg3_complete_polyhedron_structure
   Implicit None
@@ -70,6 +75,7 @@ Module ModVOFFunc
   Real(sp) :: delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   type(t_polyhedron) :: LemoinePoly
+  type(Neural_Network) :: ML
 
   PROCEDURE(InterfaceMOF), POINTER :: MOFNorm => MOFZY
   PROCEDURE(InterfaceVOF), POINTER :: VOFNorm => NormMYCS
@@ -1322,13 +1328,10 @@ Contains
     Real(sp)  :: vof
     Real(sp)  :: c_mof(3) ,c_mof_sym(3)
     Real(sp), Dimension(3)   :: norm_2
-    Real(sp), Dimension(2)   :: delangle, angle_init, angle_previous, new_angle
+    Real(sp), Dimension(2)   :: delangle, angle_init,  new_angle
     Real(sp), Dimension(2)   :: angle_base, angle_plus, angle_minus
-    Real(sp), Dimension(2)   :: err_plus, err_minus
-    Real(sp), Dimension(3)   :: dbase, dopt, dp, dm
-    Real(sp), Dimension(3,2) :: d_plus, d_minus
     Real(sp), Dimension(3)   :: cenopt, cenp, cenm, cen_init
-    Real(sp), Dimension(3)   :: cenopt_sym, cen_init_sym
+    Real(sp), Dimension(3)   :: cenopt_sym
     Real(sp), Dimension(3,2) :: cen_plus, cen_minus
     Real(sp), Dimension(3,2) :: Jacobian
     Real(sp), Dimension(2,2) :: Hessian, HessianT
@@ -1524,7 +1527,6 @@ Contains
 
     Real(sp)  :: vof
     Real(sp)  :: c_mof(3)
-    Real(sp)  :: int_c_mof(3)
     Real(sp), Dimension(3)   :: norm_2
     Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
     Real(sp), Dimension(2)   :: angle_base
@@ -1675,7 +1677,6 @@ Contains
     Real(sp) :: vof
     Real(sp) :: c_mof(3), c_mof_sym(3)
     Real(sp), Dimension(3)   :: norm_2
-    Real(sp) :: delta_theta_max
     Real(sp), Dimension(2)   :: angle_init
     Real(sp) :: err
 
@@ -1793,60 +1794,57 @@ Contains
 
   End Subroutine MOFSussmanGaussNewton
 
-  Subroutine Initial_Guess(C_mof, vof, angle, error)
+ 
+  !=======================================================
+  ! (3-5) MOF reconstruction using Machine Learning
+  !     For given vof and centroid, find the best norm
+  ! Key steps:
+  !   - Convert to local region
+  !   - Calculate the gradient using machine learning
+  !   - Flip the normal vector
+  !-------------------------------------------------------
+  ! Input:
+  !      f: vof function
+  !      c: centroid (cx, cy, cz)
+  ! Optional Input:
+  !      init_norm: Initial guess of the normal vector
+  ! Output:
+  !      norm: vof function
+  !=======================================================
+  Subroutine MOFNN(f, c, norm, Init_Norm)
+    use variables_mof
+    Use mod_cg3_polyhedron
+    Use mod_mof3d_bfgs
     Implicit None
-    Real(sp), Intent(In) :: C_mof(3)
-    Real(sp), Intent(In) :: vof
-    Real(sp), Intent(Out) :: angle(2)
-    Real(sp), Intent(Out) :: error
-    Real(sp) :: norm_1(3), norm_2(3)
-    Real(sp) :: C2_mof(3)
-    Real(sp) :: cen1(3), cen2(3)
-    Real(sp) :: angle1(2), angle2(2)
-    Real(sp) :: err1, err2, err3
-    Real(sp) :: permutation(3)
-    Real(sp) :: relative_c(3)
-    Integer :: dir
+    Real(sp), Intent(In)  :: f
+    Real(sp), Intent(In)  :: c(3)
+    Real(sp), Intent(Out) :: norm(3)
+    Real(sp), Optional, Intent(In) :: Init_Norm(3)
 
-    Norm_1(1) = - c_mof(1)
-    Norm_1(2) = - c_mof(2)
-    Norm_1(3) = - c_mof(3)
+    Real(sp) :: vof
+    Real(sp) :: c_mof(3)
+    Real(sp), Dimension(2)   :: angle_init
+    Real(sp), Dimension(2)   :: delta_angle_correct
+    Real(sp), Dimension(2)   :: angle_correct
+    Real(sp), Dimension(3)   :: inputs
+    Real(sp) :: err
+    vof = f
+    c_mof = c
 
-    relative_c = 1.0_sp
-    Do dir = 1, 3
-      If ( c_mof(dir) .gt. 0.0_sp) Then
-        permutation(dir) = -1.0_sp
-        relative_c(dir) = 0.5-c_mof(dir)
-      Else
-        permutation(dir) = 1.0_sp
-        relative_c(dir) = 0.5+c_mof(dir)
-      End If
-      norm_2(dir) = 1.0_sp / ( relative_c(dir) + 1e-10)
-    End Do
-    norm_2(:) = norm_2(:) * permutation(:)
+    Call Initial_Guess2(c_mof-0.5_sp, vof, angle_init, err)
+    Call Angle2Norm(angle_init, norm)
 
-    call normalization2(norm_1)
-    call norm2angle(angle1,norm_1)
-    call findcentroid(angle1,vof,cen1)
-    call normalization2(norm_2)
-    call norm2angle(angle2,norm_2)
-    call findcentroid(angle2,vof,cen2)
+    ! inputs(1:3) = c_mof - 0.5_sp
+    ! inputs(4) = vof
 
-    err1 = dot_product(cen1-c_mof,cen1-c_mof)
-    err2 = dot_product(cen2-c_mof,cen2-c_mof)
-    err1 = norm2(cen1-c_mof)
-    err2 = norm2(cen2-c_mof)
-    if (err1 < err2) then
-      angle = angle1
-      error = err1
-    else
-      angle = angle2
-      error = err2
-    endif
-    ! angle = angle1
+    ! delta_angle_correct = ml%predict(inputs)
+    ! angle_correct = angle_init + delta_angle_correct
 
-  End Subroutine Initial_Guess
+    ! Call Angle2Norm(angle_correct, norm)
 
+    Call Normalization1(norm)
+
+  End Subroutine MOFNN
 
   !=======================================================
   ! (3-5) MOF reconstruction using Machine Learning
@@ -1864,37 +1862,193 @@ Contains
   ! Output:
   !      norm: vof function
   !=======================================================
-  ! Subroutine MOFNN(f, c, norm, Init_Norm)
-  !   Implicit None
-  !   Real(sp) :: flip(3)
-  !   Real(sp) :: symmetric
-  !   Real(sp) :: c_mof(3)
+  Subroutine MOFNN2(f, c, norm, Init_Norm)
+    use variables_mof
+    Use mod_cg3_polyhedron
+    Use mod_mof3d_bfgs
+    Implicit None
+    Real(sp), Intent(In)  :: f
+    Real(sp), Intent(In)  :: c(3)
+    Real(sp), Intent(Out) :: norm(3)
+    Real(sp), Optional, Intent(In) :: Init_Norm(3)
 
-  !   c = c - 0.5_sp
-  !   If ( f .ge. 0.5_sp ) Then
-  !     symmetric = - 1.0_sp
-  !   Else
-  !     symmetric = 1.0_sp
-  !   endif
-  !   Do i = 1,3
-  !     If ( c(i) < 0.0_sp ) Then
-  !       flip(i) = .false.
-  !       c_mof(i) = c(i)
-  !     Else
-  !       flip(i) = .true.
-  !       c_mof(i) = - c(i)
-  !     End Do
-  !   End Do
+    Real(sp) :: vof
+    Real(sp) :: c_mof(3)
+    Real(sp), Dimension(2)   :: angle_init
+    Real(sp), Dimension(2)   :: delta_angle_correct
+    Real(sp), Dimension(2)   :: angle_correct
+    Real(sp), Dimension(4)   :: inputs
+    Real(sp) :: err
+    vof = f
+    c_mof = c
 
-  !   Do i = 1,3
-  !     Norm(i) = Norm(i) * flip(i) * symmetric
-  !   End Do
+    ! Call Initial_Guess(c_mof-0.5_sp, vof, angle_init, err)
 
-  ! End Subroutine MOFNN
+    inputs(1:3) = c_mof - 0.5_sp
+    inputs(4) = vof
+
+    angle_correct = ml%predict(inputs)
+    ! angle_correct = angle_init + delta_angle_correct
+
+    Call Angle2Norm(angle_correct, norm)
+
+    Call Normalization1(norm)
+
+  End Subroutine MOFNN2
+
+  !=======================================================
+  ! (3-7) MOF reconstruction using Analytic gradient and Gauss-Newton iteration
+  !-------------------------------------------------------
+  ! The algorithm uses analytic slope by Lemoine (2020, JCP)
+  ! Gauss-Newton iteration is used
+  ! Input:
+  !      f: vof function
+  !      c: centroid (cx, cy, cz)
+  ! Optional Input:
+  !      init_norm: Initial guess of the normal vector
+  ! Output:
+  !      norm: vof function
+  !=======================================================
+  Subroutine MOFNN3(f, c, norm, Init_Norm)
+    ! Use ModOptimizer
+    Use mod_mof3d_analytic_centroid
+    Implicit None
+    Real(sp), Intent(In)  :: f
+    Real(sp), Intent(In)  :: c(3)
+    Real(sp), Intent(Out) :: norm(3)
+    Real(sp), Optional, Intent(In) :: Init_Norm(3)
+
+    Real(sp)  :: vof
+    Real(sp)  :: c_mof(3)
+    Real(sp), Dimension(3)   :: norm_2
+    Real(sp), Dimension(2)   :: delangle, angle_init, new_angle
+    Real(sp), Dimension(2)   :: angle_base
+    Real(sp), Dimension(2,MOFITERMAX+1) :: angle_array
+    Real(sp), Dimension(MOFITERMAX+1)   :: err_array
+
+    Real(sp) :: err
+    Integer :: singular_flag
+    Integer :: i_angle, dir, iter, i, j
+    real(sp) :: dxs(3)
+    Real(sp) :: c_diff(3)
+    Real(sp) :: gradient(2)
+    Real(sp) :: Jacobian(3,2)
+    Real(sp) :: Hessian(2,2)
+    Real(sp) :: HessianT(2,2)
+    Real(sp) :: det
+
+    dxs = 1.0_sp
+
+    if (f .ge. 0.5_sp) then
+      vof = 1.0_sp - f
+      c_mof = ( 0.5 - c * f ) / vof
+    else
+      vof = f
+      c_mof = c
+    endif
+
+    ! Initialize angle
+    If(present(Init_Norm))then
+      norm_2 = Init_Norm
+      Call Normalization2(Norm_2)
+      Call Norm2Angle(angle_init,norm_2)
+      Call mof3d_compute_analytic_gradient_GN(angle_init, c_mof, vof, dxs, c_diff, Jacobian)
+      err = norm2(c_diff)
+    Else
+      Call Initial_Guess2(c_mof-0.5_sp, vof, angle_init, err)
+    EndIf
+
+    do dir=1,2
+      angle_array(dir,1)= angle_init(dir)
+    enddo
+
+    do dir=1,3
+      err_array(1) = err
+    enddo
+
+    iter = 0
+    err = err_array(1)
+    mof_niter = 0
+    mofitermax = 2
+    Do While ((iter.lt.MOFITERMAX) .and. (err.gt.mof_tol))
+
+      Do i_angle=1,2
+        angle_base(i_angle) = angle_array(i_angle, iter+1)
+      End Do
+
+      Call mof3d_compute_analytic_gradient_GN(angle_base, c_mof, vof, dxs, c_diff, Jacobian)
+      gradient = 0.0_sp
+      hessian = 0.0_sp
+      Singular_flag = 0
+      Do i=1,2
+        Do j=1,2
+          Hessian(i,j) = dot_product(Jacobian(:,i), Jacobian(:,j))
+        EndDo
+        gradient(i) = dot_product(c_diff, Jacobian(:,i))
+      EndDo
+      err = dot_product(c_diff, c_diff)
+
+      det = Hessian(1,1)*Hessian(2,2) - Hessian(1,2)*Hessian(2,1)
+      ! Calculate the inverse of the matrix
+      HessianT(1,1) = + Hessian(2,2) / det
+      HessianT(2,1) = - Hessian(2,1) / det
+      HessianT(1,2) = - Hessian(1,2) / det
+      HessianT(2,2) = + Hessian(1,1) / det
+
+      If (det .lt. det_lim) Then
+        Singular_flag = 1
+      End If
+
+      ! Delta angle
+      Do i=1,2
+        delangle(i) = - dot_product(HessianT(:,i), gradient)
+      End Do
+      !! End Gauss Newton
+
+      If (singular_flag.eq.1) then
+        delangle(1:2)=0.0_sp
+        err = 0.0_sp
+      Else
+        Do i_angle = 1,2
+          If (delangle(i_angle).gt.delta_theta_max) then
+            delangle(i_angle)=delta_theta_max
+          Else If (delangle(i_angle).lt.-delta_theta_max) then
+            delangle(i_angle)=-delta_theta_max
+          End If
+        End Do
+      End If
+
+      call advance_angle(angle_base,delangle)
+      do i_angle=1,2
+        ! call advance_angle(angle_base(i_angle),delangle(i_angle))
+        angle_array(i_angle,iter+2)=angle_base(i_angle)
+      enddo
+
+      call Angle2Norm(angle_base,norm)
+      Call Normalization1(norm)
+      ! print *, norm
+      err_array(iter+2)=err
+      iter=iter+1
+
+      if ( dot_product(delangle,delangle) .lt. mof_tol_dangle) exit
+    End Do
+    mof_niter(1) = iter+1 
+
+    do dir=1,2
+      new_angle(dir)=angle_array(dir,iter+1)
+    enddo
+    call Angle2Norm(new_angle,norm)
+    Call Normalization1(norm)
+
+    if (f .ge. 0.5_sp) norm = -norm
+
+  End Subroutine MOFNN3
+
+
 
 
   !=======================================================
-  ! (3-5) Find the centroid for MOF iteration
+  ! (3-6) Find the centroid for MOF iteration
   !  shift the angle to Cartesian norm, then calculate
   !  the norm, finally shift the origin by -0.5 in each
   !  direction
@@ -1919,67 +2073,6 @@ Contains
     Call FloodSZ_BackwardC(norm,vof,cen_sz)
     cen_mof = cen_sz - 0.5_sp
   End Subroutine FindCentroid
-
-  !=======================================================
-  ! (3-5) Find the centroid for MOF iteration
-  !  shift the angle to Cartesian norm, then calculate
-  !  the norm, finally shift the origin by -0.5 in each
-  !  direction
-  !-------------------------------------------------------
-  ! Input:
-  !      angle: angle (theta, phi)
-  !      vof: volume fraction
-  ! Output:
-  !      cen_mof: centroid of mof
-  !=======================================================
-  Subroutine Lemoine_create_cuboid(c, poly)
-    double precision, dimension(3), intent(in) :: c
-    type(t_polyhedron), intent(out) :: poly
-    integer :: error_id
-
-    poly%nb_points = 8
-    poly%nb_faces = 6
-
-    allocate(poly%point(3, poly%nb_points))
-
-    poly%point(:,1) = [0.0d0, 0.0d0, 0.0d0]
-    poly%point(:,2) = [0.0d0, 0.0d0, c(3) ]
-    poly%point(:,3) = [0.0d0, c(2) , 0.0d0]
-    poly%point(:,4) = [0.0d0, c(2) , c(3) ]
-    poly%point(:,5) = [c(1) , 0.0d0, 0.0d0]
-    poly%point(:,6) = [c(1) , 0.0d0, c(3) ]
-    poly%point(:,7) = [c(1) , c(2) , 0.0d0]
-    poly%point(:,8) = [c(1) , c(2) , c(3) ]
-
-    allocate(poly%face(poly%nb_faces))
-
-    poly%face(1)%size = 4
-    allocate(poly%face(1)%id(poly%face(1)%size))
-    poly%face(1)%id(1:4) = [8, 4, 2, 6]
-
-    poly%face(2)%size = 4
-    allocate(poly%face(2)%id(poly%face(2)%size))
-    poly%face(2)%id(1:4) = [8, 6, 5, 7]
-
-    poly%face(3)%size = 4
-    allocate(poly%face(3)%id(poly%face(3)%size))
-    poly%face(3)%id(1:4) = [8, 7, 3, 4]
-
-    poly%face(4)%size = 4
-    allocate(poly%face(4)%id(poly%face(4)%size))
-    poly%face(4)%id(1:4) = [4, 3, 1, 2]
-
-    poly%face(5)%size = 4
-    allocate(poly%face(5)%id(poly%face(5)%size))
-    poly%face(5)%id(1:4) = [1, 3, 7, 5]
-
-    poly%face(6)%size = 4
-    allocate(poly%face(6)%id(poly%face(6)%size))
-    poly%face(6)%id(1:4) = [2, 1, 5, 6]
-
-    call cg3_complete_polyhedron_structure(poly, error_id)
-  end subroutine Lemoine_create_cuboid
-
 
   !=======================================================
   ! (4-1) Normalize the normal vector that satisfies
@@ -2150,6 +2243,214 @@ Contains
       angle(2)=2.0_sp * MOF_Pi - angle(2)
     end if
   End Subroutine advance_angle
+
+  !=======================================================
+  ! (4-6) Find the initial guess
+  !-------------------------------------------------------
+  ! Input:  
+  !      c_norm: centroid ranging from [0,1] (cx,cy,cz)
+  !      vof: volume fraction ranging from [0,1]
+  ! Output: 
+  !      angle: initial guess of angle (theta, phi)
+  !      error: initial error angle (angle, theta, phi)
+  !=======================================================
+  Subroutine Initial_Guess(C_mof, vof, angle, error)
+    Implicit None
+    Real(sp), Intent(In) :: C_mof(3)
+    Real(sp), Intent(In) :: vof
+    Real(sp), Intent(Out) :: angle(2)
+    Real(sp), Intent(Out) :: error
+    Real(sp) :: norm_1(3), norm_2(3)
+    Real(sp) :: cen1(3), cen2(3)
+    Real(sp) :: angle1(2), angle2(2)
+    Real(sp) :: err1, err2
+    Real(sp) :: permutation(3)
+    Real(sp) :: relative_c(3)
+    Integer :: dir
+
+    Norm_1(1) = - c_mof(1)
+    Norm_1(2) = - c_mof(2)
+    Norm_1(3) = - c_mof(3)
+
+    relative_c = 1.0_sp
+    Do dir = 1, 3
+      If ( c_mof(dir) .gt. 0.0_sp) Then
+        permutation(dir) = -1.0_sp
+        relative_c(dir) = 0.5-c_mof(dir)
+      Else
+        permutation(dir) = 1.0_sp
+        relative_c(dir) = 0.5+c_mof(dir)
+      End If
+      norm_2(dir) = 1.0_sp / ( relative_c(dir) + 1e-10)
+    End Do
+    norm_2(:) = norm_2(:) * permutation(:)
+
+    call normalization2(norm_1)
+    call norm2angle(angle1,norm_1)
+    call findcentroid(angle1,vof,cen1)
+    call normalization2(norm_2)
+    call norm2angle(angle2,norm_2)
+    call findcentroid(angle2,vof,cen2)
+
+    err1 = norm2(cen1-c_mof-0.5_sp)
+    err2 = norm2(cen2-c_mof-0.5_sp)
+    if (err1 < err2) then
+      angle = angle1
+      error = err1
+    else
+      angle = angle2
+      error = err2
+    endif
+    ! angle = angle2
+
+  End Subroutine Initial_Guess
+
+  !=======================================================
+  ! (4-6) Find the initial guess
+  !-------------------------------------------------------
+  ! Input:  
+  !      c_norm: centroid ranging from [0,1] (cx,cy,cz)
+  !      vof: volume fraction ranging from [0,1]
+  ! Output: 
+  !      angle: initial guess of angle (theta, phi)
+  !      error: initial error angle (angle, theta, phi)
+  !=======================================================
+  Subroutine Initial_Guess2(C_mof, vof, angle, error)
+    Implicit None
+    Real(sp), Intent(In) :: C_mof(3)
+    Real(sp), Intent(In) :: vof
+    Real(sp), Intent(Out) :: angle(2)
+    Real(sp), Intent(Out) :: error
+    Real(sp) :: norm_1(3), norm_2(3)
+    Real(sp) :: cen1(3), cen2(3), cen3(3)
+    Real(sp) :: angle1(2), angle2(2), angle3(2)
+    Real(sp) :: err1, err2, err3
+    Real(sp) :: permutation(3)
+    Real(sp) :: relative_c(3)
+    Integer :: dir
+
+    Norm_1(1) = - c_mof(1)
+    Norm_1(2) = - c_mof(2)
+    Norm_1(3) = - c_mof(3)
+
+    relative_c = 1.0_sp
+    Do dir = 1, 3
+      If ( c_mof(dir) .gt. 0.0_sp) Then
+        permutation(dir) = -1.0_sp
+        relative_c(dir) = 0.5-c_mof(dir)
+      Else
+        permutation(dir) = 1.0_sp
+        relative_c(dir) = 0.5+c_mof(dir)
+      End If
+      norm_2(dir) = 1.0_sp / ( relative_c(dir) + 1e-10)
+    End Do
+    norm_2(:) = norm_2(:) * permutation(:)
+
+    call normalization2(norm_1)
+    call norm2angle(angle1,norm_1)
+    call findcentroid(angle1,vof,cen1)
+    call normalization2(norm_2)
+    call norm2angle(angle2,norm_2)
+    call findcentroid(angle2,vof,cen2)
+
+    err1 = norm2(cen1-c_mof)
+    err2 = norm2(cen2-c_mof)
+    if (err1 < err2) then
+      angle = angle1
+      error = err1
+    else
+      angle = angle2
+      error = err2
+    endif
+
+!     Block
+!       Real(sp) :: inputs(3)
+!       inputs(1:2) = angle
+!       inputs(3) = vof
+!       angle3 = ml%predict(inputs)
+!     End Block
+! !
+    Block
+      Real(sp) :: inputs(4)
+      inputs(1:3) = c_mof
+      inputs(4) = vof
+      angle3 = ml%predict(inputs)
+      angle3 = angle + angle3
+    End Block
+
+
+    call findcentroid(angle3,vof,cen3)
+    err3 = norm2(cen3-c_mof-0.5_sp)
+
+    if (error > err3) then
+      angle = angle3
+      error = err3
+    endif
+    ! angle = angle3
+
+  End Subroutine Initial_Guess2
+
+
+  !=======================================================
+  ! (4-8) Initilize Nueral Network
+  !=======================================================
+  Subroutine Initialize_NN
+    implicit none
+    Call ML%Initialization
+  End Subroutine Initialize_NN  
+
+  !=======================================================
+  ! (4-8) Initilize Lemoine's algorithm
+  !=======================================================
+  Subroutine Lemoine_create_cuboid(c, poly)
+    double precision, dimension(3), intent(in) :: c
+    type(t_polyhedron), intent(out) :: poly
+    integer :: error_id
+
+    poly%nb_points = 8
+    poly%nb_faces = 6
+
+    allocate(poly%point(3, poly%nb_points))
+
+    poly%point(:,1) = [0.0d0, 0.0d0, 0.0d0]
+    poly%point(:,2) = [0.0d0, 0.0d0, c(3) ]
+    poly%point(:,3) = [0.0d0, c(2) , 0.0d0]
+    poly%point(:,4) = [0.0d0, c(2) , c(3) ]
+    poly%point(:,5) = [c(1) , 0.0d0, 0.0d0]
+    poly%point(:,6) = [c(1) , 0.0d0, c(3) ]
+    poly%point(:,7) = [c(1) , c(2) , 0.0d0]
+    poly%point(:,8) = [c(1) , c(2) , c(3) ]
+
+    allocate(poly%face(poly%nb_faces))
+
+    poly%face(1)%size = 4
+    allocate(poly%face(1)%id(poly%face(1)%size))
+    poly%face(1)%id(1:4) = [8, 4, 2, 6]
+
+    poly%face(2)%size = 4
+    allocate(poly%face(2)%id(poly%face(2)%size))
+    poly%face(2)%id(1:4) = [8, 6, 5, 7]
+
+    poly%face(3)%size = 4
+    allocate(poly%face(3)%id(poly%face(3)%size))
+    poly%face(3)%id(1:4) = [8, 7, 3, 4]
+
+    poly%face(4)%size = 4
+    allocate(poly%face(4)%id(poly%face(4)%size))
+    poly%face(4)%id(1:4) = [4, 3, 1, 2]
+
+    poly%face(5)%size = 4
+    allocate(poly%face(5)%id(poly%face(5)%size))
+    poly%face(5)%id(1:4) = [1, 3, 7, 5]
+
+    poly%face(6)%size = 4
+    allocate(poly%face(6)%id(poly%face(6)%size))
+    poly%face(6)%id(1:4) = [2, 1, 5, 6]
+
+    call cg3_complete_polyhedron_structure(poly, error_id)
+  end subroutine Lemoine_create_cuboid
+
+
 
   !=======================================================
   ! (5-1) Smooth vof function

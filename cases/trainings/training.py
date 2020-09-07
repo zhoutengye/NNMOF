@@ -16,19 +16,24 @@ def coeff_determination(y_true, y_pred):
     SS_tot = K.sum(K.square( y_true - K.mean(y_true) ) )
     return ( 1 - SS_res/(SS_tot + K.epsilon()) )
 
-def create_model(neurons=1):
+def create_model(n1=10,n2=10,n3=10,n4=10):
     model = Sequential()
-    model.add(Dense(units=neurons,
+    model.add(Dense(units=n1,
                 input_dim=4,
                 activation=type_activation))
-    model.add(Dense(units=10,
+    model.add(Dense(units=n2,
+                activation=type_activation))
+    model.add(Dense(units=n3,
+                activation=type_activation))
+    model.add(Dense(units=n4,
                 activation=type_activation))
     model.add(Dense(units=2,
                 activation='linear'))
-    model.compile(loss='mean_squared_error', optimizer=type_optimizer,  metrics=[coeff_determination])
+    model.compile(loss='mean_squared_error', optimizer=type_optimizer,
+            metrics=[coeff_determination])
     return model
 
-data_dir = 'uniform'
+data_dir = 'one_million'
 
 exact_f = np.load(data_dir+'/exact_f.npy')
 exact_angle = np.load(data_dir+'/exact_angle.npy')
@@ -43,25 +48,31 @@ inputs = np.hstack((exact_centroid,exact_f))
 outputs = delta_angle.copy()
 
 # parameters
-num_epoch = 20
-n_batch_size = 1000
+num_epoch = 10
+n_batch_size = 10000
 type_activation = 'relu'
 type_optimizer = 'adam'
 
 # Grid search with keras
-num_batch_size = [1000,5000,10000,20000,30000,40000,5000]
-num_epochs = [5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100]
-neurons = [5,10,15,20,25,30,35,40,45,50]
+# n1 = [5,10,15,20,25]
+# n2 = [5,10,15,20,25]
+# n3 = [5,10,15,20,25]
+# n4 = [5,10,15,20,25]
+n1 = [20]
+n2 = [15,16]
+n3 = [10,11,12,13,14,15]
+n4 = [4,5,6,7,8,9]
 model = KerasRegressor(build_fn=create_model)
 
-# # model.fit(inputs,outputs,epochs=num_epoch,batch_size=n_batch_size)
+# model.fit(inputs,outputs,epochs=num_epoch,batch_size=n_batch_size)
 
-param_grid = dict(batch_size=num_batch_size, 
-                    neurons = neurons,
-                    epochs=num_epochs)
-grid = GridSearchCV(estimator=model, param_grid=param_grid,verbose=1,scoring='r2')
+param_grid = dict(n1 = n1, n2=n2, n3=n3,n4=n4,
+                    batch_size = [n_batch_size],
+                    epochs=[num_epoch])
+grid = GridSearchCV(estimator=model,
+        param_grid=param_grid,verbose=10,scoring='r2')
 print(grid)
-grid_result = grid.fit(inputs, outputs)
+grid_result = grid.fit(inputs, outputs,verbose=0)
 
 result = open('gridsearch.txt','w')
 f1 = open('training.py')
@@ -73,7 +84,11 @@ params = grid_result.cv_results_['params']
 
 result.write('\n')
 for mean, std, param in zip(means, stds, params):
+    result.write("%f (%f) with: %r\n" % (mean, std, param))
     print("%f (%f) with: %r\n" % (mean, std, param))
+result.close()
 
-joblib.dump(grid_result.best_estimator_, 'gridsearch_best.pkl',compress=1)
-joblib.dump(grid_result, 'gridsearch.pkl')
+# result.dump(grid_result.best_estimator_, 'gridsearch_best.pkl',compress=1)
+# result.dump(grid_result, 'gridsearch.pkl')
+
+# grid_result.best_estimator_

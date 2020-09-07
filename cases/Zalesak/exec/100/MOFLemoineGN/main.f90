@@ -32,6 +32,7 @@ Subroutine zalesak
   Real(sp) :: error_r
   Real(sp) :: error_g
   Real(sp) :: error_m
+  Integer :: sum_iter(2) = 0
 
   Call Init(inputfield=.true.)
 
@@ -83,9 +84,12 @@ Subroutine zalesak
   !  with little issue. Basically, the singular of det matters
   !  may chan the det criterion in line 1220
   MOFNorm => MOFLemoine_GaussNewton
-  GAUSSNEWTONTOL = 1.0e-4
-  delta_theta = 1e-1
+  ! MOFNorm => MOFZY
+  GAUSSNEWTONTOL = 1.0e-8
+  delta_theta = 1e-4
+  mof_tol = 1e-8
   delta_theta_max = 1.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+  MOFITERMAX = 10
 
   !!! =====Method 5, My numerical gradient, Gauss Newton=========
   ! MOFNorm => MOFZY
@@ -97,6 +101,7 @@ Subroutine zalesak
     rank = mod(nn+1,6)
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    sum_iter = sum_iter+num_iter
     ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
@@ -104,7 +109,7 @@ Subroutine zalesak
     ! Call VOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1
     time =  time + dt
-    Call WriteFieldData
+    ! Call WriteFieldData
   End Do
   Call CPU_Time(tt2)
 
@@ -141,6 +146,7 @@ Subroutine zalesak
 
   if (myid .eq.0) then
     print *, 'cpu_time = ', tt2-tt1
+    print *, 'iter = ', sum_iter
     print *, 'realtive distortion error = ', error_r
     print *, 'absolute error = ', error_g
     print *, 'conservation error = ', error_m

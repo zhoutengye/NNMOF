@@ -84,9 +84,10 @@ Subroutine zalesak
   !  with little issue. Basically, the singular of det matters
   !  may chan the det criterion in line 1220
   MOFNorm => MOFLemoine_GaussNewton
+  ! MOFNorm => MOFZY
   GAUSSNEWTONTOL = 1.0e-8
-  delta_theta = 1e-8
-  mof_tol = 1e-4
+  delta_theta = 1e-4
+  mof_tol = 1e-8
   delta_theta_max = 1.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
   MOFITERMAX = 10
 
@@ -157,8 +158,8 @@ Subroutine zalesak
     close(10)
   endif
 
-  ! Call Visual3DContour(f1=f_end)
-  ! Call Visual2DContour(f1=f_end, slice_dir=3, slice_coord=nl(3)/2)
+  Call Visual3DContour(f1=f_end)
+  Call Visual2DContour(f1=f_end, slice_dir=3, slice_coord=nl(3)/2)
 
   Call Finalize()
 
