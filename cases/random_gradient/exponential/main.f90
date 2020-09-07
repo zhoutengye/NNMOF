@@ -74,7 +74,7 @@ Subroutine compare
   Real(sp) :: norm_Sussman(3,num_sampling)
   Real(sp) :: ddx(3)
   Real(sp) :: tt(5)
-  Real(sp) :: num_iter(5,2)
+  Real(sp) :: num_iters(5,2)
   Real(sp) :: error(5,2)
   Integer :: sum_iter(2)
   Integer :: i
@@ -104,7 +104,7 @@ Subroutine compare
   ! sum_iter = 0
   ! MOFNorm => MOFZY
   ! method = 'MOFZY'
-  ! Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iter(1,:), error(1,:))
+  ! Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iters(1,:), error(1,:))
 
   ! Lemoine GN with analytic gradient
   sum_iter = 0
@@ -114,7 +114,7 @@ Subroutine compare
   mof_use_symmetric_reconstruction = .false.
   Call Lemoine_create_cuboid(ddx, LemoinePoly)
   method = 'Lemoine, Gauss-Newton'
-  Call onemethod(method,num_sampling, data, Norm_GN, tt(2), num_iter(2,:), error(2,:))
+  Call onemethod(method,num_sampling, data, Norm_GN, tt(2), num_iters(2,:), error(2,:))
 
   ! Lemoine BFGS with analytic gradient
   sum_iter = 0
@@ -123,7 +123,7 @@ Subroutine compare
   mof3d_internal_is_analytic_gradient_enabled = .true.
   mof_use_symmetric_reconstruction = .true.
   method = 'Lemoine, BFGS, analytic'
-  Call onemethod(method,num_sampling, data, Norm_BFGS1, tt(3), num_iter(3,:), error(3,:))
+  Call onemethod(method,num_sampling, data, Norm_BFGS1, tt(3), num_iters(3,:), error(3,:))
 
   ! Lemoine BFGS with numerical gradient
   MOFNorm => MOFLemoine_BFGS
@@ -132,13 +132,13 @@ Subroutine compare
   mof3d_internal_is_analytic_gradient_enabled = .false.
   mof3d_use_optimized_centroid = .false.
   method = 'Lemoine, BFGS, numerical'
-  Call onemethod(method, num_sampling, data, Norm_BFGS2, tt(4), num_iter(4,:), error(4,:))
+  Call onemethod(method, num_sampling, data, Norm_BFGS2, tt(4), num_iters(4,:), error(4,:))
 
   ! Sussman Gauss Newton with numerical gradient
   ! Call MOFInit3d
   ! MOFNorm => MOFSussmanGaussNewton
   ! method = 'Sussman, Gauss-Newton'
-  ! Call onemethod(method, num_sampling, data, Norm_Sussman, tt(5), num_iter(5,:), error(5,:))
+  ! Call onemethod(method, num_sampling, data, Norm_Sussman, tt(5), num_iters(5,:), error(5,:))
 
   ! Call MPI_FINALIZE(ierr)
 
@@ -340,7 +340,7 @@ Subroutine compare_old_initial
   Real(sp) :: norm_Sussman(3,num_sampling)
   Real(sp) :: ddx(3)
   Real(sp) :: tt(5)
-  Real(sp) :: num_iter(5,2)
+  Real(sp) :: num_iters(5,2)
   Real(sp) :: error(5,2)
   Integer :: sum_iter(2)
   Integer :: i
@@ -370,7 +370,7 @@ Subroutine compare_old_initial
   ! sum_iter = -4
   ! MOFNorm => MOFZY
   ! method = 'MOFZY'
-  ! Call onemethod_old(method,num_sampling, data, Norm_ZY, tt(1), num_iter(1,:), error(1,:))
+  ! Call onemethod_old(method,num_sampling, data, Norm_ZY, tt(1), num_iters(1,:), error(1,:))
 
   ! Lemoine GN with analytic gradient
   sum_iter = 0
@@ -380,7 +380,7 @@ Subroutine compare_old_initial
   mof_use_symmetric_reconstruction = .false.
   Call Lemoine_create_cuboid(ddx, LemoinePoly)
   method = 'Lemoine, Gauss-Newton'
-  Call onemethod_old(method,num_sampling, data, Norm_GN, tt(2), num_iter(2,:), error(2,:))
+  Call onemethod_old(method,num_sampling, data, Norm_GN, tt(2), num_iters(2,:), error(2,:))
 
   ! Lemoine BFGS with analytic gradient
   sum_iter = 0
@@ -389,7 +389,7 @@ Subroutine compare_old_initial
   mof3d_internal_is_analytic_gradient_enabled = .true.
   mof_use_symmetric_reconstruction = .true.
   method = 'Lemoine, BFGS, analytic'
-  Call onemethod_old(method,num_sampling, data, Norm_BFGS1, tt(3), num_iter(3,:), error(3,:))
+  Call onemethod_old(method,num_sampling, data, Norm_BFGS1, tt(3), num_iters(3,:), error(3,:))
 
   ! Lemoine BFGS with numerical gradient
   MOFNorm => MOFLemoine_BFGS
@@ -398,13 +398,13 @@ Subroutine compare_old_initial
   mof3d_internal_is_analytic_gradient_enabled = .false.
   mof3d_use_optimized_centroid = .false.
   method = 'Lemoine, BFGS, numerical'
-  Call onemethod_old(method, num_sampling, data, Norm_BFGS2, tt(4), num_iter(4,:), error(4,:))
+  Call onemethod_old(method, num_sampling, data, Norm_BFGS2, tt(4), num_iters(4,:), error(4,:))
 
   ! Sussman Gauss Newton with numerical gradient
   ! Call MOFInit3d
   ! MOFNorm => MOFSussmanGaussNewton
   ! method = 'Sussman, Gauss-Newton'
-  ! Call onemethod_old(method, num_sampling, data, Norm_Sussman, tt(5), num_iter(5,:), error(5,:))
+  ! Call onemethod_old(method, num_sampling, data, Norm_Sussman, tt(5), num_iters(5,:), error(5,:))
 
   Call MPI_FINALIZE(ierr)
 

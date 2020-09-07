@@ -100,7 +100,7 @@ inputs = np.hstack((exact_centroid,exact_f))
 outputs = delta_angle.copy()
 
 # parameters
-num_epoch = 1000
+num_epoch = 100
 n_batch_size = 10000
 type_activation = 'relu'
 type_optimizer = 'adam'
@@ -120,3 +120,6 @@ type_optimizer = 'adam'
 model = model_4()
 model.fit(inputs,outputs,epochs=num_epoch,batch_size=n_batch_size,shuffle=False)
 model.save('single.h5')
+
+print(model.predict(inputs[:10,:]))
+print(outputs[:10,:])

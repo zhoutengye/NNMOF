@@ -27,7 +27,7 @@ INCS = $(HDF5INCS) $(HYPREINCS) $(MOFINCS) -I$(SRC_DIR)
 
 ifeq ($(DEBUG), true)
 ifeq ($(compiler), intel)
-        FC_OPT = -O0 -g -warn -all -traceback -check all -debug all
+        FC_OPT = -O0 -g -warn -all -traceback -check all -debug all -integer-size 64
 else
         FC_OPT = -O0 -g -Wall  -Wextra -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
 endif
@@ -37,7 +37,7 @@ else
         FC_OPT = -O3
 endif
 
-CORE_SRCS := $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90  $(SRC_DIR)/hypre.f90 $(SRC_DIR)/ns.f90
+CORE_SRCS := $(SRC_DIR)/nn.f90 $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90  $(SRC_DIR)/hypre.f90 $(SRC_DIR)/ns.f90
 
 SRCS := $(CORE_SRCS) $(CASE_SRCS)
 OBJS := $(patsubst %.f90,%.o,$(SRCS))
