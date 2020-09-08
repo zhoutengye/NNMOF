@@ -5,9 +5,10 @@
         "MOFBFGS",
         "MOFLemoineGN",
         "MOFNN",
-        "MOFNN2",
+        "MOFNNStab",
         "PLIC",
         "THINC",
+        "ELVIRA",
         "MOFBFGSNUMERICAL"
     ]
 }

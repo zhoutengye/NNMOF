@@ -98,86 +98,30 @@ Subroutine compare
   GAUSSNEWTONTOL = 1.0e-8
   delta_theta = MOF_Pi / 180.0_sp  ! 1 degree=pi/180
   delta_theta = 1e-8
-  ! delta_theta_max = 5.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   ! ZY
   sum_iter = 0
   Call Initialize_NN
   MOFNorm => MOFNN
   method = 'MOFNN'
-  Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iters(1,:), error(1,:))
 
-  ! Lemoine GN with analytic gradient
-  sum_iter = 0
-  MOFNorm => MOFLemoine_GaussNewton
-  ddx = 1.0_sp
-  mof3d_internal_is_analytic_gradient_enabled = .true.
-  mof_use_symmetric_reconstruction = .false.
-  Call Lemoine_create_cuboid(ddx, LemoinePoly)
-  method = 'Lemoine, Gauss-Newton'
-  Call onemethod(method,num_sampling, data, Norm_GN, tt(2), num_iters(2,:), error(2,:))
-
-  ! Lemoine BFGS with analytic gradient
-  sum_iter = 0
-  MOFNorm => MOFLemoine_BFGS
-  ddx = 1.0_sp
-  mof3d_internal_is_analytic_gradient_enabled = .true.
-  mof_use_symmetric_reconstruction = .true.
-  method = 'Lemoine, BFGS, analytic'
-  Call onemethod(method,num_sampling, data, Norm_BFGS1, tt(3), num_iters(3,:), error(3,:))
-
-  ! Lemoine BFGS with numerical gradient
-  MOFNorm => MOFLemoine_BFGS
-  ddx = 1.0_sp
-  mof_use_symmetric_reconstruction = .false.
-  mof3d_internal_is_analytic_gradient_enabled = .false.
-  mof3d_use_optimized_centroid = .false.
-  method = 'Lemoine, BFGS, numerical'
-  Call onemethod(method, num_sampling, data, Norm_BFGS2, tt(4), num_iters(4,:), error(4,:))
-
-  ! Sussman Gauss Newton with numerical gradient
-  ! Call MOFInit3d
-  ! MOFNorm => MOFSussmanGaussNewton
-  ! method = 'Sussman, Gauss-Newton'
-  ! Call onemethod(method, num_sampling, data, Norm_Sussman, tt(5), num_iters(5,:), error(5,:))
-
-  ! Call MPI_FINALIZE(ierr)
-
-  Open(10,file='norm_BFGS1.dat')
-  Do i = 1, num_sampling
-    Write(10,'(3F)') norm_BFGS1(:,i)
+  block
+    real(8) :: angle_init(2)
+    real(8) :: f
+    real(8) :: c(3)
+    real(8) :: norm(3)
+    real(8) :: angle_exact(2)
+    real(8) :: err_temp
+  Do i = 1, 1
+    f = data(4,i)
+    c = data(5:7,i)
+    Call Norm2Angle(angle_exact,  data(1:3,i))
+    Call MOFNorm(f,c,norm)
+    ! Call Initial_Guess2(c-0.5_sp, f, angle_init,err_temp)
+    print *,angle_exact
+    print *,f,c-0.5
   End Do
-  Close(10)
-
-  Open(10,file='norm_BFGS2.dat')
-  Do i = 1, num_sampling
-    Write(10,'(3F)') norm_BFGS2(:,i)
-  End Do
-  Close(10)
-
-  Open(10,file='norm_GN.dat')
-  Do i = 1, num_sampling
-    Write(10,'(3F)') norm_GN(:,i)
-  End Do
-  Close(10)
-
-  Open(10,file='norm_ZY.dat')
-  Do i = 1, num_sampling
-    Write(10,'(3F)') norm_ZY(:,i)
-  End Do
-  Close(10)
-
-  Open(10,file='norm_Sussman.dat')
-  Do i = 1, num_sampling
-    Write(10,'(3F)') norm_Sussman(:,i)
-  End Do
-  Close(10)
-
-  Open(10,file='norm_analytic.dat')
-  Do i = 1, num_sampling
-    Write(10,'(3F)') norm_exact(:,i)
-  End Do
-  Close(10)
+  end block
 
 end Subroutine compare
 

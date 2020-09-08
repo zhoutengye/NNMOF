@@ -25,7 +25,7 @@ exact_f = exact_f.reshape([len(exact_f),1])
 inputs = np.hstack((initial_angle,exact_f))
 outputs = delta_angle.copy()
 
-tn = 111
+tn = 1
 
 pred = model.predict(inputs[tn-1:tn,:]) + initial_angle[tn-1:tn,:]
 
@@ -33,9 +33,16 @@ exact_norm = angle2norm(exact_angle[tn-1:tn,:])
 initial_norm = angle2norm(initial_angle[tn-1:tn,:])
 nn_norm = angle2norm(pred)
 
-print(exact_f[tn-1])
-ce = floodsz_backwardc(exact_norm,exact_f[tn-1])
-dce1 = floodsz_backwardc(initial_norm,exact_f[tn-1])-ce
-dce2 = floodsz_backwardc(nn_norm,exact_f[tn-1])-ce
+print(exact_f[tn-1][0])
+ce = floodsz_backwardc(exact_norm,exact_f[tn-1]) -0.5
+ce1 = floodsz_backwardc(initial_norm,exact_f[tn-1]) - 0.5
+ce2 = floodsz_backwardc(nn_norm,exact_f[tn-1])-  0.5
+dce1 = ce1 - ce
+dce2 = ce2 - ce
 print(np.linalg.norm(dce1,2))
 print(np.linalg.norm(dce2,2))
+
+print(exact_centroid[tn-1,:])
+print(ce)
+print(ce1)
+print(ce2)

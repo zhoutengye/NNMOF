@@ -40,8 +40,9 @@ Subroutine gen_data
     nr = (/n1(i),   n2(i),   n3(i)/)
     Call Normalization1(nr)
     Call FloodSZ_BackwardC(nr,f(i),xc0)
+    Call Normalization2(nr)
     Call Norm2Angle(angle_exact,nr)
-    Call Initial_Guess(xc0-0.5_sp, f(i), angle_init,err_temp)
+    Call Initial_Guess3(xc0-0.5_sp, f(i), angle_init,err_temp)
     delta_angle = angle_exact - angle_init
     data(1,i) = xc0(1)
     data(2,i) = xc0(2)
