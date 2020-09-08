@@ -55,8 +55,8 @@ Subroutine test_case
 
 
   Call Initialize_NN
-  ! MOFNorm => MOFNN3
-  MOFNorm => MOFLemoine_GaussNewton
+  MOFNorm => MOFNN3
+  ! MOFNorm => MOFLemoine_GaussNewton
   ! VOF advection
   mof_tol = 1.0e-8
   mofitermax = 10

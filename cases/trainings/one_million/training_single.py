@@ -1,5 +1,4 @@
 import keras
-import tensorflow as tf
 from numpy.random import seed
 seed(5)
 import tensorflow
@@ -25,21 +24,13 @@ def coeff_determination(y_true, y_pred):
 
 def model_test():
     model = Sequential()
-    model.add(Dense(units=25,
+    model.add(Dense(units=30,
                 activation=type_activation))
-    model.add(Dense(units=25,
+    model.add(Dense(units=30,
                 activation=type_activation))
-    model.add(Dense(units=25,
+    model.add(Dense(units=30,
                 activation=type_activation))
-#    model.add(Dense(units=25,
-#                activation=type_activation))
 #    model.add(Dense(units=20,
-#                activation=type_activation))
-#    model.add(Dense(units=15,
-#                activation=type_activation))
-#    model.add(Dense(units=10,
-#                activation=type_activation))
-#    model.add(Dense(units=5,
 #                activation=type_activation))
 #    model.add(Dense(units=20,
 #                activation=type_activation))
@@ -73,8 +64,7 @@ def model_test():
 #                activation=type_activation))
     model.add(Dense(units=2,
                 activation='linear'))
-    adam = keras.optimizers.Adam(lr=0.005, beta_1=0.85, beta_2=0.99,
-            epsilon=None, decay=0.0, amsgrad=False)
+    adam = keras.optimizers.Adam(lr=0.005, beta_1=0.85, beta_2=0.99)
     model.compile(loss='mean_squared_error', optimizer=adam,  metrics=[coeff_determination])
     return model
 
@@ -94,14 +84,13 @@ inputs = np.hstack((initial_angle,exact_f))
 outputs = delta_angle.copy()
 
 # parameters
-num_epoch = 200
-n_batch_size = 10000
+num_epoch = 100
+n_batch_size = 1000
 type_activation = 'relu'
 type_optimizer = 'adam'
 
 model = model_test()
-# history = model.fit(inputs,outputs,validation_split=0.1,epochs=num_epoch,batch_size=n_batch_size,shuffle=False)
-history = model.fit(inputs,outputs,validation_split=0.1,epochs=num_epoch,batch_size=n_batch_size)
+history = model.fit(inputs,outputs,validation_split=0.1,epochs=num_epoch,batch_size=n_batch_size,shuffle=False)
 model.save('test.h5')
 with open('history.json', 'w') as f:
     json.dump(history.history,f)

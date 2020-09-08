@@ -59,7 +59,8 @@ Subroutine zalesak
 
  
   Call Initialize_NN
-  MOFNorm => MOFNN2
+  MOFNorm => MOFNNStab
+  ! MOFNorm => MOFLemoine_GaussNewton
 
   !!! =====Method 5, My numerical gradient, Gauss Newton=========
   ! MOFNorm => MOFZY

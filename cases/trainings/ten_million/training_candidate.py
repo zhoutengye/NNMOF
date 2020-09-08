@@ -25,7 +25,6 @@ def coeff_determination(y_true, y_pred):
 def model_1():
     model = Sequential()
     model.add(Dense(units=50,
-                input_dim=4,
                 activation=type_activation))
     model.add(Dense(units=45,
                 activation=type_activation))
@@ -53,7 +52,6 @@ def model_1():
 def model_2():
     model = Sequential()
     model.add(Dense(units=20,
-                input_dim=4,
                 activation=type_activation))
     model.add(Dense(units=15,
                 activation=type_activation))
@@ -69,7 +67,6 @@ def model_2():
 def model_3():
     model = Sequential()
     model.add(Dense(units=10,
-                input_dim=4,
                 activation=type_activation))
     model.add(Dense(units=2,
                 activation='linear'))
@@ -79,7 +76,6 @@ def model_3():
 def model_4():
     model = Sequential()
     model.add(Dense(units=20,
-                input_dim=4,
                 activation=type_activation))
     model.add(Dense(units=2,
                 activation='linear'))
@@ -97,7 +93,7 @@ initial_angle = np.load(data_dir+'/initial_angle.npy')
 exact_centroid = exact_centroid - 0.5
 
 exact_f = exact_f.reshape([len(exact_f),1])
-inputs = np.hstack((exact_centroid,exact_f))
+inputs = np.hstack((initial_angle,exact_f))
 outputs = delta_angle.copy()
 
 # parameters

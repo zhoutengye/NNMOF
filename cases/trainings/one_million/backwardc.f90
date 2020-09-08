@@ -141,3 +141,61 @@ SUBROUTINE FloodSZ_BackwardC(nr,cc,xc0)
     End If
   End Subroutine Normalization1
 
+  Subroutine Norm2Angle(angle, norm)
+    Implicit None
+    Integer, Parameter  :: sp = 8
+    Real(sp), Intent(Out)  :: angle(2)
+    Real(sp), Intent(In) :: norm(3)
+    Real(sp) :: epsc = 1e-10
+    Real(sp) :: MOF_Pi = 3.141592653589793
+    angle(2) = acos(norm(3))
+    If (norm(1) > epsc) Then
+      angle(1) = atan(norm(2) / norm(1) )
+    Else If (norm(1) < -epsc) Then
+      If (norm(2) .ge. epsc) Then
+        angle(1) = atan(norm(2) / norm(1) ) + MOF_Pi
+      Else
+        angle(1) = atan(norm(2) / norm(1) ) - MOF_Pi
+      EndIf
+    Else
+      If (norm(2) .gt. epsc) Then
+        angle(1) = MOF_Pi / 2.0_sp
+      Else If (norm(2) .lt. -epsc) Then
+        angle(1) = - MOF_Pi / 2.0_sp
+      Else
+        angle(1) = 0.0_sp
+      End If
+    End If
+
+  End Subroutine Norm2Angle
+
+  !=======================================================
+  ! (4-4) Convert the spherical angle to to Caetesian Norm
+  !-------------------------------------------------------
+  ! Input:  norm (normalized normal vector, nx, ny, nz)
+  ! Output: angle (angle, theta, phi)
+  !=======================================================
+  Subroutine Angle2Norm(angle, norm)
+    Implicit None
+    Integer, Parameter  :: sp = 8
+    Real(sp), Intent(In)  :: angle(2)
+    Real(sp), Intent(Out) :: norm(3)
+    norm(3) = cos(angle(2))
+    norm(1) = sin(angle(2)) * cos(angle(1))
+    norm(2) = sin(angle(2)) * sin(angle(1))
+  End Subroutine Angle2Norm
+
+
+  Subroutine Normalization2(norm)
+    Implicit None
+    Real(8), Intent(Inout) :: norm(3)
+    Real(8) :: aa
+    aa = Sqrt( norm(1) * norm(1) + &
+        &       norm(2) * norm(2) + &
+        &       norm(3) * norm(3) )
+    If( aa .gt. 1.d-10) Then
+      norm(1) = norm(1) / aa
+      norm(2) = norm(2) / aa
+      norm(3) = norm(3) / aa
+    End If
+  End Subroutine Normalization2

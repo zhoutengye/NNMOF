@@ -114,7 +114,10 @@ Subroutine zalesak
   error_g = (error_r) / dble(n(1)) / dble(n(2)) / dble(n(3))
   error_r = (error_r) / v11
 
-  if (myid .eq.0) then
+ import json
+hist = model.fit(X_train, y_train, epochs=5, batch_size=batch_size,validation_split=0.1)
+with open('file.json', 'w') as f:
+    json.dump(hist.history, f) if (myid .eq.0) then
     print *, 'cpu_time = ', tt2-tt1
     print *, 'iter = ', sum_iter
     print *, 'realtive distortion error = ', error_r

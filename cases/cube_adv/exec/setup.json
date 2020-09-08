@@ -1,14 +1,13 @@
 {
-    "grid": 50,
-    "inputfile_path":"../../../inputs/",
+    "inputfile_path":"../../inputs/",
     "exec_list": [
         "MOFBFGS",
+        "ELVIRA",
         "MOFLemoineGN",
         "MOFNN",
         "MOFNNStab",
         "PLIC",
         "THINC",
-        "ELVIRA",
         "MOFBFGSNUMERICAL"
     ]
 }

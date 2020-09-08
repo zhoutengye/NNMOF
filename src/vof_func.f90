@@ -18,14 +18,17 @@
 !       (3-3) MOF reconstruction using Lemoine's analytic gradient and BFGS iteration
 !       (3-4) MOF reconstruction using Sussman's computational geometry and Gauss-Newton iteration
 !       (3-5) MOF reconstruction using machine learning (NNMOF)
-!       (3-6) Find centroid for given norm and volume function
+!       (3-5) MOF reconstruction using machine learning-Stablized (NNMOF-Stab)
+!       (3-7) Find centroid for given norm and volume function
 !     (4) Misc
 !       (4-1) Normalization vector 1 (nx+ny+nz=1)
 !       (4-2) Normalization vector 2 (nx**2+ny**2+nz**2=1)
 !       (4-3) Cartesian norm to Spherical angle
 !       (4-4) Spherical angle to Cartesian norm
 !       (4-5) Anvance of angle
-!       (4-6) Initial_Guess 
+!       (4-6-1) Initial_Guess (JCP note)
+!       (4-6-2) Initial_GuessOld (Lemoine)
+!       (4-6-3) Initial_GuessNN (Nueral Network)
 !       (4-7) Initialize NNMOF
 !       (4-8) Initialize Lemoine's algorithm
 !     (5) Level set related
@@ -1794,14 +1797,9 @@ Contains
 
   End Subroutine MOFSussmanGaussNewton
 
- 
   !=======================================================
   ! (3-5) MOF reconstruction using Machine Learning
   !     For given vof and centroid, find the best norm
-  ! Key steps:
-  !   - Convert to local region
-  !   - Calculate the gradient using machine learning
-  !   - Flip the normal vector
   !-------------------------------------------------------
   ! Input:
   !      f: vof function
@@ -1831,30 +1829,17 @@ Contains
     vof = f
     c_mof = c
 
-    Call Initial_Guess2(c_mof-0.5_sp, vof, angle_init, err)
+    Call Initial_GuessNN(c_mof-0.5_sp, vof, angle_init, err)
     Call Angle2Norm(angle_init, norm)
-
-    ! inputs(1:3) = c_mof - 0.5_sp
-    ! inputs(4) = vof
-
-    ! delta_angle_correct = ml%predict(inputs)
-    ! angle_correct = angle_init + delta_angle_correct
-
-    ! Call Angle2Norm(angle_correct, norm)
 
     Call Normalization1(norm)
 
   End Subroutine MOFNN
 
   !=======================================================
-  ! (3-5) MOF reconstruction using Machine Learning
-  !     For given vof and centroid, find the best norm
-  ! Key steps:
-  !   - Convert to local region
-  !   - Calculate the gradient using machine learning
-  !   - Flip the normal vector
+  ! (3-6) MOF reconstruction using Nueral Network- stablized
+  !  Using NN value as initial guess and do 1 iteration.
   !-------------------------------------------------------
-  ! Input:
   !      f: vof function
   !      c: centroid (cx, cy, cz)
   ! Optional Input:
@@ -1862,54 +1847,7 @@ Contains
   ! Output:
   !      norm: vof function
   !=======================================================
-  Subroutine MOFNN2(f, c, norm, Init_Norm)
-    use variables_mof
-    Use mod_cg3_polyhedron
-    Use mod_mof3d_bfgs
-    Implicit None
-    Real(sp), Intent(In)  :: f
-    Real(sp), Intent(In)  :: c(3)
-    Real(sp), Intent(Out) :: norm(3)
-    Real(sp), Optional, Intent(In) :: Init_Norm(3)
-
-    Real(sp) :: vof
-    Real(sp) :: c_mof(3)
-    Real(sp), Dimension(2)   :: angle_init
-    Real(sp), Dimension(2)   :: delta_angle_correct
-    Real(sp), Dimension(2)   :: angle_correct
-    Real(sp), Dimension(4)   :: inputs
-    Real(sp) :: err
-    vof = f
-    c_mof = c
-
-    ! Call Initial_Guess(c_mof-0.5_sp, vof, angle_init, err)
-
-    inputs(1:3) = c_mof - 0.5_sp
-    inputs(4) = vof
-
-    angle_correct = ml%predict(inputs)
-    ! angle_correct = angle_init + delta_angle_correct
-
-    Call Angle2Norm(angle_correct, norm)
-
-    Call Normalization1(norm)
-
-  End Subroutine MOFNN2
-
-  !=======================================================
-  ! (3-7) MOF reconstruction using Analytic gradient and Gauss-Newton iteration
-  !-------------------------------------------------------
-  ! The algorithm uses analytic slope by Lemoine (2020, JCP)
-  ! Gauss-Newton iteration is used
-  ! Input:
-  !      f: vof function
-  !      c: centroid (cx, cy, cz)
-  ! Optional Input:
-  !      init_norm: Initial guess of the normal vector
-  ! Output:
-  !      norm: vof function
-  !=======================================================
-  Subroutine MOFNN3(f, c, norm, Init_Norm)
+  Subroutine MOFNNStab(f, c, norm, Init_Norm)
     ! Use ModOptimizer
     Use mod_mof3d_analytic_centroid
     Implicit None
@@ -1955,7 +1893,7 @@ Contains
       Call mof3d_compute_analytic_gradient_GN(angle_init, c_mof, vof, dxs, c_diff, Jacobian)
       err = norm2(c_diff)
     Else
-      Call Initial_Guess2(c_mof-0.5_sp, vof, angle_init, err)
+      Call Initial_GuessNN(c_mof-0.5_sp, vof, angle_init, err)
     EndIf
 
     do dir=1,2
@@ -1969,7 +1907,7 @@ Contains
     iter = 0
     err = err_array(1)
     mof_niter = 0
-    mofitermax = 2
+    mofitermax = 1
     Do While ((iter.lt.MOFITERMAX) .and. (err.gt.mof_tol))
 
       Do i_angle=1,2
@@ -2042,13 +1980,11 @@ Contains
 
     if (f .ge. 0.5_sp) norm = -norm
 
-  End Subroutine MOFNN3
-
-
+  End Subroutine MOFNNStab
 
 
   !=======================================================
-  ! (3-6) Find the centroid for MOF iteration
+  ! (3-7) Find the centroid for MOF iteration
   !  shift the angle to Cartesian norm, then calculate
   !  the norm, finally shift the origin by -0.5 in each
   !  direction
@@ -2195,9 +2131,9 @@ Contains
     Integer, Parameter  :: sp = 8
     Real(sp), Intent(In)  :: angle(2)
     Real(sp), Intent(Out) :: norm(3)
-    norm(3) = cos(angle(2))
-    norm(1) = sin(angle(2)) * cos(angle(1))
-    norm(2) = sin(angle(2)) * sin(angle(1))
+    norm(3) = dcos(angle(2))
+    norm(1) = dsin(angle(2)) * dcos(angle(1))
+    norm(2) = dsin(angle(2)) * dsin(angle(1))
   End Subroutine Angle2Norm
 
   subroutine direction_to_spherical_angles(direction, angles)
@@ -2245,7 +2181,7 @@ Contains
   End Subroutine advance_angle
 
   !=======================================================
-  ! (4-6) Find the initial guess
+  ! (4-6-1) Find the initial guess
   !-------------------------------------------------------
   ! Input:  
   !      c_norm: centroid ranging from [0,1] (cx,cy,cz)
@@ -2292,8 +2228,8 @@ Contains
     call norm2angle(angle2,norm_2)
     call findcentroid(angle2,vof,cen2)
 
-    err1 = norm2(cen1-c_mof-0.5_sp)
-    err2 = norm2(cen2-c_mof-0.5_sp)
+    err1 = norm2(cen1-c_mof)
+    err2 = norm2(cen2-c_mof)
     if (err1 < err2) then
       angle = angle1
       error = err1
@@ -2306,7 +2242,7 @@ Contains
   End Subroutine Initial_Guess
 
   !=======================================================
-  ! (4-6) Find the initial guess
+  ! (4-6-2) Find the initial guess (Lemoine)
   !-------------------------------------------------------
   ! Input:  
   !      c_norm: centroid ranging from [0,1] (cx,cy,cz)
@@ -2315,7 +2251,38 @@ Contains
   !      angle: initial guess of angle (theta, phi)
   !      error: initial error angle (angle, theta, phi)
   !=======================================================
-  Subroutine Initial_Guess2(C_mof, vof, angle, error)
+  Subroutine Initial_GuessOld(C_mof, vof, angle, error)
+    Implicit None
+    Real(sp), Intent(In) :: C_mof(3)
+    Real(sp), Intent(In) :: vof
+    Real(sp), Intent(Out) :: angle(2)
+    Real(sp), Intent(Out) :: error
+    Real(sp) :: norm(3)
+    Real(sp) :: cen(3)
+
+    Norm(1) = - c_mof(1)
+    Norm(2) = - c_mof(2)
+    Norm(3) = - c_mof(3)
+    call normalization2(norm)
+    call norm2angle(angle,norm)
+    call findcentroid(angle,vof,cen)
+    error = norm2(cen-c_mof)
+
+  End Subroutine Initial_GuessOld
+
+
+
+  !=======================================================
+  ! (4-6-3) Find the initial guess (NN)
+  !-------------------------------------------------------
+  ! Input:  
+  !      c_norm: centroid ranging from [0,1] (cx,cy,cz)
+  !      vof: volume fraction ranging from [0,1]
+  ! Output: 
+  !      angle: initial guess of angle (theta, phi)
+  !      error: initial error angle (angle, theta, phi)
+  !=======================================================
+  Subroutine Initial_GuessNN(C_mof, vof, angle, error)
     Implicit None
     Real(sp), Intent(In) :: C_mof(3)
     Real(sp), Intent(In) :: vof
@@ -2327,6 +2294,7 @@ Contains
     Real(sp) :: err1, err2, err3
     Real(sp) :: permutation(3)
     Real(sp) :: relative_c(3)
+    Real(sp) :: inputs(3)
     Integer :: dir
 
     Norm_1(1) = - c_mof(1)
@@ -2349,50 +2317,37 @@ Contains
     call normalization2(norm_1)
     call norm2angle(angle1,norm_1)
     call findcentroid(angle1,vof,cen1)
+
     call normalization2(norm_2)
     call norm2angle(angle2,norm_2)
     call findcentroid(angle2,vof,cen2)
 
+    inputs(1:2) = angle1
+    inputs(3) = vof
+    angle3 = angle1 + ml%predict(inputs)
+    call findcentroid(angle3,vof,cen3)
+
     err1 = norm2(cen1-c_mof)
     err2 = norm2(cen2-c_mof)
+    err3 = norm2(cen3-c_mof)
+
     if (err1 < err2) then
       angle = angle1
       error = err1
     else
       angle = angle2
       error = err2
-    endif
-
-!     Block
-!       Real(sp) :: inputs(3)
-!       inputs(1:2) = angle
-!       inputs(3) = vof
-!       angle3 = ml%predict(inputs)
-!     End Block
-! !
-    Block
-      Real(sp) :: inputs(4)
-      inputs(1:3) = c_mof
-      inputs(4) = vof
-      angle3 = ml%predict(inputs)
-      angle3 = angle + angle3
-    End Block
-
-
-    call findcentroid(angle3,vof,cen3)
-    err3 = norm2(cen3-c_mof-0.5_sp)
-
+    end if
     if (error > err3) then
       angle = angle3
       error = err3
     endif
-    ! angle = angle3
 
-  End Subroutine Initial_Guess2
+  End Subroutine Initial_GuessNN
 
 
   !=======================================================
-  ! (4-8) Initilize Nueral Network
+  ! (4-7) Initilize Nueral Network
   !=======================================================
   Subroutine Initialize_NN
     implicit none

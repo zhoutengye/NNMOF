@@ -18,7 +18,7 @@ periodz = .true.
 
 &compvar
 tstart = 0.0
-tend  = 0.1
+tend  = 1.0
 dt = 0.0025
 /
 

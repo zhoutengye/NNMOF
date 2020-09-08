@@ -186,4 +186,16 @@ SUBROUTINE FloodSZ_BackwardC(nr,cc,xc0)
   End Subroutine Angle2Norm
 
 
-
+  Subroutine Normalization2(norm)
+    Implicit None
+    Real(8), Intent(Inout) :: norm(3)
+    Real(8) :: aa
+    aa = Sqrt( norm(1) * norm(1) + &
+        &       norm(2) * norm(2) + &
+        &       norm(3) * norm(3) )
+    If( aa .gt. 1.d-10) Then
+      norm(1) = norm(1) / aa
+      norm(2) = norm(2) / aa
+      norm(3) = norm(3) / aa
+    End If
+  End Subroutine Normalization2

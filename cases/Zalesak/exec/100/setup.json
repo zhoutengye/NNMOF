@@ -4,9 +4,11 @@
     "exec_list": [
         "MOFBFGS",
         "MOFLemoineGN",
-        "PLIC",
         "MOFNN",
-        "MOFNN2",
-        "THINC"
+        "MOFNNStab",
+        "PLIC",
+        "THINC",
+        "ELVIRA",
+        "MOFBFGSNUMERICAL"
     ]
 }
