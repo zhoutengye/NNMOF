@@ -1,4 +1,4 @@
-TEST_NUM = 2
+TEST_NUM = 1
 MOF_DIR    = ../../..
 compiler   = intel
 EXEC       = rand

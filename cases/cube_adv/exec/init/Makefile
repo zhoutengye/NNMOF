@@ -1,8 +1,8 @@
 MOF_DIR    = ../../../../
 compiler   = intel
-EXEC       = Zalesak-init
+EXEC       = Zalesak-init.exec
 FC         = mpif90
-DEBUG      = true
+DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path

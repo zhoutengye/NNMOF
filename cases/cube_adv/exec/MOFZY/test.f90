@@ -52,6 +52,7 @@ Subroutine test_case
 
   f_exact = f_beg
   ! f_exact(11:15,6:10,6:10) = 1.0_sp
+  Call Visual3DContour(f1=f_beg)
 
 
   MOFNorm => MOFZY

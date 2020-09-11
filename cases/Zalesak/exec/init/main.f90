@@ -118,7 +118,7 @@ Subroutine InitVolume
     Call HDF5WriteFrame(data_name)
   End Block
 
-  ! Call Visual3DContour(f1=phi)
+  Call Visual3DContour(f1=phi)
   ! Call Visual3DContour(f1=cx)
   ! Call Visual3DContour(f1=cy)
   ! Call Visual3DContour(f1=cz)
