@@ -61,6 +61,8 @@
 Module ModVOFFunc
   Use ModGlobal, only : sp
   Use NueralNetwork
+  Use DecisionTree
+  Use RandomForest
   use mod_cg3_polyhedron
   use mod_cg3_complete_polyhedron_structure
   Implicit None
@@ -72,13 +74,15 @@ Module ModVOFFunc
   Real(sp) :: mof_tol_dangle = 1.0e-8
   Real(sp) :: det_lim = 1.0e-30
   Real(sp),parameter :: MOF_Pi = 3.1415926535897932d0
-  Real(sp) :: epsc = 1.0e-12
+  Real(sp) :: epsc = 1.0e-8
   Integer :: mof_niter(2)
   Real(sp) :: delta_theta =1e-5
   Real(sp) :: delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   type(t_polyhedron) :: LemoinePoly
-  type(Neural_Network) :: ML
+  ! type(Neural_Network) :: ML
+  type(Decision_Tree) :: ML
+  ! type(Random_Forest) :: ML
 
   PROCEDURE(InterfaceMOF), POINTER :: MOFNorm => MOFZY
   PROCEDURE(InterfaceVOF), POINTER :: VOFNorm => NormMYCS
@@ -368,9 +372,19 @@ Contains
     ! Youngs-CIAM scheme */
     Call NormParkerYoungs(c,mm)
     m(3,0:2) = mm(1:3)
+    t0 = DABS(m(3,0)) + DABS(m(3,1)) + DABS(m(3,2)) + 1e-20
+    m(3,0) = m(3,0)/t0
+    m(3,1) = m(3,1)/t0
+    m(3,2) = m(3,2)/t0
+
+    t0 = DABS (m(3,0))
+    t1 = DABS (m(3,1))
+    t2 = DABS (m(3,2))
+    if (t1 > t0)  t0 = t1
+    if (t2 > t0)  t0 = t2
 
     ! ! choose between the previous choice and Youngs-CIAM 
-    if (DABS(m(cn,cn)) > maxval(abs(mm)))  cn = 3
+    if (DABS(m(cn,cn)) > t0)  cn = 3
 
     ! components of the normal vector */
     norm(1:3) = m(cn,0:2)
@@ -414,7 +428,7 @@ Contains
     p1is =(/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3/)
     p1js =(/1,1,1,1,1,1,2,2,2,2,2,3,3,3,3,1,1,1,3,3,3,1,1,2/)
     p3is =(/1,1,2,2,3,3,1,2,2,3,3,2,2,3,3,3,3,3,3,3,3,3,3,3/)
-    p3js =(/2,3,1,3,2,3,3,1,3,1,3,1,3,2,3,1,2,3,1,2,3,2,3,3/)
+    p3js =(/2,3,1,3,2,1,3,1,3,1,3,1,3,2,3,1,2,3,1,2,3,2,3,3/)
 
     block_vol = sum(c) / 27.0_sp
 
@@ -444,6 +458,7 @@ Contains
       ! Find the minimum normal voector at the 24 candidates
       ! Note that the flip case of the 24 candidates should be calculated as well
       ! So, actually 48 candidates
+      ! When times by 3, corresponds with the 72 or 144 values in ELVIRA paper
       Do nelvira = 1, 24
         p1i = p1is(nelvira)
         p1j = p1js(nelvira)
@@ -466,14 +481,14 @@ Contains
 
         Do ii = 1, 2
           norm_e(3) = - norm_e(3)
-          alpha =  3.0 * FloodSZ_backward(norm_e,block_vol)
-          dxl = 1.0_sp
+          alpha =  FloodSZ_backward(norm_e,block_vol)
+          dxl = 1.0/3.0_sp
           Do k = 1, 3
             Do j = 1, 3
               Do i = 1, 3
-                x0(1) = dble(i-1)
-                x0(2) = dble(j-1)
-                x0(3) = dble(k-1)
+                x0(1) = dble(i-1) / 3.0_sp
+                x0(2) = dble(j-1) / 3.0_sp
+                x0(3) = dble(k-1) / 3.0_sp
                 vol_e(i,j,k) = FloodSZ_Forward(norm_e,alpha,x0,dxl)
               End Do
             End Do
@@ -485,9 +500,9 @@ Contains
           End If
           err = sum( (vol_e-c) * (vol_e-c) )
           If ( err < err_min) Then
-          norm = norm_e
-          err_min = err
-        End If
+            norm = norm_e
+            err_min = err
+          End If
         End Do
 
       End Do
@@ -1704,7 +1719,7 @@ Contains
       Call Normalization2(Norm_2)
       Call Norm2Angle(angle_init,norm_2)
     Else
-      Call Initial_Guess(c_mof-0.5_sp, vof, angle_init, err)
+      Call Initial_GuessOld(c_mof-0.5_sp, vof, angle_init, err)
     EndIf
 
     call mof3d_bfgs(LemoinePoly, c_mof, c_mof_sym, vof, angle_init, norm, nstat, residual)
@@ -2282,7 +2297,7 @@ Contains
   !      angle: initial guess of angle (theta, phi)
   !      error: initial error angle (angle, theta, phi)
   !=======================================================
-  Subroutine Initial_GuessNN(C_mof, vof, angle, error)
+  Subroutine Initial_GuessNNStab(C_mof, vof, angle, error)
     Implicit None
     Real(sp), Intent(In) :: C_mof(3)
     Real(sp), Intent(In) :: vof
@@ -2342,8 +2357,51 @@ Contains
       angle = angle3
       error = err3
     endif
+    ! angle = angle1
+
+  End Subroutine Initial_GuessNNStab
+
+  !=======================================================
+  ! (4-6-3) Find the initial guess (NN)
+  !-------------------------------------------------------
+  ! Input:  
+  !      c_norm: centroid ranging from [0,1] (cx,cy,cz)
+  !      vof: volume fraction ranging from [0,1]
+  ! Output: 
+  !      angle: initial guess of angle (theta, phi)
+  !      error: initial error angle (angle, theta, phi)
+  !=======================================================
+  Subroutine Initial_GuessNN(C_mof, vof, angle, error)
+    Implicit None
+    Real(sp), Intent(In) :: C_mof(3)
+    Real(sp), Intent(In) :: vof
+    Real(sp), Intent(Out) :: angle(2)
+    Real(sp), Intent(Out) :: error
+    Real(sp) :: norm_1(3), norm_2(3)
+    Real(sp) :: cen1(3), cen2(3), cen3(3)
+    Real(sp) :: angle1(2), angle2(2), angle3(2)
+    Real(sp) :: err1, err2, err3
+    Real(sp) :: permutation(3)
+    Real(sp) :: relative_c(3)
+    Real(sp) :: inputs(3)
+    Integer :: dir
+
+    Norm_1(1) = - c_mof(1)
+    Norm_1(2) = - c_mof(2)
+    Norm_1(3) = - c_mof(3)
+
+    call normalization2(norm_1)
+    call norm2angle(angle1,norm_1)
+
+    inputs(1:2) = angle1
+    inputs(3) = vof
+    angle = angle1 + ml%predict(inputs)
+
+    error = 1.0_sp
 
   End Subroutine Initial_GuessNN
+
+
 
 
   !=======================================================

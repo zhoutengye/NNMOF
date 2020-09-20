@@ -36,7 +36,7 @@ Module ModVOF
     Module Procedure MOFCIAM
   End Interface VOFAdvection
 
-  real(sp) :: epsc_vof = 1.0d-4
+  real(sp) :: epsc_vof = 1.0d-12
 
   Integer(sp) :: num_iter(2) = 0
   Integer(sp) :: grid_iter = 0
@@ -301,7 +301,7 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
         a2 = us(i,j,k) *dt/dl(dir)
 
         ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
+        if (f(i,j,k) .eq. 1.0_sp) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof2(i,j,k) = 1.0_sp - DMAX1(a1,0.0_sp) + DMIN1(a2,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
@@ -338,7 +338,6 @@ Subroutine AdvCIAM(us, f, nl, dl, dt, dir)
 
   ! apply proper boundary conditions to vof1, vof2, vof3
   call phi_bc%setBCS(vof1)
-  call phi_bc%setBCS(vof2)
   call phi_bc%setBCS(vof3)
   !new values of c and  clip it: 0. <= c <= 1.
   do k=1,nl(3)
@@ -378,7 +377,6 @@ Subroutine AdvEI(us, f, nl, dl, dt, dir)
   Real(sp) :: f_block(3,3,3)
   ! Real(sp) :: FloodSZ_Backward, FloodSZ_Forward
 
-  epsc_vof= 1.0d-3
   ! default, f = 0
   vof1 = 0.0_sp
   vof3 = 0.0_sp
@@ -404,29 +402,35 @@ Subroutine AdvEI(us, f, nl, dl, dt, dir)
         a1 = us(i-ii,j-jj,k-kk) *dt/dl(dir)
         a2 = us(i,j,k) *dt/dl(dir)
 
-        ! f = 1
-        if (f(i,j,k) .GE. 1.0_sp-epsc_vof) then
+        vof1(i,j,k) = 0.d0
+        vof3(i,j,k) = 0.d0
+        vof2(i,j,k) = 0.d0
+        ! snap 更新f = 1
+        if (f(i,j,k) .GT. 1.0_sp-epsc_vof) then
           vof1(i,j,k) = DMAX1(-a1,0.0_sp)
           vof3(i,j,k) = DMAX1(a2,0.0_sp)
 
         ! 0 < f < 1
-        else if (f(i,j,k) .GT. 0.0_sp) then
+        else if (f(i,j,k) .GT. epsc_vof) then
           !*(1)* normal vector
           f_block = f(i-1:i+1,j-1:j+1,k-1:k+1)
           Call VOFNorm(f_block, norm)
           Call Normalization1(norm)
           !*(2) get alpha;
           alpha = FloodSZ_Backward(norm,f(i,j,k))
+          ! alpha = AL3D(norm,f(i,j,k))
           !*(3) get fluxes
           x0=0.0_sp; deltax=1.0_sp
           if (a1 .LT. 0.0_sp) then
             deltax(dir)=-a1
             vof1(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
+            ! vof1(i,j,k) = FL3D(norm,alpha,x0,deltax)
           end if
           if (a2 .GT. 0.0_sp) then
             x0(dir)=1.0_sp-a2;
             deltax(dir)=a2
             vof3(i,j,k) = FloodSZ_Forward(norm,alpha,x0,deltax)
+            ! vof3(i,j,k) = FL3D(norm,alpha,x0,deltax)
           end if
         endif
         vof2(i,j,k) = f(i,j,k) - vof1(i,j,k) - vof3(i,j,k)
@@ -443,7 +447,10 @@ Subroutine AdvEI(us, f, nl, dl, dt, dir)
       do i=1,nl(1)
         a1 = us(i-ii,j-jj,k-kk)*dt/dl(dir)
         a2 = us(i,j,k)*dt/dl(dir)
-        f(i,j,k) = ( vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk) ) / (1.0_sp-a2+a1)
+        ! f(i,j,k) = ( vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk) ) / (1.0_sp-a2+a1)
+        f(i,j,k) = ( vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk) ) &
+            + f(i,j,k) * (a2-a1)
+        ! f(i,j,k) = ( vof3(i-ii,j-jj,k-kk) + vof2(i,j,k) + vof1(i+ii,j+jj,k+kk) )
         if (f(i,j,k) < EPSC_VOF) then
           f(i,j,k) = 0.0_sp
         elseif (f(i,j,k) >  (1.0_sp - EPSC_VOF)) then

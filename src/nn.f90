@@ -254,3 +254,218 @@ Contains
   !↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑End Activation function↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 End Module NueralNetwork
+
+Module DecisionTree
+
+  Implicit None
+  Private
+  Public :: Decision_Tree
+
+  Integer, Parameter :: PS = setsp
+
+  !↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓Decision Tree Variables↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+  Type Nodes
+    Integer  :: children_left
+    Integer  :: children_right
+    Integer  :: feature
+    Real(PS) :: threshold
+    Real(PS), Allocatable :: Values(:)
+    ! Contains
+  End Type Nodes
+
+  type Trees
+    Integer :: node_count
+    Integer :: max_depth
+    Type(Nodes), Allocatable :: Node(:)
+  End type Trees
+
+  Type :: Decision_Tree
+    Integer :: n_inputs
+    Integer :: n_outputs
+    Real(PS), Allocatable :: Inputs(:)
+    Real(PS), Allocatable :: Outputs(:)
+    Type(Trees) :: Tree
+  Contains
+    Procedure :: Initialization
+    Procedure :: Predict
+  End Type Decision_Tree
+  !↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑End Decision Tree Variables↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
+
+Contains
+
+  Subroutine Initialization(self)
+    Implicit None
+
+    Class(Decision_Tree) :: self
+    Character(100) :: tmp
+    Character(100) :: string
+    Real(PS),allocatable :: line(:)
+    Integer :: error
+    Integer :: i,j
+
+    tmp = 'dt_coef.dat'
+    Open(82, file=tmp, status='unknown')
+
+    Read(82,*,iostat=error) string
+    Read(82,*) self%Tree%node_count
+    Read(82,*,iostat=error) string
+    Read(82,*) self%n_inputs
+    Read(82,*,iostat=error) string
+    Read(82,*) self%n_outputs
+    Read(82,*,iostat=error) string
+    Read(82,*) self%Tree%max_depth
+
+    Allocate(self%Tree%node(self%Tree%node_count))
+
+    Do i = 1,self%Tree%node_count
+      Allocate(self%Tree%node(i)%values(self%n_outputs))
+      Read(82,*,iostat=error) string
+      Read(82,*) self%Tree%node(i)%children_left
+      Read(82,*) self%Tree%node(i)%children_right
+      Read(82,*) self%Tree%node(i)%feature
+      Read(82,*) self%Tree%node(i)%threshold
+      Read(82,*) self%Tree%node(i)%values
+    End do
+
+  End Subroutine Initialization
+
+  !↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ Predict Subroutines↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+  function Predict(self, input)
+    Implicit None
+    Class(Decision_Tree) :: self
+    Real(PS) :: input(self%n_inputs)
+    Real(PS) :: Predict(self%n_outputs)
+
+    integer :: i,n
+
+    n = 1
+    Do i = 1, Self%Tree%max_depth
+      if (Self%Tree%node(n)%feature .eq. -1) Exit
+      if (input(Self%Tree%node(n)%feature) .le. SELF%Tree%node(n)%threshold) Then
+        n = Self%Tree%node(n)%children_left
+      else
+        n = Self%Tree%node(n)%children_right
+      End if
+    End do
+
+    Predict = Self%Tree%node(n)%values
+
+  End function Predict
+  !↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑End Prediction Subroutines↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
+End Module DecisionTree
+
+
+Module RandomForest
+
+  Implicit None
+  Private
+  Public :: Random_Forest 
+
+  Integer, Parameter :: PS = setsp
+
+  !↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓Decision Tree Variables↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+  Type Nodes
+    Integer  :: children_left
+    Integer  :: children_right
+    Integer  :: feature
+    Real(PS) :: threshold
+    Real(PS), Allocatable :: Values(:)
+    ! Contains
+  End Type Nodes
+
+  type Trees
+    Integer :: node_count
+    Integer :: max_depth
+    Type(Nodes), Allocatable :: Node(:)
+  End type Trees
+
+  Type :: Random_Forest
+    Integer :: n_inputs
+    Integer :: n_outputs
+    Integer :: tree_count
+    Real(PS), Allocatable :: Inputs(:)
+    Real(PS), Allocatable :: Outputs(:)
+    Type(Trees), Allocatable :: Tree(:)
+  Contains
+    Procedure :: Initialization
+    Procedure :: Predict
+  End Type Random_Forest
+  !↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑End Decision Tree Variables↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
+
+Contains
+
+  Subroutine Initialization(self)
+    Implicit None
+
+    Class(Random_Forest) :: self
+    Character(100) :: tmp
+    Character(100) :: string
+    Real(PS),allocatable :: line(:)
+    Integer :: error
+    Integer :: i,j
+
+    tmp = 'rf_coef.dat'
+    Open(83, file=tmp, status='unknown')
+
+    Read(83, *,iostat=error) string
+    Read(83, *) self%tree_count
+
+    Allocate(self%tree(self%tree_count))
+
+    Do j = 1, self%Tree_count
+      Read(83,*,iostat=error) string
+      Read(83,*) self%Tree(j)%node_count
+      Read(83,*,iostat=error) string
+      Read(83,*) self%n_inputs
+      Read(83,*,iostat=error) string
+      Read(83,*) self%n_outputs
+      Read(83,*,iostat=error) string
+      Read(83,*) self%tree(j)%max_depth
+
+      Allocate(self%Tree(j)%node(self%tree(j)%node_count))
+
+      Do i = 1,self%Tree(j)%node_count
+        Allocate(self%Tree(j)%node(i)%values(self%n_outputs))
+        Read(83,*,iostat=error) string
+        Read(83,*) self%Tree(j)%node(i)%children_left
+        Read(83,*) self%Tree(j)%node(i)%children_right
+        Read(83,*) self%Tree(j)%node(i)%feature
+        Read(83,*) self%Tree(j)%node(i)%threshold
+        Read(83,*) self%Tree(j)%node(i)%values
+      End do
+    End do
+
+  End Subroutine Initialization
+
+  !↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ Predict Subroutines↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+  function Predict(self, input)
+    Implicit None
+    Class(Random_Forest) :: self
+    Real(PS) :: input(self%n_inputs)
+    Real(PS) :: Predict(self%n_outputs)
+
+    integer :: i, j, n
+
+    Predict = 0.0_PS
+    Do j = 1, Self%tree_count
+      n=1
+      Do i = 1, Self%tree(j)%max_depth
+        if (Self%tree(j)%node(n)%feature .eq. -1) Exit
+        if (input(Self%tree(j)%node(n)%feature) .le. Self%tree(j)%node(n)%threshold) Then
+          n = Self%tree(j)%node(n)%children_left
+        else
+          n = Self%tree(j)%node(n)%children_right
+        End if
+      End do
+      Predict = Predict + Self%tree(j)%node(n)%values
+    End do
+
+    Predict = Predict / Self%tree_count
+
+  End function Predict
+  !↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑End Prediction Subroutines↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
+End Module RandomForest
