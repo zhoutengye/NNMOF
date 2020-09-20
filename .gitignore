@@ -3,7 +3,6 @@
 *.txt
 *.dat
 *.h5
-*.py
 *.exec
 *.so
 *genmod.f90
