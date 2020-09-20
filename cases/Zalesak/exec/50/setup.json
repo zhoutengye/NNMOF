@@ -3,12 +3,6 @@
     "inputfile_path":"../../../inputs/",
     "exec_list": [
         "MOFBFGS",
-        "MOFLemoineGN",
-        "MOFNN",
-        "MOFNNStab",
-        "PLIC",
-        "THINC",
-        "ELVIRA",
-        "MOFBFGSNUMERICAL"
+        "MOFLemoineGN"
     ]
 }

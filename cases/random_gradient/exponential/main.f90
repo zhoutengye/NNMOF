@@ -101,10 +101,11 @@ Subroutine compare
   ! delta_theta_max = 5.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
 
   ! ZY
-  ! sum_iter = 0
-  ! MOFNorm => MOFZY
-  ! method = 'MOFZY'
-  ! Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iters(1,:), error(1,:))
+  sum_iter = 0
+  Call initialize_NN
+  MOFNorm => MOFNN
+  method = 'MOFZY'
+  Call onemethod(method,num_sampling, data, Norm_ZY, tt(1), num_iters(1,:), error(1,:))
 
   ! Lemoine GN with analytic gradient
   sum_iter = 0

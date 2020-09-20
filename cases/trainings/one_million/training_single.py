@@ -24,12 +24,18 @@ def coeff_determination(y_true, y_pred):
 
 def model_test():
     model = Sequential()
-    model.add(Dense(units=30,
+    model.add(Dense(units=100,
                 activation=type_activation))
-    model.add(Dense(units=30,
-                activation=type_activation))
-    model.add(Dense(units=30,
-                activation=type_activation))
+#    model.add(Dense(units=25,
+#                activation=type_activation))
+#    model.add(Dense(units=20,
+#                activation=type_activation))
+#    model.add(Dense(units=15,
+#                activation=type_activation))
+#    model.add(Dense(units=10,
+#                activation=type_activation))
+#    model.add(Dense(units=5,
+#                activation=type_activation))
 #    model.add(Dense(units=20,
 #                activation=type_activation))
 #    model.add(Dense(units=20,
@@ -64,7 +70,7 @@ def model_test():
 #                activation=type_activation))
     model.add(Dense(units=2,
                 activation='linear'))
-    adam = keras.optimizers.Adam(lr=0.005, beta_1=0.85, beta_2=0.99)
+    adam = keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999)
     model.compile(loss='mean_squared_error', optimizer=adam,  metrics=[coeff_determination])
     return model
 
@@ -84,7 +90,7 @@ inputs = np.hstack((initial_angle,exact_f))
 outputs = delta_angle.copy()
 
 # parameters
-num_epoch = 100
+num_epoch = 10
 n_batch_size = 1000
 type_activation = 'relu'
 type_optimizer = 'adam'

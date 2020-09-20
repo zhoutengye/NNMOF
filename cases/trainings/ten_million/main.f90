@@ -23,6 +23,7 @@ Subroutine gen_data
   Real(sp) :: n3(num_sampling)
   Real(sp) :: f(num_sampling)
   Real(sp) :: data(10,num_sampling)
+  Real(sp) :: data2(7,num_sampling)
   Real(sp) :: xc0(3), nr(3)
   Real(sp) :: angle_init(2), angle_exact(2), delta_angle(2)
   Real(sp) :: err_temp
@@ -42,7 +43,7 @@ Subroutine gen_data
     Call FloodSZ_BackwardC(nr,f(i),xc0)
     Call Normalization2(nr)
     Call Norm2Angle(angle_exact,nr)
-    Call Initial_Guess3(xc0-0.5_sp, f(i), angle_init,err_temp)
+    Call Initial_GuessOld(xc0-0.5_sp, f(i), angle_init,err_temp)
     delta_angle = angle_exact - angle_init
     data(1,i) = xc0(1)
     data(2,i) = xc0(2)
@@ -73,3 +74,58 @@ Subroutine gen_data
   close(10)
 
 End subroutine gen_data
+
+Subroutine compare
+  Use ModGlobal
+  Use ModTools
+  Use ModVOF
+  use mod_cg3_polyhedron
+  use MODSussman
+  use variables_mof
+  Implicit None
+  Integer,parameter :: num_sampling = 1000000
+  Real(sp) :: data(7,num_sampling)
+  Real(sp) :: norm_exact(3,num_sampling)
+  Real(sp) :: norm_ZY(3,num_sampling)
+  Real(sp) :: norm_BFGS1(3,num_sampling)
+  Real(sp) :: norm_BFGS2(3,num_sampling)
+  Real(sp) :: norm_GN(3,num_sampling)
+  Real(sp) :: norm_Sussman(3,num_sampling)
+  Real(sp) :: ddx(3)
+  Real(sp) :: tt(5)
+  Real(sp) :: num_iters(5,2)
+  Real(sp) :: error(5,2)
+  Integer :: sum_iter(2)
+  Integer :: i
+  Character(80) :: method
+  Character(200) :: f_name
+  Character(20) :: f_num
+  Real(sp) :: c(3), f, t1, t2, norm(3)
+  Integer :: ii
+
+
+  Call Init(inputfield=.false.)
+
+  Call initialize_NN
+  MOFNorm => MOFNN
+
+  ! Load data
+  open(10,file='data.dat',status='old')
+  Do i = 1,num_sampling
+    Read(10,*) data(:,i)
+  End Do
+
+  Call cpu_time(t1)
+  Do i = 1, num_sampling
+    f = data(4,i)
+    c = data(5:7,i)
+    Call MOFNorm(f,c,norm)
+    ! norm_out(:,i) = norm
+    sum_iter = sum_iter + mof_niter
+  End Do
+  Call cpu_time(t2)
+  print *, t2-t1
+  open(20,file='dt_time.dat')
+  write(20,*)  t2-t1
+
+end Subroutine compare

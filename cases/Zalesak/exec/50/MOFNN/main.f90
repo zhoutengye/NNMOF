@@ -69,8 +69,9 @@ Subroutine zalesak
   Do While (time < tend)
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,6)
-    ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
-    Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     sum_iter = sum_iter+mof_niter
     ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
@@ -84,6 +85,34 @@ Subroutine zalesak
   Call CPU_Time(tt2)
 
   f_end = phi
+
+  Call Results(f_exact, f_end,tt1,tt2)
+
+  Call Visual3DContour(f1=f_end)
+  Call Visual2DContour(f1=f_end, slice_dir=3, slice_coord=nl(3)/2)
+
+  Call Finalize()
+
+
+end Subroutine zalesak
+
+
+Subroutine Results(f_exact,f_end,tt1,tt2)
+  use ModGlobal
+  Implicit None
+  Real(sp) :: f_exact(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Real(sp) :: f_end(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
+  Real(sp) :: tt1,tt2
+  Integer :: rank
+  Real(sp) :: error_rr
+  Real(sp) :: error_r
+  Real(sp) :: error_g
+  Real(sp) :: error_m
+  Real(sp) :: err
+  Real(sp) :: v1, v2, v11, v12
+  Integer :: sum_iter(2) = 0
+
+  Integer :: i,j,k
   err = 0.0_sp
   Do k = 1, nl(3)
     Do j = 1, nl(2)
@@ -93,20 +122,20 @@ Subroutine zalesak
     End Do
   End Do
 
-  v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3)))
+
+  v1 = sum(f_exact(1:nl(1),1:nl(2),1:nl(3)))
   v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3)))
 
   Do k = 1, nl(3)
     Do j = 1, nl(2)
       Do i = 1, nl(1)
-        error_rr = error_rr + abs(f_beg(i,j,k) - f_end(i,j,k))
+        error_rr = error_rr + abs(f_exact(i,j,k) - f_end(i,j,k))
       End Do
     End Do
   End Do
 
-
   Call MPI_Reduce(v1, v11, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
-  Call MPI_Reduce(v1, v12, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
+  Call MPI_Reduce(v2, v12, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
   Call MPI_Reduce(error_rr, error_r, 1, MPI_REAL_SP, MPI_SUM, MPI_COMM_WORLD, 0, ierr)
 
 
@@ -128,11 +157,4 @@ Subroutine zalesak
     close(10)
   endif
 
-  Call Visual3DContour(f1=f_end)
-  Call Visual2DContour(f1=f_end, slice_dir=3, slice_coord=nl(3)/2)
-
-  Call Finalize()
-
-
-end Subroutine zalesak
-
+End Subroutine Results

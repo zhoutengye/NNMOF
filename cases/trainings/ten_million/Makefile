@@ -1,4 +1,4 @@
-TEST_NUM = 1
+TEST_NUM = 2
 MOF_DIR    = ../../..
 compiler   = intel
 EXEC       = gen_data.exec

@@ -71,7 +71,13 @@ Subroutine RV
   !! For numerical gradient in BFGS
   ! MOFNorm => MOFLemoine_BFGS
   Call Initialize_NN
-  MOFNorm => MOFNNStab
+  MOFNorm => MOFNN
+  MOFNorm => MOFLemoine_GaussNewton
+  GAUSSNEWTONTOL = 1.0e-4
+  delta_theta = 1e-4
+  mof_tol = 1e-3
+  delta_theta_max = 1.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
+  MOFITERMAX = 10
   ddx = 1.0_sp
   mof_use_symmetric_reconstruction = .false.
   mof3d_internal_is_analytic_gradient_enabled = .true.
@@ -84,7 +90,7 @@ Subroutine RV
 
   ! VOF advection
   Call CPU_Time(tt1)
-  Do While (time < tend)
+  Do While (time < tend-dt)
     if (myid .eq. 0) print *, 'step =', nn
 
     Do k = 1, nl(3)
@@ -93,22 +99,23 @@ Subroutine RV
           U(i,j,k) = 2.0_sp * dsin(Pi * xg(i)) * dsin(Pi * xg(i)) &
                 * dsin(2.0_sp * Pi * yg(j)) &
                 * dsin(2.0_sp * Pi * zg(k)) &
-                * dcos(Pi * time / 1.5_sp)
+                * dcos(Pi * time / tend)
           V(i,j,k) = - dsin(2.0_sp * Pi * xg(i)) &
                 * dsin(Pi * yg(j)) * dsin(Pi * yg(j)) &
                 * dsin(2.0_sp * Pi * zg(k)) &
-                * dcos(Pi * time / 1.5_sp)
+                * dcos(Pi * time / tend)
           W(i,j,k) = - dsin(2.0_sp * Pi * xg(i)) &
                 * dsin(2.0_sp * Pi * yg(j)) &
                 * dsin(Pi * zg(k)) * dsin(Pi * zg(k)) &
-                * dcos(Pi * time / 1.5_sp)
+                * dcos(Pi * time / tend)
         End Do
       End Do
     End Do
 
     rank = mod(nn+1,6)
     ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
-    Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
+    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
+    Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
     sum_iter = sum_iter+num_iter
     nn = nn + 1
     time =  time + dt
@@ -126,13 +133,16 @@ Subroutine RV
     End Do
   End Do
 
-  v1 = sum(f_beg(1:nl(1),1:nl(2),1:nl(3)))
-  v2 = sum(f_end(1:nl(1),1:nl(2),1:nl(3)))
+  v1 = 0.0_sp
+  v2 = 0.0_sp
+  error_rr = 0.0_sp
 
   Do k = 1, nl(3)
     Do j = 1, nl(2)
       Do i = 1, nl(1)
         error_rr = error_rr + abs(f_beg(i,j,k) - f_end(i,j,k))
+        v1 = v1 + f_beg(i,j,k)
+        v2 = v2 + f_end(i,j,k)
       End Do
     End Do
   End Do
@@ -153,6 +163,7 @@ Subroutine RV
     print *, 'realtive distortion error = ', error_r
     print *, 'absolute error = ', error_g
     print *, 'conservation error = ', error_m
+    print * , v11,v12
     open(10,file='errors.dat')
     write(10,*) , 'cpu_time = ', tt2-tt1
     write(10,*) , 'realtive distortion error = ', error_r

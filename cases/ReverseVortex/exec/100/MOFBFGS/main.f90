@@ -98,11 +98,11 @@ Subroutine zalesak
     if (myid .eq. 0) print *, 'step =', nn
     rank = mod(nn+1,6)
     ! Call MOFWY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
-    Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     sum_iter = sum_iter+num_iter
     ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
     ! Call VOFWY(Phi, u, v, w, nl, dl, dt,rank)
-    ! Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
+    Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)
     ! Call VOF_EI_LE(Phi, u, v, w, nl, dl, dt,rank)
     nn = nn + 1

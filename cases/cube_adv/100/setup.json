@@ -1,0 +1,107 @@
+{
+    "inputfile_path":"../inputs/",
+    "exec_list": [
+        "PLIC",
+        "MOFNN",
+        "MOFNNStab",
+        "MOFBFGS",
+        "ELVIRA",
+        "MOFBFGSNUMERICAL"
+    ],
+    "BenchDir":"MOF_BENCH",
+    "CaseParams":{
+        "PLIC":{
+            "Type":"VOF",
+            "Reconstruction":[
+                "VOFNorm => NormMYCS"
+            ]
+        },
+        "ELVIRA":{
+            "Type":"VOF",
+            "Reconstruction":[
+                "VOFNorm => NormELVIRA"
+            ]
+        },
+        "THINC":{
+            "Type":"THINC",
+            "Reconstruction":[
+                "VOFNorm => NormMYCS"
+            ]
+        },
+        "MOFNN":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "Call Initialize_NN",
+                "MOFNorm => MOFNN"
+            ]
+        },
+        "MOFNNStab":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "Call Initialize_NN",
+                "MOFNorm => MOFNNStab"
+            ]
+        },
+        "MOFBFGS":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "Call Initialize_NN",
+                "MOFNorm => MOFNN"
+            ]
+        },
+        "MOFZY":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "MOFNorm => MOFZY",
+                "mof_tol = 1.0e-4",
+                "mofitermax = 10",
+                "delta_theta = 0.1_sp * MOF_Pi / 180.0_sp",
+                "delta_theta = 1e-4",
+                "delta_theta_max = 1.0_sp * MOF_Pi / 180.0_sp"
+            ]
+        },
+        "MOFLemoineGN":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "MOFNorm => MOFLemoine_GaussNewton",
+                "mof_tol = 1.0e-4",
+                "mofitermax = 10",
+                "delta_theta = 0.1_sp * MOF_Pi / 180.0_sp",
+                "delta_theta = 1e-4",
+                "delta_theta_max = 1.0_sp * MOF_Pi / 180.0_sp"
+            ]
+        },
+        "MOFBFGS":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "MOFNorm => MOFLemoine_BFGS",
+                "ddx = 1.0_sp",
+                "mof3d_internal_is_analytic_gradient_enabled = .true.",
+                "mof_use_symmetric_reconstruction = .false.",
+                "mof3d_tol_derivative = 1d-4",
+                "mof3d_max_iter = 10",
+                "Call Lemoine_create_cuboid(ddx, LemoinePoly)"
+            ]
+        },
+        "MOFBFGSNUMERICAL":{
+            "Type":"MOF",
+            "Reconstruction":[
+                "MOFNorm => MOFLemoine_BFGS",
+                "ddx = 1.0_sp",
+                "mof_use_symmetric_reconstruction = .false.",
+                "mof3d_internal_is_analytic_gradient_enabled = .false.",
+                "mof3d_use_optimized_centroid = .false.",
+                "mof3d_tol_derivative = 1d-4",
+                "mof3d_max_iter = 10",
+                "Call Lemoine_create_cuboid(ddx, LemoinePoly)"
+            ]
+        },
+        "MOFSussman":{
+            "Type":"MOF",
+            "Reconstruction":[
+		"Call MOFInit3d",
+                "MOFNorm => MOFSussmanGaussNewton"
+            ]
+        }
+    }
+}
