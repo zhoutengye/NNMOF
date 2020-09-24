@@ -16,7 +16,7 @@ input_namelist_file = input_path+"input50.namelist"
 input_data_file = input_path+"input50.h5"
 input_ml_file = input_path+"dt_coef.dat"
 
-exec_line = "./Linear* input50\n"
+exec_line = "./Zalesak* input50\n"
 
 for case in case_list:
     if case not in c_case_list:
@@ -65,7 +65,7 @@ f = open('run_cases.sh','w')
 for case in case_list:
     f.write("echo 'start case "+ case + "'\n")
     f.write("cd "+ case + "\n")
-    f.write("rm Linear* \n")
+    f.write("rm Zalesak* \n")
     f.write("make clean\n")
     f.write("make \n")
     f.write(exec_line)

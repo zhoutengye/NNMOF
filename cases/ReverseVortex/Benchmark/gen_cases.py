@@ -16,7 +16,7 @@ input_namelist_file = input_path+"input50.namelist"
 input_data_file = input_path+"input50.h5"
 input_ml_file = input_path+"dt_coef.dat"
 
-exec_line = "./Linear* input50\n"
+exec_line = "./RV* input50\n"
 
 for case in case_list:
     if case not in c_case_list:
@@ -42,11 +42,11 @@ for case in case_list:
         if "!>2" in line:
             replace_flag = 1
             if script_dict[case]["Type"] == "MOF":
-                new_f.append("Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)\n")
+                new_f.append("Call MOF_EILE3DS(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)\n")
             elif script_dict[case]["Type"] == "VOF":
-                new_f.append("Call VOFCIAM(Phi, u, v, w, nl, dl, dt,rank)\n")
+                new_f.append("Call VOF_EILE3DS(Phi, u, v, w, nl, dl, dt,rank)\n")
             elif script_dict[case]["Type"] == "THINC":
-                new_f.append("Call VOFTHINC(Phi, u, v, w, nl, dl, dt,rank)\n")
+                new_f.append("Call VOFTHINC_EI(Phi, u, v, w, nl, dl, dt,rank)\n")
             else:
                 print("*** Fatal Error ***")
                 print("*** VOF type not supported, should be MOF, VOF or THINC ***")
@@ -65,7 +65,7 @@ f = open('run_cases.sh','w')
 for case in case_list:
     f.write("echo 'start case "+ case + "'\n")
     f.write("cd "+ case + "\n")
-    f.write("rm Linear* \n")
+    f.write("rm RV* \n")
     f.write("make clean\n")
     f.write("make \n")
     f.write(exec_line)

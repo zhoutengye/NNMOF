@@ -49,15 +49,17 @@ Module ModGlobal
   Real(sp) :: time
   Real(sp) :: tend
   Real(sp) :: cfl
+  Integer :: n_step = 0
 
   !! Control output
   Real(SP) :: output_inteval
   Real(sp) :: time_out
+  Integer  :: output_step
   Real(sp) :: startoutputtime
   Integer  :: output_type = 0
   Logical  :: hotstart = .false.
   Integer  :: hotstart_type
-  Real(sp)  :: hotstart_time
+  Real(sp) :: hotstart_time
 
   !! HDF5 parameters
   INTEGER(HSIZE_T), DIMENSION(3) :: h5_total_dims
@@ -160,7 +162,7 @@ Contains
     namelist /mpivar/ px, py, pz
     namelist /gridvar/ nx,ny,nz,dx,dy,dz, periodx, periody, periodz
     namelist /compvar/ dt, tstart, tend, hotstart, hotstart_type, hotstart_time
-    namelist /outvar/ output_inteval, startoutputtime, output_format
+    namelist /outvar/ output_inteval, startoutputtime, output_format, output_step
     namelist /iofield/ n_vars, io_phi, io_p, io_u, io_v, io_w, io_cx, io_cy, io_cz, output_path, output_name
 
     Call getarg(1,input_name)
@@ -217,8 +219,8 @@ Contains
       End If
     End If
 
-    ! Broad values to all processors
-    Call MPI_BCAST(dims, 3, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    ! Broadcast values to all processors
+    ! VERY VERY VERY stupid broadcast, going to modify it Call MPI_BCAST(dims, 3, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(periods, 3, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
@@ -240,8 +242,9 @@ Contains
     Call MPI_BCAST(hotstart_time, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(output_inteval, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
+    Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    Call MPI_BCAST(output_step, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
     Call MPI_BCAST(startoutputtime, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
     Call MPI_barrier(MPI_COMM_WORLD, ierr)
@@ -736,15 +739,28 @@ Contains
 
   end SUBROUTINE HDF5WriteFrame
 
-  Subroutine WriteFieldData
+  ! By default, use time as critetion
+  ! If present step, use step
+  Subroutine WriteFieldData(run_step, def_name)
     Implicit None
     Character(80) :: frame_name
-    If (time >= time_out ) Then
+    Integer,  Intent(In), optional :: run_step
+    Character(80),  Intent(In), optional :: def_name
+
+    If(present(run_step))then
+      write(frame_name,'(I6)') run_step 
+      If ( mod(run_step, output_step) == 0 ) Then
+        frame_name = trim(adjustl(frame_name))
+        print *, frame_name
+        Call HDF5WriteFrame(frame_name)
+        If (myid .eq. 0 ) Print *, "Write data step = ",run_step," to output.h5"
+      End If
+    Else If (time >= time_out ) Then
       write(frame_name,'(F0.6)') time_out
+      time_out = time_out + output_inteval
       frame_name = trim(frame_name)
       Call HDF5WriteFrame(frame_name)
       If (myid .eq. 0 ) Print *, "Write data ",time_out," to output.h5"
-      time_out = time_out + output_inteval
     End If
   End Subroutine WriteFieldData
 

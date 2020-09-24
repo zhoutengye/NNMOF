@@ -53,7 +53,7 @@ Subroutine LinearAdv
   !<1 End Replace
 
   Call CPU_Time(tt1)
-  Do While (time < tend)
+  Do While (time +dt < tend)
     nn = nn + 1
     time =  time + dt
     if (myid .eq. 0) print *, 'step =', nn, 'mof_ier', mof_niter(1)
@@ -71,8 +71,8 @@ Subroutine LinearAdv
 
   Call Results(f_exact, f_end,tt1,tt2)
 
-  ! Call Visual3DContour(f1=f_end)
-  ! Call Visual2DContour(f1=f_beg, f2=f_end, slice_dir=3, slice_coord=25)
+  Call Visual3DContour(f1=f_end)
+  Call Visual2DContour(f1=f_beg, f2=f_end, slice_dir=3, slice_coord=25)
 
   Call Finalize()
 

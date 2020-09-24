@@ -5,12 +5,12 @@ pz = 1
 /
 
 &gridvar
-nx = 50
-ny = 50
-nz = 50
-dx = 0.02
-dy = 0.02
-dz = 0.02
+nx = 200
+ny = 200
+nz = 100
+dx = 0.005
+dy = 0.005
+dz = 0.005
 periodx = .true.
 periody = .true.
 periodz = .true.
@@ -18,13 +18,12 @@ periodz = .true.
 
 &compvar
 tstart = 0.0
-tend  = 3.00
-dt = 0.004
+tend  = 6.00
+dt = 0.005
 /
 
 &outvar
 output_inteval = 1.5
-output_step = 375
 startoutputtime = 0.0
 output_format = 'tecplot'
 /

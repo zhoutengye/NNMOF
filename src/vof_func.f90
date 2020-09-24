@@ -74,7 +74,7 @@ Module ModVOFFunc
   Real(sp) :: mof_tol_dangle = 1.0e-8
   Real(sp) :: det_lim = 1.0e-30
   Real(sp),parameter :: MOF_Pi = 3.1415926535897932d0
-  Real(sp) :: epsc = 1.0e-8
+  Real(sp) :: epsc = 1.0e-12
   Integer :: mof_niter(2)
   Real(sp) :: delta_theta =1e-5
   Real(sp) :: delta_theta_max = 3.0_sp * MOF_Pi / 180.0_sp  ! 10 degrees
@@ -85,7 +85,7 @@ Module ModVOFFunc
   ! type(Random_Forest) :: ML
 
   PROCEDURE(InterfaceMOF), POINTER :: MOFNorm => MOFZY
-  PROCEDURE(InterfaceVOF), POINTER :: VOFNorm => NormMYCS
+  PROCEDURE(InterfaceVOF), POINTER :: VOFNorm => NormCS
 
   Interface
     Subroutine InterfaceVOF(f,norm)
@@ -423,7 +423,7 @@ Contains
     Real(sp) :: dxl(3), x0(3)
     Real(sp) :: alpha, norm_e(3)
     Real(sp) :: err, err_min
-    Integer :: i, j, k, dir, nelvira, ii
+    Integer :: i, j, k, dir, nelvira, ii, jj
 
     p1is =(/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3/)
     p1js =(/1,1,1,1,1,1,2,2,2,2,2,3,3,3,3,1,1,1,3,3,3,1,1,2/)
@@ -439,7 +439,7 @@ Contains
       If (dir == 1) Then
         Do j = 1,3
           Do i = 1,3
-            HVolume(i,j) = sum(c(i,j,:))
+            HVolume(i,j) = sum(c(:,i,j))
           End Do
         End Do
       Else If (dir == 2) Then
@@ -451,7 +451,7 @@ Contains
       Else
         Do j = 1,3
           Do i = 1,3
-            HVolume(i,j) = sum(c(:,i,j))
+            HVolume(i,j) = sum(c(i,j,:))
           End Do
         End Do
       End If
@@ -465,14 +465,14 @@ Contains
         p3i = p3is(nelvira)
         p3j = p3js(nelvira)
         If (dir == 1) Then
-          vec_1 = (/dble(p1i-p2i), dble(p1j-p2j), Hvolume(p1i,p1j)-Hvolume(p2i,p2j)/)
-          vec_2 = (/dble(p3i-p2i), dble(p3j-p2j), Hvolume(p3i,p3j)-Hvolume(p2i,p2j)/)
+          vec_1 = (/Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1i-p2i), dble(p1j-p2j)/)
+          vec_2 = (/Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3i-p2i), dble(p3j-p2j)/)
         Else If (dir == 2) Then
           vec_1 = (/dble(p1i-p2i), Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1j-p2j)/)
           vec_2 = (/dble(p3i-p2i), Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3j-p2j)/)
         Else
-          vec_1 = (/Hvolume(p1i,p1j)-Hvolume(p2i,p2j), dble(p1i-p2i), dble(p1j-p2j)/)
-          vec_2 = (/Hvolume(p3i,p3j)-Hvolume(p2i,p2j), dble(p3i-p2i), dble(p3j-p2j)/)
+          vec_1 = (/dble(p1i-p2i), dble(p1j-p2j), Hvolume(p1i,p1j)-Hvolume(p2i,p2j)/)
+          vec_2 = (/dble(p3i-p2i), dble(p3j-p2j), Hvolume(p3i,p3j)-Hvolume(p2i,p2j)/)
         End If
         norm_e(1) = vec_1(2) * vec_2(3) - vec_1(3) * vec_2(2)
         norm_e(2) = vec_1(3) * vec_2(1) - vec_1(1) * vec_2(3)
@@ -480,7 +480,9 @@ Contains
         Call Normalization1(norm_e)
 
         Do ii = 1, 2
-          norm_e(3) = - norm_e(3)
+          norm_e = - norm_e
+        Do jj = 1, 2
+          norm_e(dir) = - norm_e(dir)
           alpha =  FloodSZ_backward(norm_e,block_vol)
           dxl = 1.0/3.0_sp
           Do k = 1, 3
@@ -493,16 +495,12 @@ Contains
               End Do
             End Do
           End Do
-          err = sum( ((1.0_sp - vol_e) - c) * ((1.0_sp - vol_e) - c) )
-          If ( err < err_min) Then
-            norm = - norm_e
-            err_min = err
-          End If
-          err = sum( (vol_e-c) * (vol_e-c) )
+          err = norm2( (vol_e-c))
           If ( err < err_min) Then
             norm = norm_e
             err_min = err
           End If
+        End Do
         End Do
 
       End Do
@@ -2042,9 +2040,7 @@ Contains
 
     abs_norm = abs(norm)
     aa = abs_norm(1) + abs_norm(2) + abs_norm(3)
-    If( aa .gt. 1.d-10) Then
-      norm = norm / aa
-    End If
+    norm = norm / (aa + 1d-10)
   End Subroutine Normalization1
 
   !=======================================================
@@ -2061,11 +2057,9 @@ Contains
     aa = Sqrt( norm(1) * norm(1) + &
         &       norm(2) * norm(2) + &
         &       norm(3) * norm(3) )
-    If( aa .gt. 1.d-10) Then
-      norm(1) = norm(1) / aa
-      norm(2) = norm(2) / aa
-      norm(3) = norm(3) / aa
-    End If
+    norm(1) = norm(1) / ( aa + 1d-10)
+    norm(2) = norm(2) / ( aa + 1d-10)
+    norm(3) = norm(3) / ( aa + 1d-10)
   End Subroutine Normalization2
 
   !=======================================================
