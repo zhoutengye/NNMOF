@@ -471,6 +471,7 @@ Contains
     Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%solver, Hypre%ier)
     Call HYPRE_StructSMGSetTol(hypre%solver, iter_tolerance, Hypre%ier)
     Call HYPRE_StructSMGSetMaxIter(hypre%solver, iter_max, Hypre%ier)
+    Call HYPRE_StructSMGSetZeroGuess(hypre%solver, hypre%ier)
   End Subroutine Hypre_SetSolver_SMG
   !=============================
   ! (4-2) Set up PFMG Solver

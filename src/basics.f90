@@ -174,103 +174,54 @@ Contains
       h5_input%filename = trim(input_name)//'.h5'
     endif
 
-    ! Read at processor 0
-    If (myid .eq. 0) Then
-      INQUIRE(FILE=file_name, EXIST=file_exists)
-      If ( file_exists ) Then
-        Open(10, file=file_name)
-        write(6,*) file_exists
-        Read(10, nml = mpivar)
-        Read(10, nml = gridvar)
-        Read(10, nml = compvar)
-        Read(10, nml = outvar)
-        Read(10, nml = iofield)
-        dims(1) = max(1,px)
-        dims(2) = max(1,py)
-        dims(3) = max(1,pz)
-        n(1) = nx
-        n(2) = ny
-        n(3) = nz
-        dl(1) = dx
-        dl(2) = dy
-        dl(3) = dz
-        periods(1) = periodx
-        periods(2) = periody
-        periods(3) = periodz
-        close(10)
-        if (trim(output_format) .eq. 'paraview') then
-          output_type = 1
-        else if (trim(output_format) .eq. 'tecplot') then
-          output_type = 2
-        endif
-        If (dims(1)*dims(2)*dims(3) .ne. nproc) Then
+    ! Read at namelist processor by processor
+    Do i = 1, nproc
+      If (myid .eq. 0) Then
+        INQUIRE(FILE=file_name, EXIST=file_exists)
+        If ( file_exists ) Then
+          Open(10, file=file_name)
+          write(6,*) file_exists
+          Read(10, nml = mpivar)
+          Read(10, nml = gridvar)
+          Read(10, nml = compvar)
+          Read(10, nml = outvar)
+          Read(10, nml = iofield)
+        Else
           print *, "======Fatal Error=============================="
-          print *, "nx * ny * nz != np, please check"
+          print *, Trim(file_name), " does not exist, please check"
           print *, "==============================================="
           Call MPI_Finalize(ierr)
           stop
         End If
-      Else
-        print *, "======Fatal Error=============================="
-        print *, Trim(file_name), " does not exist, please check"
-        print *, "==============================================="
-        Call MPI_Finalize(ierr)
-        stop
+        Call MPI_barrier(MPI_COMM_WORLD, ierr)
       End If
+    End Do
+
+    dims(1) = max(1,px)
+    dims(2) = max(1,py)
+    dims(3) = max(1,pz)
+    n(1) = nx
+    n(2) = ny
+    n(3) = nz
+    dl(1) = dx
+    dl(2) = dy
+    dl(3) = dz
+    periods(1) = periodx
+    periods(2) = periody
+    periods(3) = periodz
+    close(10)
+    if (trim(output_format) .eq. 'paraview') then
+      output_type = 1
+    else if (trim(output_format) .eq. 'tecplot') then
+      output_type = 2
+    endif
+    If (myid.eq.0 .and. dims(1)*dims(2)*dims(3) .ne. nproc) Then
+      print *, "======Fatal Error=============================="
+      print *, "nx * ny * nz != np, please check"
+      print *, "==============================================="
+      Call MPI_Finalize(ierr)
+      stop
     End If
-
-    ! Broadcast values to all processors
-    ! VERY VERY VERY stupid broadcast, going to modify it Call MPI_BCAST(dims, 3, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(periods, 3, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-
-    Call MPI_BCAST(n, 3, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(dl, 3, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-
-    Call MPI_BCAST(dt, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(tstart, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(tend, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(hotstart, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(hotstart_type, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(hotstart_time, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-
-    Call MPI_BCAST(output_inteval, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(output_step, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(startoutputtime, 1, MPI_REAL_SP, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-
-    Call MPI_BCAST(output_name, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(output_path, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(n_vars, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_phi, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_u, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_v, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_w, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_cx, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_cy, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_cz, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
-    Call MPI_BCAST(io_p, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-    Call MPI_barrier(MPI_COMM_WORLD, ierr)
 
     dt0 = dt
     time_out = startoutputtime

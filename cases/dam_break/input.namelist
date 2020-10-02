@@ -5,12 +5,12 @@ pz = 1
 /
 
 &gridvar
-nx = 50
-ny = 50
-nz = 50
-dx = 0.02
-dy = 0.02
-dz = 0.02
+nx = 80
+ny = 60
+nz = 10
+dx = 0.01
+dy = 0.01
+dz = 0.01
 periodx = .false.
 periody = .false.
 periodz = .false.
@@ -18,7 +18,7 @@ periodz = .false.
 
 &compvar
 tstart = 0.0
-tend  = 50.0
+tend  = 1.0
 dt = 0.01
 hotstart = .false.
 hotstart_type = 0
@@ -26,7 +26,7 @@ hotstart_time = 0.01
 /
 
 &outvar
-output_inteval = 1.0
+output_inteval = 0.05
 startoutputtime = 0.0
 output_format = 'paraview'
 /
@@ -46,28 +46,28 @@ output_name = ''
 /
 
 &ns_physics
-rho_l = 1.0e0
-rho_g = 1.0e-3
+rho_l = 1.0e3
+rho_g = 1.25e0
 mu_l  = 1.0e-3
 mu_g  = 1.0e-6
 cfl   = 0.5
-dt_min = 0.001
-body_force = 0.0, 0.0,0.0
+dt_min = 0.0001
+body_force = 0.0, -9.81 0.0
 /
 
 &ns_solver
 rk_order = 1
-iter_max = 50
-iter_tolerance = 1e-6
+iter_max = 20
+iter_tolerance = 1e-3
 hypre_solver = 1
 hypre_preconditioner = 0
 /
 
 &ns_bc
-bc_left   = 1
-bc_right  = 1
-bc_back   = 1
-bc_front  = 1
-bc_top    = 1
-bc_bottom = 1
+bc_left   = 2
+bc_right  = 2
+bc_back   = 2
+bc_front  = 2
+bc_top    = 2
+bc_bottom = 2
 /

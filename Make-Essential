@@ -34,9 +34,10 @@ endif
         EXEC:= DEBUG-$(EXEC)
 else
         FC_OPT = -O3
+
 endif
 
-CORE_SRCS := $(SRC_DIR)/nn.f90 $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90  $(SRC_DIR)/hypre.f90 $(SRC_DIR)/ns.f90
+CORE_SRCS := $(SRC_DIR)/nn.f90 $(SRC_DIR)/basics.f90 $(SRC_DIR)/tools.f90 $(SRC_DIR)/vof_func.f90 $(SRC_DIR)/vof_adv.f90  $(SRC_DIR)/hypre.f90 $(SRC_DIR)/ns_common.f90 $(SRC_DIR)/ns.f90
 
 SRCS := $(CORE_SRCS) $(CASE_SRCS)
 OBJS := $(patsubst %.f90,%.o,$(SRCS))

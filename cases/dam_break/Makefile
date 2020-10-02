@@ -1,7 +1,6 @@
-TEST_NUM = 4
 MOF_DIR    = ../..
 compiler   = intel
-EXEC       = TEST
+EXEC       = dam_break.exec
 FC         = mpif90
 DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
@@ -10,14 +9,12 @@ PRECISION  = DOUBLE_PRECISION
 HDF5_DIR   = $(HOME)/HPC/hdf5/$(compiler)
 HYPRE_DIR  = $(HOME)/HPC/hypre/$(compiler)
 
-CASE_SRCS = init.f90 test.f90
+CASE_SRCS = main.f90
 
 #-----------Include essential files---------------
 include $(MOF_DIR)/Make-Essential
 
 # Case specific makefile variables, not necessary
-CPP := $(CPP) -DTEST$(TEST_NUM)
-EXEC       = TEST-$(TEST_NUM)
 
 # If external libraries needed, append after following lines
 LIBS := $(LIBS)

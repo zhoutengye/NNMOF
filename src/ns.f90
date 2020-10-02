@@ -1,26 +1,18 @@
 !===============================================
+! Contains several solver.
+!    1. solvers are defined as derived types.
+!    1. common subroutines are in file ns_common.f90
 ! Includes:
-!     (1) Time integration
-!       (1-1) Two phase flow solver
-!       (1-2) Runge Kutta for momentum
-!     (2) Solution procedures
-!       (2-1) Advection-Diffusion
-!          (2-1-1) Advection-Diffusion for U
-!          (2-1-1) Advection-Diffusion for V
-!          (2-1-1) Advection-Diffusion for W
-!       (2-2) Partial P
-!       (2-3) Divergence
-!       (2-4) Projection
-!       (2-5) Update Rho and Mu
-!       (2-6) Continuum surface tension
-!     (3) Initial and Boundary conditions
-!       (3-1) Boundary condition for u, v, w
-!       (3-2) Boundary condition for p
-!       (3-3) Boundary condition for rho, mu
-!       (3-4) Initialization
-!     (4) Misc
-!       (4-2) Adjust_dt
-!       (4-1) Jacobi iteration
+!     (1) CDSRK3: Central Difference with Runge-Kutta3 on staggered grid
+!       (1-1) Two Phase Flow solver
+!       (1-2) Single Phase Flow solver
+!       (1-3) RK3 for advection and diffusion
+!       (1-4) Update Rho
+!       (1-5) boundary conditions for u, v, w
+!       (1-6) Boudnary conditions for p
+!       (1-7) Boudnary conditions for rho and mu
+!       (1-8) Initialize solver
+!     (2) VSIAM: Multi-moment solver on multi-moment grid
 !------------------------------------------
 ! Author: Zhouteng Ye (yzt9zju@gmail.com)
 !------------------------------------------
@@ -90,6 +82,9 @@ Module ModNavierStokes
   ! Module variables will not pass through the subroutine interface
   Real(sp), Allocatable :: Rho(:,:,:), Rhox(:,:,:), Rhoy(:,:,:), Rhoz(:,:,:), PP(:,:,:)
   Real(sp), Allocatable :: mu(:,:,:), muxy(:,:,:), muxz(:,:,:), muyz(:,:,:)
+  Real(sp), Allocatable :: U_sx(:,:,:), U_sy(:,:,:), U_sz(:,:,:), U_v(:,:,:)
+  Real(sp), Allocatable :: V_sx(:,:,:), V_sy(:,:,:), V_sz(:,:,:), V_v(:,:,:)
+  Real(sp), Allocatable :: W_sx(:,:,:), W_sy(:,:,:), W_sz(:,:,:), W_v(:,:,:)
   Real(sp), Allocatable :: ls(:,:,:)
   Real(sp), Allocatable :: Div(:,:,:)
   Integer, Allocatable :: flag(:,:,:)
@@ -109,16 +104,62 @@ Module ModNavierStokes
   Integer :: out_nn = 0
   Real(sp) :: time_out
   integer :: jacobiflag = 0
+  Real(sp) :: tec_m = 0.95
 
-  PROCEDURE(InterfaceCSF), POINTER :: CSF => CSF_NULL
-  Interface
-    Subroutine InterfaceCSF(dudt, dvdt, dwdt, Phi)
-      import
-      Implicit None
-      real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-      real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
-    End Subroutine InterfaceCSF
-  End Interface
+  ! PROCEDURE(InterfaceCSF), POINTER :: CSF => CSF_NULL
+  ! Interface
+  !   Subroutine InterfaceCSF(dudt, dvdt, dwdt, Phi)
+  !     import
+  !     Implicit None
+  !     real(sp), intent(in), dimension(0:,0:,0:) :: Phi
+  !     real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
+  !   End Subroutine InterfaceCSF
+  ! End Interface
+
+  Type VSIAM
+    Type(field) :: BC_Uv
+    Type(field) :: BC_Usx
+    Type(field) :: BC_Usy
+    Type(field) :: BC_Usz
+    Type(field) :: BC_Vv
+    Type(field) :: BC_Vsx
+    Type(field) :: BC_Vsy
+    Type(field) :: BC_Vsz
+    Type(field) :: BC_Wv
+    Type(field) :: BC_Wsx
+    Type(field) :: BC_Wsy
+    Type(field) :: BC_Wsz
+  Contains
+    Procedure :: Initialize => InitNavierStokes_VSIAM
+  !   Procedure :: SinglePhaseFlow => SinglePhaseflow_VSIAM
+    Procedure :: TwoPhaseFlow => TwoPhaseflow_VSIAM
+    Procedure :: AdvDiff => AdvDiffVSIAM
+    Procedure :: UpdtRhoMu => UpdtRhoMu_VSIAM
+    Procedure :: BC_U => BC_U_VSIAM
+    Procedure :: BC_V => BC_V_VSIAM
+    Procedure :: BC_W => BC_W_VSIAM
+    Procedure :: BC_P => BC_P_VSIAM
+    Procedure :: BC_RhoMu => BC_RhoMu_VSIAM
+  End Type VSIAM
+
+  Type CDSRK3
+  Contains
+    Procedure :: Initialize => InitNavierStokes_CDSRK3 
+    Procedure :: SinglePhaseFlow => SinglePhaseflow_CDSRK3
+    Procedure :: TwoPhaseFlow => TwoPhaseflow_CDSRK3
+    Procedure :: RK3Single => RungeKuttaMomentumCDS
+    Procedure :: RK3TwoPhase => RungeKuttaMomentumUPCDS
+    Procedure :: UpdtRhoMu => UpdtRhoMu_CDSRK3
+    Procedure :: BC_UVW => BC_UVW_CDSRK3
+    Procedure :: BC_P => BC_P_CDSRK3
+    Procedure :: BC_RhoMu => BC_RhoMu_CDSRK3
+  End Type CDSRK3
+
+  ! Type AdamsCN
+  ! Contains
+  !   Procedure :: SinglePhaseFlow => SinglePhaseflow_CDSRK3
+  !   Procedure :: TwoPhaseFlow => TRungeKuttaMomentumUPCDS
+  ! End Type AdamsCN
 
 Contains
 
@@ -138,57 +179,57 @@ Contains
   !   Otherwise,
   !        VOFAdvection calls VOF
   !==========================
-  Subroutine TwoPhaseFlow(U, V, W, Phi, P, cx, cy, cz)
+  Subroutine TwoPhaseFlow_CDSRK3(self,U, V, W, Phi, P, cx, cy, cz)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), Intent(inout), Dimension(0:,0:,0:) :: u, v, w, p, phi
     real(sp), Intent(inout), Dimension(0:,0:,0:), optional :: cx, cy, cz
     real(sp), dimension(nl(1),nl(2),nl(3))    :: dudtrko,dvdtrko,dwdtrko
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: up,vp,wp
     Integer :: irk
-
+    External Divergence, DuDtPartialP, Adjustdt
 
     ! Runge-Kutta time integration
     Do irk=1,rk_order
       ! Runge-Kutta step for momentum
-      call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp,phi)
+      call self%RK3TwoPhase(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp,phi)
+
       ! Boundary condition for intermediate velocity
-      Call BC_UVW(UP, VP, WP)
+      Call self%BC_UVW(UP, VP, WP)
       ! Calculate divergence
-      Call Divergence(up, vp, wp, Div)
+      Call Divergence(up, vp, wp, nl, dl, div)
+
       ! Solve pressure Poisson equation
       Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
       ! Call Jacobi(PP)
-      Call BC_P(PP)
+      Call self%BC_P(PP)
+
       ! Preject the velocity to the divergence-free field
-      Call DuDtPartialP(up, vp, wp, PP, dt, u, v, w)
+      Call DuDtPartialP(up, vp, wp, Rhox, Rhoy, Rhoz, pp, dt, nl, dl, u, v, w)
       ! Boundary condition for divergence-free velocity field
-      Call BC_UVW(U, V, W)
+      Call self%BC_UVW(U, V, W)
       ! Update p
       p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3)) + pp(1:nl(1),1:nl(2),1:nl(3))
-      p = p - sum(P) / (nl(1)+2) / (nl(2)+2) / (nl(3)+2)
-      Call BC_P(P)
+      p = p - sum(P(1:nl(1),1:nl(2),1:nl(3))) / (nl(1)) / (nl(2)) / (nl(3))
+      Call self%BC_P(P)
     End Do
 
     ! VOF/MOF advection
     step_rank = step_rank+1
     If (present(cx)) Then ! MOF
-      ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
-      Call MOFWY(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
-      ! Call MOF_EI_LE(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
+      Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
     Else !VOF
-      ! Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
-      Call VOFWY(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
-      ! Call VOFTHINC(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
+      Call VOFAdvection(Phi, u, v, w, nl, dl, dt, mod(step_rank,6))
     End If
 
     ! Update Rho, Mu, and adjust time step
-    Call UpdtRhoMu(Phi)
-    Call Adjustdt(U, V, W, cfl)
+    Call self%UpdtRhoMu(Phi)
+    Call Adjustdt(U, V, W, nl, dl, dt, dt0, dt_min, cfl)
 
-  End Subroutine TwoPhaseFlow
+  End Subroutine TwoPhaseFlow_CDSRK3
 
   !==========================
-  ! (1-1) Single phase flow solver
+  ! (1-2) Single phase flow solver
   ! Key steps:
   !  (1) Runge Kutta time advance for Navier-Stokes equations
   !  (2) Free surface using VOF/MOF
@@ -198,42 +239,45 @@ Contains
   !   Phi: volume fraction
   !   P: pressure
   !==========================
-  Subroutine SinglePhaseFlow(U, V, W, P)
+  Subroutine SinglePhaseFlow_CDSRK3(self,U, V, W, P)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), Intent(inout), Dimension(0:,0:,0:) :: u, v, w, p
     real(sp), dimension(nl(1),nl(2),nl(3))    :: dudtrko,dvdtrko,dwdtrko
     real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: up,vp,wp
     Integer :: irk
+    External Divergence, DuDtPartialP, Adjustdt
 
     ! Runge-Kutta time integration
     Do irk=1,rk_order
       ! Runge-Kutta step for momentum
-      call RungeKuttaMomentum(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp)
+      call self%RK3Single(rkcoef(:,irk), u, v, w, p, dudtrko,dvdtrko,dwdtrko, up, vp, wp)
       ! Boundary condition for intermediate velocity
-      Call BC_UVW(UP, VP, WP)
+      Call self%BC_UVW(UP, VP, WP)
       ! Calculate divergence
-      Call Divergence(up, vp, wp, Div)
+      Call Divergence(up, vp,wp, nl, dl, div)
       ! Solve pressure Poisson equation
       Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
         ! Call Jacobi(PP)
-      Call BC_P(PP)
+      Call self%BC_P(PP)
       ! Preject the velocity to the divergence-free field
-      Call DuDtPartialP(up, vp, wp, PP, dt, u, v, w)
+      Call DuDtPartialP(up, vp, wp, Rhox, Rhoy, Rhoz, PP, dt, nl, dl, u, v, w)
       ! Boundary condition for divergence-free velocity field
-      Call BC_UVW(U, V, W)
+      Call self%BC_UVW(U, V, W)
       ! Update p
       p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3)) + pp(1:nl(1),1:nl(2),1:nl(3))
-      Call BC_P(P)
+      Call self%BC_P(P)
     End Do
 
-    Call Adjustdt(U, V, W, cfl)
+    Call Adjustdt(U, V, W, nl, dl, dt, dt0, dt_min, cfl)
 
-  End Subroutine SinglePhaseFlow
+  End Subroutine SinglePhaseFlow_CDSRK3
 
   !==========================
-  ! (1-2) Runge Kutta time integration 
+  ! (1-3) Runge Kutta time integration 
   ! Runge Kutta step for
   ! U^star = -1 / \rho * \nabla p^k-1/2 + \alpha * AD^k-1/2 + \beta AD^k-1/2
+  ! For DNS
   !--------------------------
   ! Inputs:
   !   rkpar: runge-kutta parameters
@@ -244,8 +288,9 @@ Contains
   !   UP, VP, WP: u*star, v_star, w_star
   !   dudtrko, dvdtrko, dwdtrko: du/dt, dv/dt, dw/dt for time step k+1/2
   !==========================
-  Subroutine RungeKuttaMomentum(rkpar, u, v, w, p, dudtrko, dvdtrko, dwdtrko, up, vp, wp, Phi)
+  Subroutine RungeKuttaMomentumCDS(self, rkpar, u, v, w, p, dudtrko, dvdtrko, dwdtrko, up, vp, wp, Phi)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), Intent(in), Dimension(0:,0:,0:) :: u,v,w, p
     real(sp), Intent(inout), Dimension(:,:,:) :: dudtrko,dvdtrko,dwdtrko
     real(sp), Intent(in), Dimension(2) :: rkpar
@@ -254,22 +299,26 @@ Contains
     real(sp), Dimension(nl(1),nl(2),nl(3)) :: dudtrk,dvdtrk,dwdtrk
     real(sp) :: factor1,factor2,factor12
     Integer :: i, j, k
+    External DuDtPartialP, AdvDiffU_CDS, AdvDiffV_CDS, AdvDiffW_CDS, BodyForce
 
     factor1 = rkpar(1)*dt
     factor2 = rkpar(2)*dt
     factor12 = factor1 + factor2
 
     ! Calculate -1 / \tho * \nabla p^k-1/2
-    Call DuDtPartialP(u, v, w, P, factor12, up, vp, wp)
+    Call DuDtPartialP(u, v, w, rhox, rhoy, rhoz, P, factor12, nl, dl, up, vp, wp)
 
     ! Calculate AD^k+1/2
-    Call AdvDiffU(u, v, w, dudtrk)
-    Call AdvDiffV(u, v, w, dvdtrk)
-    Call AdvDiffW(u, v, w, dwdtrk)
+    dudtrk = 0.0_sp
+    dvdtrk = 0.0_sp
+    dwdtrk = 0.0_sp
+    Call AdvDiffU_CDS(u, v, w, dl, nl, mu, muxy, muxz, rhox, dudtrk)
+    Call AdvDiffV_CDS(u, v, w, dl, nl, mu, muxy, muyz, rhoy, dvdtrk)
+    Call AdvDiffW_CDS(u, v, w, dl, nl, mu, muxz, muyz, rhoz, dwdtrk)
     ! Calculate Body force k+1/2 (Included in AD^k+1/2 term)
-    Call BodyForce(dudtrk, dvdtrk, dwdtrk)
+    Call BodyForce(dudtrk, dvdtrk, dwdtrk, nl, body_force)
 
-    if ( present(phi) ) Call CSF(dudtrk, dvdtrk, dwdtrk, Phi)
+    ! if ( present(phi) ) Call CSF(dudtrk, dvdtrk, dwdtrk, Phi)
 
     ! UP - U^start
     ! dUdtro = U^start - U^k-1/2
@@ -286,250 +335,77 @@ Contains
       enddo
     enddo
 
-  End Subroutine RungeKuttaMomentum
+  End Subroutine RungeKuttaMomentumCDS
 
   !==========================
-  ! (2-1-1) Calculate advection and diffusion
-  ! Using central difference
-  !-------------------------
-  !    d(u)/dt_i+1/2 =
-  !     ( (uu)_i+1 - (uu)_i + ( (mu*dudx)_i+1   - (mu*dudx)_i   ) / rhox_i+1/2 ) / dx
-  !     ( (uv)_j+1 - (uv)_j + ( (mu*dudy)_j+1/2 - (mu*dudy)_j/2 ) / rhoy_j+1/2 ) / dy
-  !     ( (uw)_k+1 - (uw)_k + ( (mu*dudz)_k+1/2 - (mu*dudz)_k/2 ) / rhoz_k+1/2 ) / dz
-  !  where:
-  !      (uu)_i = 0.25 * (u_i+1/2 + u_i-1/2)^2
-  !      (uv)_j = 0.25 * (u_i+1/2 + u_i-1/2) * (v_j+1/2,v_j-1/2)
-  !      (uw)_k = 0.25 * (u_i+1/2 + u_i-1/2) * (w_k+1/2,w_k-1/2)
-  !      (dudx)_i = (u_i+1/2 + u_i-1/2) / dx
-  !      (dudy)_j+1/2 = (u_j+1   + u_j) / dy
-  !      (dudz)_k+1/2 = (u_k+1   + u_k) / dz
+  ! (1-3-1) Runge Kutta time integration 
+  ! Runge Kutta step for
+  ! U^star = -1 / \rho * \nabla p^k-1/2 + \alpha * AD^k-1/2 + \beta AD^k-1/2
+  ! Upwind for advection, central difference for diffusion
+  ! For multiphase flow
   !--------------------------
   ! Inputs:
-  !    u, v, w: velocity conponent
-  !    rho_dir: the reciprocal of rho, depends on direction
-  !    mu_c: mu at cell center
-  !    nl: dimension of grid
-  !    dl: grid size dx, dy, dz
-  ! Outputs:
-  !    dudt: time integration of advection and diffusion
-  !--------------------------
-  ! Inputs:
-  !   U, V, W: velocity conponents
+  !   rkpar: runge-kutta parameters
+  !   U, V, W: velocity conponents for time step k-1/2
+  !   P: pressure for time step k-1/2
+  !   dudtrko, dvdtrko, dwdtrko: du/dt, dv/dt, dw/dt for time step k-1/2
   ! Outpurts
-  !   dudtr: du/dt
+  !   UP, VP, WP: u*star, v_star, w_star
+  !   dudtrko, dvdtrko, dwdtrko: du/dt, dv/dt, dw/dt for time step k+1/2
   !==========================
-  Subroutine AdvDiffU(u, v, w, dudt)
+  Subroutine RungeKuttaMomentumUPCDS(self, rkpar, u, v, w, p, dudtrko, dvdtrko, dwdtrko, up, vp, wp, Phi)
     Implicit None
-    Real(sp), Dimension(0:,0:,0:), Intent(in)  :: u, v, w
-    Real(sp), Dimension(:,:,:), Intent(out) :: dudt
-    integer :: i,j,k
-    Real(sp) :: uuip,uuim,uvjp,uvjm,uwkp,uwkm
-    Real(sp) :: dudxp,dudxm,dudyp,dudym,dudzp,dudzm
-
-    ! Calculate the advection-diffusion spatial term
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          ! uu, uv, uw
-          uuip = 0.25_sp * (u(i+1,  j,  k) + u(i,j,k)) * (u(i+1,  j,  k) + u(i,  j,  k))
-          uuim = 0.25_sp * (u(i-1,  j,  k) + u(i,j,k)) * (u(i-1,  j,  k) + u(i,  j,  k))
-          uvjp = 0.25_sp * (u(  i,j+1,  k) + u(i,j,k)) * (v(i+1,  j,  k) + v(i,  j,  k))
-          uvjm = 0.25_sp * (u(  i,j-1,  k) + u(i,j,k)) * (v(i+1,j-1,  k) + v(i,j-1,  k))
-          uwkp = 0.25_sp * (u(  i,  j,k+1) + u(i,j,k)) * (w(i+1,  j,  k) + w(i,  j,  k))
-          uwkm = 0.25_sp * (u(  i,  j,k-1) + u(i,j,k)) * (w(i+1,  j,k-1) + w(i,  j,k-1))
-          ! dudx, dudy, dudz
-          dudxp =   mu(i+1,j,k) * (u(i+1,  j,  k) - u(  i,  j,  k)) / dl(1)
-          dudxm =   mu(i,j,k)   * (u(  i,  j,  k) - u(i-1,  j,  k)) / dl(1)
-          dudyp = muxz(i,j,k)   * (u(  i,j+1,  k) - u(  i,  j,  k)) / dl(2)
-          dudym = muxz(i,j-1,k) * (u(  i,  j,  k) - u(  i,j-1,  k)) / dl(2)
-          dudzp = muxy(i,j,k)   * (u(  i,  j,k+1) - u(  i,  j,  k)) / dl(3)
-          dudzm = muxy(i,j,k-1) * (u(  i,  j,  k) - u(  i,  j,k-1)) / dl(3)
-          ! Momentum balance
-          dudt(i,j,k) = &
-              ((-uuip + uuim) + (dudxp-dudxm)) * rhox(i,j,k) / dl(1) + &
-              ((-uvjp + uvjm) + (dudyp-dudym)) * rhoy(i,j,k) / dl(2) + &
-              ((-uwkp + uwkm) + (dudzp-dudzm)) * rhoz(i,j,k) / dl(3)
-        Enddo
-      Enddo
-    Enddo
-
-  End Subroutine AdvDiffU
-
-  !==========================
-  ! (2-1-2) Calculate advection and diffusion for V
-  ! similar with  AdvDiffU
-  !--------------------------
-  ! Inputs:
-  !   U, V, W: velocity conponents
-  ! Outpurts
-  !   dvdt: dv/dt
-  !==========================
-  Subroutine AdvDiffV(u, v, w, dvdt)
-    Implicit None
-    Real(sp), Dimension(0:,0:,0:), Intent(in)  :: u, v, w
-    Real(sp), Dimension(:,:,:), Intent(out) :: dvdt
-    integer :: i,j,k
-    real(sp) :: uvip,uvim,vvjp,vvjm,wvkp,wvkm
-    real(sp) :: dvdxp,dvdxm,dvdyp,dvdym,dvdzp,dvdzm
-
-    ! Calculate the advection-diffusion spatial term
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          ! uu, uv, uw
-          uvip = 0.25_sp * (u(  i,  j,  k) + u(  i,j+1,  k)) * (v(i,j,k) + v(i+1,  j,  k))
-          uvim = 0.25_sp * (u(i-1,  j,  k) + u(i-1,j+1,  k)) * (v(i,j,k) + v(i-1,  j,  k))
-          vvjp = 0.25_sp * (v(  i,  j,  k) + v(  i,j+1,  k)) * (v(i,j,k) + v(  i,j+1,  k))
-          vvjm = 0.25_sp * (v(  i,  j,  k) + v(  i,j-1,  k)) * (v(i,j,k) + v(  i,j-1,  k))
-          wvkp = 0.25_sp * (w(  i,  j,  k) + w(  i,j+1,  k)) * (v(i,j,k) + v(  i,  j,k+1))
-          wvkm = 0.25_sp * (w(  i,  j,k-1) + w(  i,j+1,k-1)) * (v(i,j,k) + v(  i,  j,k-1))
-          ! dudx, dudy, dudz
-          dvdxp = muyz(i,j,k)   * (v(i+1,  j,  k) - v(  i,  j,  k)) / dl(1)
-          dvdxm = muyz(i-1,j,k) * (v(  i,  j,  k) - v(i-1,  j,  k)) / dl(1)
-          dvdyp =   mu(i,j+1,k) * (v(  i,j+1,  k) - v(  i,  j,  k)) / dl(2)
-          dvdym =   mu(i,j,k)   * (v(  i,  j,  k) - v(  i,j-1,  k)) / dl(2)
-          dvdzp = muxy(i,j,k)   * (v(  i,  j,k+1) - v(  i,  j,  k)) / dl(3)
-          dvdzm = muxy(i,j,k-1) * (v(  i,  j,  k) - v(  i,  j,k-1)) / dl(3)
-          ! Momentum balance
-          dvdt(i,j,k) = &
-              ((-uvip + uvim) + (dvdxp-dvdxm)) * rhox(i,j,k) / dl(1) + &
-              ((-vvjp + vvjm) + (dvdyp-dvdym)) * rhoy(i,j,k) / dl(2) + &
-              ((-wvkp + wvkm) + (dvdzp-dvdzm)) * rhoz(i,j,k) / dl(3)
-        Enddo
-      Enddo
-    Enddo
-
-  End Subroutine AdvDiffV
-
-  !==========================
-  ! (2-1-3) Calculate advection and diffusion for V
-  ! similar with  AdvDiffU
-  !--------------------------
-  ! Inputs:
-  !   U, V, W: velocity conponents
-  ! Outpurts
-  !   dvdt: dv/dt
-  !==========================
-  Subroutine AdvDiffW(u, v, w, dwdt)
-    Implicit None
-    Real(sp), Dimension(0:,0:,0:), Intent(in)  :: u, v, w
-    Real(sp), Dimension(:,:,:), Intent(out) :: dwdt
-    integer :: i,j,k
-    real(sp) :: uwip,uwim,vwjp,vwjm,wwkp,wwkm
-    real(sp) :: dwdxp,dwdxm,dwdyp,dwdym,dwdzp,dwdzm
-
-    ! Calculate the advection-diffusion spatial term
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          ! uu, uv, uw
-          uwip = 0.25_sp*(w(i,j,k) + w(i+1,  j,  k)) * (u(i  ,j  ,k) + u(  i,  j,k+1))
-          uwim = 0.25_sp*(w(i,j,k) + w(i-1,  j,  k)) * (u(i-1,j  ,k) + u(i-1,  j,k+1))
-          vwjp = 0.25_sp*(w(i,j,k) + w(  i,j+1,  k)) * (v(i  ,j  ,k) + v(  i,  j,k+1))
-          vwjm = 0.25_sp*(w(i,j,k) + w(  i,j-1,  k)) * (v(i  ,j-1,k) + v(  i,j-1,k+1))
-          wwkp = 0.25_sp*(w(i,j,k) + w(  i,  j,k+1)) * (w(i  ,j  ,k) + w(  i,  j,k+1))
-          wwkm = 0.25_sp*(w(i,j,k) + w(  i,  j,k-1)) * (w(i  ,j  ,k) + w(  i,  j,k-1))
-          ! dudx, dudy, dudz
-          dwdxp = muyz(i,j,  k) * (w(i+1,  j,  k) - w(  i,  j,  k)) / dl(1)
-          dwdxm = muyz(i-1,j,k) * (w(  i,  j,  k) - w(i-1,  j,  k)) / dl(1)
-          dwdyp = muxz(i,j,  k) * (w(  i,j+1,  k) - w(  i,  j,  k)) / dl(2)
-          dwdym = muxz(i,j-1,k) * (w(  i,  j,  k) - w(  i,j-1,  k)) / dl(2)
-          dwdzp =   mu(i,j,k+1) * (w(  i,  j,k+1) - w(  i,  j,  k)) / dl(3)
-          dwdzm =   mu(i,j,k) * (w(  i,  j,  k) - w(  i,  j,k-1)) / dl(3)
-          ! Momentum balance
-          dwdt(i,j,k) = &
-              ((-uwip + uwim) + (dwdxp-dwdxm)) * rhox(i,j,k) / dl(1) + &
-              ((-vwjp + vwjm) + (dwdyp-dwdym)) * rhoy(i,j,k) / dl(2) + &
-              ((-wwkp + wwkm) + (dwdzp-dwdzm)) * rhoz(i,j,k) / dl(3)
-        Enddo
-      Enddo
-    Enddo
-
-  End Subroutine AdvDiffW
-
-  !==========================
-  ! (2-1) Calculate body force
-  !    only support uniformly body force, for example, gravity
-  !--------------------------
-  ! Inputs & outputs:
-  !    dudt, dvdt, dwdt: du/dt, dv/dt, dwdt
-  !==========================
-  Subroutine BodyForce(dudt, dvdt, dwdt)
-    Implicit None
-    Real(sp), Dimension(:,:,:), Intent(inout)  :: dudt, dvdt,dwdt
+    Class(CDSRK3) :: self
+    real(sp), Intent(in), Dimension(0:,0:,0:) :: u,v,w, p
+    real(sp), Intent(inout), Dimension(:,:,:) :: dudtrko,dvdtrko,dwdtrko
+    real(sp), Intent(in), Dimension(2) :: rkpar
+    real(sp), Intent(out), Dimension(0:,0:,0:)  :: up,vp,wp
+    real(sp), Intent(in), Dimension(0:,0:,0:),optional  :: phi
+    real(sp), Dimension(nl(1),nl(2),nl(3)) :: dudtrk,dvdtrk,dwdtrk
+    real(sp) :: factor1,factor2,factor12
     Integer :: i, j, k
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          dudt(i,j,k) = dudt(i,j,k) + body_force(1)
-          dvdt(i,j,k) = dvdt(i,j,k) + body_force(2)
-          dwdt(i,j,k) = dwdt(i,j,k) + body_force(3)
-        EndDo
-      Enddo
-    Enddo
-  End Subroutine BodyForce
+    External DuDtPartialP, AdvDiffU_CDS, AdvDiffV_CDS, AdvDiffW_CDS, BodyForce
 
-  !==========================
-  ! (2-2) Calculate advance of partial P by
-  ! 1D view
-  ! u_i = up_i - (p_i+1/2 - p_i-1/2) * dt / dx
-  !--------------------------
-  ! Inputs:
-  !    dir: direction
-  !    p: pressure
-  ! Outputs:
-  !    dudt: time integration of pressure
-  !==========================
-  Subroutine DuDtPartialP(U1, V1, W1, P, dt1, U2, V2, W2)
-    Real(sp), Intent(In) :: dt1
-    Real(sp), Dimension(0:,0:,0:), intent(in) :: U1, V1, W1
-    Real(sp), Dimension(0:,0:,0:), intent(in) :: p
-    Real(sp), Dimension(0:,0:,0:), intent(out) :: U2, V2, W2
-    Integer :: i, j, k
+    factor1 = rkpar(1)*dt
+    factor2 = rkpar(2)*dt
+    factor12 = factor1 + factor2
 
+    ! Calculate -1 / \tho * \nabla p^k-1/2
+    Call DuDtPartialP(u, v, w, rhox, rhoy, rhoz, P, factor12, nl, dl, up, vp, wp)
+
+    ! Calculate AD^k+1/2
+    dudtrk = 0.0_sp
+    dvdtrk = 0.0_sp
+    dwdtrk = 0.0_sp
+    Call AdvDiffU_UPCDS(u, v, w, dl, nl, mu, muxy, muxz, rhox, dudtrk)
+    Call AdvDiffV_UPCDS(u, v, w, dl, nl, mu, muxy, muyz, rhoy, dvdtrk)
+    Call AdvDiffW_UPCDS(u, v, w, dl, nl, mu, muxz, muyz, rhoz, dwdtrk)
+    ! Calculate Body force k+1/2 (Included in AD^k+1/2 term)
+    Call BodyForce(dudtrk, dvdtrk, dwdtrk, nl, body_force)
+
+    ! if ( present(phi) ) Call CSF(dudtrk, dvdtrk, dwdtrk, Phi)
+
+    ! UP - U^start
+    ! dUdtro = U^start - U^k-1/2
     do k=1,nl(3)
       do j=1,nl(2)
         do i=1,nl(1)
-          U2(i,j,k) = U1(i,j,k) - rhox(i,j,k) * (p(i+1,  j,  k) - p(i,j,k)) * dt1 / dl(1)
-          V2(i,j,k) = V1(i,j,k) - rhoy(i,j,k) * (p(  i,j+1,  k) - p(i,j,k)) * dt1 / dl(2)
-          W2(i,j,k) = W1(i,j,k) - rhoz(i,j,k) * (p(  i,  j,k+1) - p(i,j,k)) * dt1 / dl(3)
+          up(i,j,k) = up(i,j,k) + factor1*dudtrk(i,j,k) + factor2*dudtrko(i,j,k)
+          vp(i,j,k) = vp(i,j,k) + factor1*dvdtrk(i,j,k) + factor2*dvdtrko(i,j,k)
+          wp(i,j,k) = wp(i,j,k) + factor1*dwdtrk(i,j,k) + factor2*dwdtrko(i,j,k)
+          dudtrko(i,j,k) = dudtrk(i,j,k)
+          dvdtrko(i,j,k) = dvdtrk(i,j,k)
+          dwdtrko(i,j,k) = dwdtrk(i,j,k)
         enddo
       enddo
     enddo
 
-  End Subroutine DuDtPartialP
+  End Subroutine RungeKuttaMomentumUPCDS
 
-  !==========================
-  ! (2-3) Calculate divergence by
-  ! div =  ( u_i+1/2 - u_i-1/2 ) / dx
-  !        ( v_j+1/2 - v_j-1/2 ) / dy
-  !        ( w_k+1/2 - w_k-1/2 ) / dz
-  !--------------------------
-  ! Inputs:
-  !    up, vp, wp: velocity field
-  ! Outputs:
-  !    div: Divergence
-  !==========================
-  Subroutine Divergence(up, vp, wp, div)
-    Implicit None
-    real(sp), intent(in) , dimension(0:,0:,0:) :: up, vp, wp
-    real(sp), intent(out) , dimension(:,:,:) :: div
-    Integer :: i, j, k
-    Do k = 1, nl(3)
-      Do j = 1, nl(2)
-        Do i = 1, nl(1)
-          Div(i,j,k) = &
-              ( up(i,j,k) - up(i-1,j,k) ) / dl(1) + &
-              ( vp(i,j,k) - vp(i,j-1,k) ) / dl(2) + &
-              ( wp(i,j,k) - wp(i,j,k-1) ) / dl(3)
-        End Do
-      End Do
-    End Do
-  End Subroutine Divergence
 
 
   !==========================
-  ! (2-5) Update Rho and Mu
+  ! (1-4) Update Rho and Mu
   !    key steps:
   !    (1) Calculate the density and viscosity using volume fraction
   !    (2) Interpolate to get 1/Rho at cell face center
@@ -541,8 +417,9 @@ Contains
   !    phi and mu related variables are updated in this subroutine
   !    and can be used in this module.
   !==========================
-  Subroutine UpdtRhoMu(Phi)
+  Subroutine UpdtRhoMu_CDSRK3(self,Phi)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), intent(out), dimension(0:,0:,0:) :: Phi
     Integer :: i,j,k
 
@@ -557,7 +434,7 @@ Contains
       enddo
     enddo
 
-    Call BC_RHOMU(Rho, Mu)
+    Call self%BC_RHOMU(Rho, Mu)
 
     Do k=0,nl(3)
       Do j=0,nl(2)
@@ -565,163 +442,57 @@ Contains
           Rhox(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i+1,j,k))
           Rhoy(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i,j+1,k))
           Rhoz(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i,j,k+1))
-          Muxy(i,j,k) = 0.25_sp * (Mu(i,j,k) + Mu(i+1,  j,k  ) + Mu(i,j+1,  k) + Mu(i+1,j+1,  k))
-          Muyz(i,j,k) = 0.25_sp * (Mu(i,j,k) + Mu(  i,j+1,k  ) + Mu(i,  j,k+1) + Mu(  i,j+1,k+1))
-          Muxz(i,j,k) = 0.25_sp * (Mu(i,j,k) + Mu(i+1,  j,  k) + Mu(i,  j,k+1) + Mu(i+1,  j,k+1))
+          Muxy(i,j,k) = 0.25_sp * (Mu(i,j,k) + Mu(i+1,  j,k) + Mu(i,j+1,  k) + Mu(i+1,j+1,  k))
+          Muyz(i,j,k) = 0.25_sp * (Mu(i,j,k) + Mu(  i,j+1,k) + Mu(i,  j,k+1) + Mu(  i,j+1,k+1))
+          Muxz(i,j,k) = 0.25_sp * (Mu(i,j,k) + Mu(i+1,  j,k) + Mu(i,  j,k+1) + Mu(i+1,  j,k+1))
         EndDo
       EndDo
     EndDo
 
-  End Subroutine UpdtRhoMu
-
-  !===============================================================
-  !  Density-scaled Continuum Surface Force (CSF)
-  !  with balanced force formation
-  !  Key steps:
-  !    (1) Scale volume function
-  !    (2) Convert the VOF function to level set
-  !    (3) calculate curvature at grid center
-  !    (4) Interpolate the curvature to grid center
-  !    (5) Calculte density-scaled balanced surface tension
-  !
-  !---------------------------------------------------------------
-  ! Inputs:
-  !   Phi: volume fraction
-  !   sigma: surface tension coefficient
-  ! Outputs:
-  !   dudt, dvdt, dwdt: du/dt, dv/dt, dw/dt
-  !===============================================================
-  Subroutine CSF_VOSET(dudt, dvdt, dwdt, Phi)
-    Implicit None
-    real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-    real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
-    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: Phi_DS
-    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_v
-    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1) :: kappa_sx, kappa_sy, kappa_sz
-    Integer :: i, j, k
-
-    !    (1) Scale volume function
-    Call Smooth_Phi(Phi, Phi_DS, nl(1), nl(2), nl(3))
-    Call Phi_bc%SetBCS(Phi_DS)
-
-    !    (2) Convert the VOF function to level set
-    Call Get_LS_3D_init(Phi_DS, Ls, dl(1), dl(2), dl(3), nl(1), nl(2), nl(3))
-
-    Call ls_bc%SetBCS(LS)
-    !    (3) calculate curvature at grid center
-    Kappa_v = 0.0_sp
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          If (Phi_DS(i,j,k) < 1.0_sp .or. Phi_DS(i,j,k) > 0.0_sp) Then
-            Kappa_v(i,j,k) = &
-                (    ( Ls(i-1,  j,  k) - 2.d0 * Ls(i,j,k) + Ls(i+1,  j,  k) ) / dl(1) / dl(1) &
-                &  + ( Ls(  i,j-1,  k) - 2.d0 * Ls(i,j,k) + Ls(  i,j+1,  k) ) / dl(2) / dl(2) &
-                &  + ( Ls(  i,  j,k-1) - 2.d0 * Ls(i,j,k) + Ls(  i,  j,k+1) ) / dl(3) / dl(3) )
-          Else
-            Kappa_v(i,j,k) = 0.0_sp
-          End If
-        EndDo
-      EndDo
-    EndDo
-    Call Phi_bc%SetBCS(kappa_v)
-
-    !    (4) Interpolate the curvature to grid center
-    Do k=0,nl(3)
-      Do j=0,nl(2)
-        Do i=0,nl(1)
-          Kappa_sx(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(i+1,  j,  k) )
-          Kappa_sy(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,j+1,  k) )
-          Kappa_sz(i,j,k) = 0.5_sp * ( Kappa_v(i,j,k) + Kappa_v(  i,  j,k+1) )
-        EndDo
-      EndDo
-    EndDo
-
-    !    (5) Calculte density-scaled balanced surface tension
-    Do k=1,nl(3)
-      Do j=1,nl(2)
-        Do i=1,nl(1)
-          dudt(i,j,k) = dudt(i,j,k) - sigma * Kappa_sx(i,j,k) * ( Phi_DS(i+1,  j,  k) - Phi_DS(i,j,k) ) * rhox(i,j,k) / dl(1)
-          dvdt(i,j,k) = dvdt(i,j,k) - sigma * Kappa_sy(i,j,k) * ( Phi_DS(  i,j+1,  k) - Phi_DS(i,j,k) ) * rhoy(i,j,k) / dl(2)
-          dwdt(i,j,k) = dwdt(i,j,k) - sigma * Kappa_sz(i,j,k) * ( Phi_DS(  i,  j,k+1) - Phi_DS(i,j,k) ) * rhoz(i,j,k) / dl(3)
-        EndDo
-      EndDo
-  EndDo
-
-  End Subroutine CSF_VOSET
-
-  Subroutine CSF_NULL(dudt, dvdt, dwdt, Phi)
-    Implicit None
-    real(sp), intent(in), dimension(0:,0:,0:) :: Phi
-    real(sp), intent(inout), dimension(:,:,:) :: dudt, dvdt, dwdt
-  End Subroutine CSF_NULL
+  End Subroutine UpdtRhoMu_CDSRK3
 
   !==========================
-  ! (3-1) Boudnary conditions for u, v, w
+  ! (1-5) Boudnary conditions for u, v, w
   !==========================
-
-  Subroutine BC_UVW(U, V, W)
+  Subroutine BC_UVW_CDSRK3(self,U, V, W)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
     Call U_bc%SetBCS(U)
     Call V_bc%SetBCS(V)
     Call W_bc%SetBCS(W)
-    ! U(0,:,:) = 0.0_sp
-    ! V(0,:,:) = V(1,:,:)
-    ! W(0,:,:) = W(1,:,:)
-    ! U(nl(1),:,:) = 0.0_sp
-    ! V(nl(1)+1,:,:) = V(nl(1),:,:)
-    ! W(nl(1)+1,:,:) = W(nl(1),:,:)
-
-    ! U(:,0,:) = U(:,1,:)
-    ! V(:,0,:) = 0.0_sp
-    ! W(:,0,:) = W(:,1,:)
-    ! U(:,nl(2)+1,:) = U(:,nl(2),:)
-    ! V(:,nl(2),:) = 0.0_sp
-    ! W(:,nl(2)+1,:) = W(:,nl(2),:)
-
-    ! U(:,:,0) = U(:,:,1)
-    ! V(:,:,0) = V(:,:,1)
-    ! W(:,:,0) = 0.0_sp
-    ! U(:,:,nl(3)+1) = U(:,:,nl(3))
-    ! V(:,:,nl(3)+1) = V(:,:,nl(3))
-    ! W(:,:,nl(3)) = 0.0_sp
-  End Subroutine BC_UVW
-  ! Subroutine BC_UVW(U, V, W)
-  !   Implicit None
-  !   real(sp), intent(inout) , dimension(0:,0:,0:) :: U, V, W
-  !   Call U_bc%SetBCS(U)
-  !   Call V_bc%SetBCS(V)
-  !   Call W_bc%SetBCS(W)
-  ! End Subroutine BC_UVW
+  End Subroutine BC_UVW_CDSRK3
 
   !==========================
-  ! (3-2) Boudnary conditions for p
+  ! (1-6) Boudnary conditions for p
   !==========================
-  Subroutine BC_P(P)
+  Subroutine BC_P_CDSRK3(self,P)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), intent(inout) , dimension(0:,0:,0:) :: P
     Call Phi_bc%SetBCS(P)
-  End Subroutine BC_P
+  End Subroutine BC_P_CDSRK3
 
   !==========================
-  ! (3-3) Boudnary conditions for rho and mu
+  ! (1-7) Boudnary conditions for rho and mu
   !==========================
-  Subroutine BC_RHOMU(Rho, Mu)
+  Subroutine BC_RHOMU_CDSRK3(self,Rho, Mu)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), intent(inout) , dimension(0:,0:,0:) :: Rho, Mu
     Call Phi_bc%SetBCS(Rho)
     Call Phi_bc%SetBCS(Mu)
-  End Subroutine BC_RHOMU
+  End Subroutine BC_RHOMU_CDSRK3
 
-  !==========================
-  ! Initialize the Navier-Stokes solver after common initialization
+  !========================
+  ! (1-8) Initialize the Navier-Stokes solver after common initialization
   ! Note:
   !   The bc types and values are initialized in basics.f90 for only VOF
   !   Here will overwrite some of the value.
   !==========================
-  Subroutine InitNavierStokes(u, v, w, phi, p)
+  Subroutine InitNavierStokes_CDSRK3(self,u, v, w, phi, p)
     Implicit None
+    Class(CDSRK3) :: self
     real(sp), intent(inout) , dimension(0:,0:,0:) :: p,u,v,w,phi
     Integer :: iter_max
     Character(80) :: file_name
@@ -834,8 +605,8 @@ Contains
         end if
         Call MPI_Finalize(ierr)
         stop
-    End Select
-  End Do
+      End Select
+    End Do
 
     ! Front and back
     bc_pair(1) = bc_back
@@ -927,97 +698,751 @@ Contains
     Call Hypre_Initialize(iter_tolerance, iter_max, hypre_solver, Hypre_PreConditioner)
 
     ! Initialize the Rho and Mu field
-    Call UpdtRhoMu(Phi)
+    Call self%UpdtRhoMu(Phi)
+
+    ! Initialize boundary condition
+    Call self%BC_UVW(U,V,W)
+    Call self%BC_P(P)
+
+  End Subroutine InitNavierStokes_CDSRK3
+
+  Subroutine TwoPhaseFlow_VSIAM(self,U, V, W, Phi, P, cx, cy, cz)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), Intent(inout), Dimension(0:,0:,0:) :: u, v, w, p, phi
+    real(sp), Intent(inout), Dimension(0:,0:,0:), optional :: cx, cy, cz
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: Un_sx, Vn_sy, Wn_sz
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: Un_v, Vn_v, Wn_v
+    External Divergence, DuDtPartialP, Adjustdt
+
+    U_sx = U
+    V_sy = V
+    W_sz = W
+
+    ! VSIAM Advection and Diffusion 
+    Call self%AdvDiff
+
+    Call Divergence(U_sx, V_sy, W_sz, nl, dl, div)
+
+    ! Solve pressure Poisson equation
+    Call Hypre_Poisson(PP, Rhox, Rhoy, Rhoz, Div, flag, n_iter, p_residual)
+    ! Call Jacobi(PP)
+    Call self%BC_P(PP)
+
+    Un_sx = U_sx
+    Vn_sy = V_sy
+    Wn_sz = W_sz
+    Un_v  = U_v
+    Vn_v  = V_v
+    Wn_v  = W_v
+
+    ! Preject the velocity to the divergence-free field
+    Call DuDtPartialP(Un_sx, Vn_sy, Wn_sz, Rhox, Rhoy, Rhoz, pp, dt, nl, dl, U_sx, V_sy, W_sz)
+    ! Boundary condition for divergence-free velocity field
+    ! Update p
+    P = PP
+    ! p(1:nl(1),1:nl(2),1:nl(3)) = p(1:nl(1),1:nl(2),1:nl(3)) + pp(1:nl(1),1:nl(2),1:nl(3))
+    ! p = p - sum(P(1:nl(1),1:nl(2),1:nl(3))) / (nl(1)) / (nl(2)) / (nl(3))
+    ! Call self%BC_P(P)
+
+    ! Update VIA by TEC
+    Call Tec_VIA(U_v, U_sx, Un_sx, nl, 1)
+    Call Tec_VIA(V_v, V_sy, Vn_sy, nl, 2)
+    Call Tec_VIA(W_v, W_sz, Wn_sz, nl, 3)
+
+    ! Update SIA_X, SIA_Y, SIA_Z by TEC
+    Call Tec_SIA(U_sy, U_v, Un_v, nl, tec_m, 2)
+    Call Tec_SIA(U_sz, U_v, Un_v, nl, tec_m, 3)
+    Call Tec_SIA(V_sx, V_v, Vn_v, nl, tec_m, 1)
+    Call Tec_SIA(V_sz, V_v, Vn_v, nl, tec_m, 3)
+    Call Tec_SIA(W_sx, W_v, Wn_v, nl, tec_m, 1)
+    Call Tec_SIA(W_sy, W_v, Wn_v, nl, tec_m, 2)
+
+    ! Boundary Conditions
+    Call self%BC_V(V_sx, V_sy, V_sz, V_v)
+    Call self%BC_W(W_sx, W_sy, W_sz, W_v)
+    Call self%BC_U(U_sx, U_sy, U_sz, U_v)
+
+    ! VOF/MOF advection
+    step_rank = step_rank+1
+    If (present(cx)) Then ! MOF
+      Call VOFAdvection(Phi, u_sx, v_sy, w_sz, nl, dl, dt, mod(step_rank,6), cx, cy, cz)
+    Else !VOF
+      Call VOFAdvection(Phi, u_sx, v_sy, w_sz, nl, dl, dt, mod(step_rank,6))
+    End If
+
+    ! Update Rho, Mu, and adjust time step
+    Call self%UpdtRhoMu(Phi)
+    Call Adjustdt(U_v, V_v, W_v, nl, dl, dt, dt0, dt_min, cfl)
+
+    U = U_sx
+    V = V_sy
+    W = W_sz
+
+  End Subroutine TwoPhaseFlow_VSIAM
+
+  Subroutine AdvDiffVSIAM(self)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: Un_sx, Vn_sy, Wn_sz
+    real(sp), dimension(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)    :: Un_v, Vn_v, Wn_v
+    real(sp), dimension(nl(1),nl(2),nl(3))    :: RHS_U, RHS_V, RHS_W
+    Integer :: i,j,k
+    External CIPCSLR_1D, Tec_SIA, Central_Difference_RHS
+
+    Un_sx = U_sx
+    Vn_sy = V_sy
+    Wn_sz = W_sz
+
+    ! Calculation of U momentum
+    Un_v = U_v
+    Call CIPCSLR_1D(U_v, U_sx, Un_sx, nl, dl, dt, 1)
+    Call Tec_SIA(U_sy, U_v, Un_v, nl, tec_m, 2)
+    Call Tec_SIA(U_sz, U_v, Un_v, nl, tec_m, 3)
+    Call self%BC_U(U_sx, U_sy, U_sz, U_v)
+    Un_v = U_v
+    Call CIPCSLR_1D(U_v, U_sy, Vn_sy, nl, dl, dt, 2)
+    Call Tec_SIA(U_sx, U_v, Un_v, nl, tec_m, 1)
+    Call Tec_SIA(U_sz, U_v, Un_v, nl, tec_m, 3)
+    Call self%BC_U(U_sx, U_sy, U_sz, U_v)
+    Un_v = U_v
+    Call CIPCSLR_1D(U_v, U_sz, Wn_sz, nl, dl, dt, 3)
+    Call Tec_SIA(U_sx, U_v, Un_v, nl, tec_m, 1)
+    Call Tec_SIA(U_sy, U_v, Un_v, nl, tec_m, 2)
+    Call self%BC_U(U_sx, U_sy, U_sz, U_v)
+
+    ! Calculation of U momentum
+    Vn_v = V_v
+    Call CIPCSLR_1D(V_v, V_sx, Un_sx, nl, dl, dt, 1)
+    Call Tec_SIA(V_sy, V_v, Vn_v, nl, tec_m, 2)
+    Call Tec_SIA(V_sz, V_v, Vn_v, nl, tec_m, 3)
+    Call self%BC_V(V_sx, V_sy, V_sz, V_v)
+    Vn_v = V_v
+    Call CIPCSLR_1D(V_v, V_sy, Vn_sy, nl, dl, dt, 2)
+    Call Tec_SIA(V_sx, V_v, Vn_v, nl, tec_m, 1)
+    Call Tec_SIA(V_sz, V_v, Vn_v, nl, tec_m, 3)
+    Call self%BC_V(V_sx, V_sy, V_sz, V_v)
+    Vn_v = V_v
+    Call CIPCSLR_1D(V_v, V_sz, Wn_sz, nl, dl, dt, 3)
+    Call Tec_SIA(V_sx, V_v, Vn_v, nl, tec_m, 1)
+    Call Tec_SIA(V_sy, V_v, Vn_v, nl, tec_m, 2)
+    Call self%BC_V(V_sx, V_sy, V_sz, V_v)
+
+    ! Calculation of U momentum
+    Wn_v = W_v
+    Call CIPCSLR_1D(W_v, W_sx, Un_sx, nl, dl, dt, 1)
+    Call Tec_SIA(W_sy, W_v, Wn_v, nl, tec_m, 2)
+    Call Tec_SIA(W_sz, W_v, Wn_v, nl, tec_m, 3)
+    Call self%BC_W(W_sx, W_sy, W_sz, W_v)
+    Wn_v = W_v
+    Call CIPCSLR_1D(W_v, W_sy, Vn_sy, nl, dl, dt, 2)
+    Call Tec_SIA(W_sx, W_v, Wn_v, nl, tec_m, 1)
+    Call Tec_SIA(W_sz, W_v, Wn_v, nl, tec_m, 3)
+    Call self%BC_W(W_sx, W_sy, W_sz, W_v)
+    Wn_v = W_v
+    Call CIPCSLR_1D(W_v, W_sz, Wn_sz, nl, dl, dt, 3)
+    Call Tec_SIA(W_sx, W_v, Wn_v, nl, tec_m, 1)
+    Call Tec_SIA(W_sy, W_v, Wn_v, nl, tec_m, 2)
+    Call self%BC_W(W_sx, W_sy, W_sz, W_v)
+
+    Un_v = U_v
+    Vn_v = V_v
+    Wn_v = W_v 
+
+    ! Calculation of the right-hand-side of diffusion term 
+    Call Central_Difference_RHS(RHS_U,RHS_V,RHS_W,U_v, V_v, W_v, mu, rho, nl, dl)
+
+    ! Update VIA
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+      U_v(i,j,k) = Un_v(i,j,k) + RHS_U(i,j,k) * dt
+      V_v(i,j,k) = Vn_v(i,j,k) + RHS_V(i,j,k) * dt
+      W_v(i,j,k) = Wn_v(i,j,k) + RHS_W(i,j,k) * dt
+        EndDo
+        EndDo
+    EndDo
+
+    ! Update SIA_X, SIA_Y, SIA_Z by TEC
+    Call Tec_SIA(U_sx, U_v, Un_v, nl, tec_m, 1)
+    Call Tec_SIA(U_sy, U_v, Un_v, nl, tec_m, 2)
+    Call Tec_SIA(U_sz, U_v, Un_v, nl, tec_m, 3)
+    Call Tec_SIA(V_sx, V_v, Vn_v, nl, tec_m, 1)
+    Call Tec_SIA(V_sy, V_v, Vn_v, nl, tec_m, 2)
+    Call Tec_SIA(V_sz, V_v, Vn_v, nl, tec_m, 3)
+    Call Tec_SIA(W_sx, W_v, Wn_v, nl, tec_m, 1)
+    Call Tec_SIA(W_sy, W_v, Wn_v, nl, tec_m, 2)
+    Call Tec_SIA(W_sz, W_v, Wn_v, nl, tec_m, 3)
+
+    ! Boundary Conditions
+    Call self%BC_V(V_sx, V_sy, V_sz, V_v)
+    Call self%BC_W(W_sx, W_sy, W_sz, W_v)
+    Call self%BC_U(U_sx, U_sy, U_sz, U_v)
+
+  End Subroutine AdvDiffVSIAM
+
+  !==========================
+  ! (1-4) Update Rho and Mu
+  !    key steps:
+  !    (1) Calculate the density and viscosity using volume fraction
+  !    (2) Interpolate to get 1/Rho at cell face center
+  !    (3) Interpolate to get mu at cell edge
+  !--------------------------
+  ! Inputs:
+  !    phi: volume fraction
+  ! Note:
+  !    phi and mu related variables are updated in this subroutine
+  !    and can be used in this module.
+  !==========================
+  Subroutine UpdtRhoMu_VSIAM(self,Phi)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(out), dimension(0:,0:,0:) :: Phi
+    Integer :: i,j,k
+
+    Call Phi_bc%SetBCS(Phi)
+
+    Do k=1,nl(3)
+      Do j=1,nl(2)
+        Do i=1,nl(1)
+          Rho(i,j,k) = Phi(i,j,k) * rho_l + ( 1.0_sp - Phi(i,j,k) ) * rho_g
+          Mu(i,j,k)  = Phi(i,j,k) *  mu_l + ( 1.0_sp - Phi(i,j,k) ) *  mu_g
+        enddo
+      enddo
+    enddo
+
+    ! Call self%BC_RHOMU(Rho, Mu)
+
+    Do k=0,nl(3)
+      Do j=0,nl(2)
+        Do i=0,nl(1)
+          Rhox(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i+1,j,k))
+          Rhoy(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i,j+1,k))
+          Rhoz(i,j,k) = 2.0_sp / (Rho(i,j,k) + Rho(i,j,k+1))
+        EndDo
+      EndDo
+    EndDo
+
+  End Subroutine UpdtRhoMu_VSIAM
+
+  !==========================
+  ! (1-5) Boudnary conditions for u
+  !==========================
+  Subroutine BC_U_VSIAM(self, Usx, Usy, Usz, Uv)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: Uv, Usx, Usy, Usz
+    Call self%BC_Usx%SetBCS(Usx)
+    Call self%BC_Usy%SetBCS(Usy)
+    Call self%BC_Usz%SetBCS(Usz)
+    Call self%BC_Uv%SetBCS(Uv)
+  End Subroutine BC_U_VSIAM
+
+  !==========================
+  ! (1-5) Boudnary conditions for v
+  !==========================
+  Subroutine BC_V_VSIAM(self, Vsx, Vsy, Vsz, Vv)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: Vsx, Vsy, Vsz, Vv
+    Call self%BC_Vsx%SetBCS(Vsx)
+    Call self%BC_Vsy%SetBCS(Vsy)
+    Call self%BC_Vsz%SetBCS(Vsz)
+    Call self%BC_Vv%SetBCS(Vv)
+  End Subroutine BC_V_VSIAM
+
+  !==========================
+  ! (1-5) Boudnary conditions for w
+  !==========================
+  Subroutine BC_W_VSIAM(self, Wsx, Wsy, Wsz, Wv)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: Wsx, Wsy, Wsz, Wv
+    Call self%BC_Wsx%SetBCS(Wsx)
+    Call self%BC_Wsy%SetBCS(Wsy)
+    Call self%BC_Wsz%SetBCS(Wsz)
+    Call self%BC_Wv%SetBCS(Wv)
+  End Subroutine BC_W_VSIAM
+
+  !==========================
+  ! (1-6) Boudnary conditions for p
+  !==========================
+  Subroutine BC_P_VSIAM(self,P)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: P
+    Call Phi_bc%SetBCS(P)
+  End Subroutine BC_P_VSIAM
+
+  !==========================
+  ! (1-7) Boudnary conditions for rho and mu
+  !==========================
+  Subroutine BC_RHOMU_VSIAM(self,Rho, Mu)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: Rho, Mu
+    Call Phi_bc%SetBCS(Rho)
+    Call Phi_bc%SetBCS(Mu)
+  End Subroutine BC_RHOMU_VSIAM
+
+
+  Subroutine InitNavierStokes_VSIAM(self,u, v, w, phi, p)
+    Implicit None
+    Class(VSIAM) :: self
+    real(sp), intent(inout) , dimension(0:,0:,0:) :: p,u,v,w,phi
+    Integer :: iter_max
+    Character(80) :: file_name
+    Character(80) :: input_name
+    Integer :: bc_left, bc_right, bc_bottom, bc_top, bc_front, bc_back
+    Integer :: bc_pair(2)
+    Integer :: hypre_solver, hypre_PreConditioner
+    Integer :: i
+
+    !  variables for physics
+    namelist /ns_physics/ rho_l, rho_g, mu_l, mu_g, sigma, body_force, cfl, dt_min
+    namelist /ns_solver/ iter_tolerance, iter_max, rk_order, hypre_solver, Hypre_PreConditioner
+    !  variables for boundary conditions
+    namelist /ns_bc/ &
+        bc_left, bc_right, &
+        bc_back, bc_front, &
+        bc_top, bc_bottom
+
+    Call getarg(1,input_name)
+    if (INPUT_NAME .eq. '') Then
+      file_name = 'input.namelist'
+      h5_input%filename = "input.h5"
+    Else
+      file_name = trim(input_name)//'.namelist'
+      h5_input%filename = trim(input_name)//'.h5'
+    endif
+
+    Do i = 1, nproc
+      if (myid .eq. i-1) then
+        Open(10, file=file_name)
+        Read(10, nml = ns_physics)
+        Close(10)
+        Open(10, file=file_name)
+        Read(10, nml = ns_solver)
+        Close(10)
+        Open(10, file=file_name)
+        Read(10, nml = ns_bc)
+        Close(10)
+      Endif
+      Call MPI_barrier(MPI_COMM_WORLD, ierr)
+    End Do
+
+    ! Allocate variables
+    Allocate( Rho(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(Rhox(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(Rhoy(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(Rhoz(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate( U_v(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(U_sx(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(U_sy(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(U_sz(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate( V_v(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(V_sx(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(V_sy(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(V_sz(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate( W_v(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(W_sx(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(W_sy(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(W_sz(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(  Mu(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(  LS(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(Flag(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate(PP(0:nl(1)+1, 0:nl(2)+1, 0:nl(3)+1))
+    Allocate( Div(nl(1), nl(2), nl(3)))
+    Allocate(rkcoef(2,rk_order))
+
+    Rho  = 0.0_sp
+    Rhox = 0.0_sp
+    Rhoy = 0.0_sp
+    Rhoz = 0.0_sp
+    Mu   = 0.0_sp
+    Div  = 0.0_sp
+    LS   = 0.0_sp
+    U_v   = 0.0_sp
+    U_sx   = 0.0_sp
+    U_sy  = 0.0_sp
+    U_sz  = 0.0_sp
+    V_v   = 0.0_sp
+    V_sx  = 0.0_sp
+    V_sy  = 0.0_sp
+    V_sz  = 0.0_sp
+    W_v   = 0.0_sp
+    W_sx  = 0.0_sp
+    W_sy  = 0.0_sp
+    W_sz  = 0.0_sp
+    Flag = 1
+    rkcoef   = 0.0_sp
+
+    ls_bc%name = 'ls'
+    ls_bc%lohi(:,1) = 0
+    ls_bc%lohi(:,2) = nl(:)+1
+    ls_bc%bound_type(:,:) = 3
+    ls_bc%bound_value(:,:) = 0
+
+    ! Boundary locations for via
+    self%BC_Uv%name = 'u_v'
+    self%BC_Uv%lohi(:,1) = 0
+    self%BC_Uv%lohi(:,2) = nl(:)+1
+    self%bc_Uv%ghost_flag(:,:) = .true.
+
+    self%BC_Vv%name = 'v_v'
+    self%BC_Vv%lohi(:,1) = 0
+    self%BC_Vv%lohi(:,2) = nl(:)+1
+    self%bc_Vv%ghost_flag(:,:) = .true.
+
+    self%BC_Wv%name = 'w_v'
+    self%BC_Wv%lohi(:,1) = 0
+    self%BC_Wv%lohi(:,2) = nl(:)+1
+    self%bc_Wv%ghost_flag(:,:) = .true.
+
+    ! Boundary locations for sia x
+    self%BC_Usx%name = 'u_sx'
+    self%BC_Usx%lohi(:,1) = 0
+    self%BC_Usx%lohi(:,2) = nl(:)+1
+    self%BC_Usx%lohi(1,2) = nl(1)
+    self%bc_Usx%ghost_flag(:,:) = .true.
+    self%bc_Usx%ghost_flag(1,:) = .false.
+
+    self%BC_Vsx%name = 'v_sx'
+    self%BC_Vsx%lohi(:,1) = 0
+    self%BC_Vsx%lohi(:,2) = nl(:)+1
+    self%BC_Vsx%lohi(1,2) = nl(1)
+    self%bc_Vsx%ghost_flag(:,:) = .true.
+    self%bc_Vsx%ghost_flag(1,:) = .false.
+
+    self%BC_Wsx%name = 'w_sx'
+    self%BC_Wsx%lohi(:,1) = 0
+    self%BC_Wsx%lohi(:,2) = nl(:)+1
+    self%BC_Wsx%lohi(1,2) = nl(1)
+    self%bc_Wsx%ghost_flag(:,:) = .true.
+    self%bc_Wsx%ghost_flag(1,:) = .false.
+
+    ! Boundary locations for sia y
+    self%BC_Usy%name = 'u_sy'
+    self%BC_Usy%lohi(:,1) = 0
+    self%BC_Usy%lohi(:,2) = nl(:)+1
+    self%BC_Usy%lohi(2,2) = nl(2)
+    self%bc_Usy%ghost_flag(:,:) = .true.
+    self%bc_Usy%ghost_flag(2,:) = .false.
+
+    self%BC_Vsy%name = 'v_sy'
+    self%BC_Vsy%lohi(:,1) = 0
+    self%BC_Vsy%lohi(:,2) = nl(:)+1
+    self%BC_Vsy%lohi(2,2) = nl(2)
+    self%bc_Vsy%ghost_flag(:,:) = .true.
+    self%bc_Vsy%ghost_flag(2,:) = .false.
+
+    self%BC_Wsy%name = 'w_sy'
+    self%BC_Wsy%lohi(:,1) = 0
+    self%BC_Wsy%lohi(:,2) = nl(:)+1
+    self%BC_Wsy%lohi(2,2) = nl(2)
+    self%bc_Wsy%ghost_flag(:,:) = .true.
+    self%bc_Wsy%ghost_flag(2,:) = .false.
+
+    ! Boundary locations for sia z
+    self%BC_Usz%name = 'u_sz'
+    self%BC_Usz%lohi(:,1) = 0
+    self%BC_Usz%lohi(:,2) = nl(:)+1
+    self%BC_Usz%lohi(3,2) = nl(3)
+    self%bc_Usz%ghost_flag(:,:) = .true.
+    self%bc_Usz%ghost_flag(3,:) = .false.
+
+    self%BC_Vsz%name = 'v_sz'
+    self%BC_Vsz%lohi(:,1) = 0
+    self%BC_Vsz%lohi(:,2) = nl(:)+1
+    self%BC_Vsz%lohi(3,2) = nl(3)
+    self%bc_Vsz%ghost_flag(:,:) = .true.
+    self%bc_Vsz%ghost_flag(3,:) = .false.
+
+    self%BC_Wsz%name = 'w_sz'
+    self%BC_Wsz%lohi(:,1) = 0
+    self%BC_Wsz%lohi(:,2) = nl(:)+1
+    self%BC_Wsz%lohi(3,2) = nl(3)
+    self%bc_Wsz%ghost_flag(:,:) = .true.
+    self%bc_Wsz%ghost_flag(3,:) = .false.
+
+    ! Boudnary conditions:
+    ! 1. No-slip wall
+    ! 2. Slip wall/ Symmetric
+
+    ! Left and right
+    bc_pair(1) = bc_left
+    bc_pair(2) = bc_right
+    Do i = 1, 2
+      Select case (bc_pair(i))
+      Case(1)
+        p_bc%bound_type(1,i)  = 2
+        p_bc%bound_value(1,i) = 0.0_sp
+        phi_bc%bound_type(1,i)  = 2
+        phi_bc%bound_value(1,i) = 0.0_sp
+
+        self%BC_Uv%bound_type(1,i) = 1
+        self%BC_Uv%bound_value(1,i) = 0.0_sp
+        self%BC_Vv%bound_type(1,i) = 1
+        self%BC_Vv%bound_value(1,i) = 0.0_sp
+        self%BC_Wv%bound_type(1,i) = 1
+        self%BC_Wv%bound_value(1,i) = 0.0_sp
+
+        self%BC_Usx%bound_type(1,i) = 1
+        self%BC_Usx%bound_value(1,i) = 0.0_sp
+        self%BC_Vsx%bound_type(1,i) = 1
+        self%BC_Vsx%bound_value(1,i) = 0.0_sp
+        self%BC_Wsx%bound_type(1,i) = 1
+        self%BC_Wsx%bound_value(1,i) = 0.0_sp
+
+        self%BC_Usy%bound_type(1,i) = 1
+        self%BC_Usy%bound_value(1,i) = 0.0_sp
+        self%BC_Vsy%bound_type(1,i) = 1
+        self%BC_Vsy%bound_value(1,i) = 0.0_sp
+        self%BC_Wsy%bound_type(1,i) = 1
+        self%BC_Wsy%bound_value(1,i) = 0.0_sp
+
+        self%BC_Usz%bound_type(1,i) = 1
+        self%BC_Usz%bound_value(1,i) = 0.0_sp
+        self%BC_Vsz%bound_type(1,i) = 1
+        self%BC_Vsz%bound_value(1,i) = 0.0_sp
+        self%BC_Wsz%bound_type(1,i) = 1
+        self%BC_Wsz%bound_value(1,i) = 0.0_sp
+      Case(2)
+        p_bc%bound_type(1,i)  = 2
+        p_bc%bound_value(1,i) = 0.0_sp
+        phi_bc%bound_type(1,i)  = 2
+        phi_bc%bound_value(1,i) = 0.0_sp
+
+        self%BC_Uv%bound_type(1,i) = 1
+        self%BC_Uv%bound_value(1,i) = 0.0_sp
+        self%BC_Vv%bound_type(1,i) = 2
+        self%BC_Vv%bound_value(1,i) = 0.0_sp
+        self%BC_Wv%bound_type(1,i) = 2
+        self%BC_Wv%bound_value(1,i) = 0.0_sp
+
+        self%BC_Usx%bound_type(1,i) = 1
+        self%BC_Usx%bound_value(1,i) = 0.0_sp
+        self%BC_Vsx%bound_type(1,i) = 2
+        self%BC_Vsx%bound_value(1,i) = 0.0_sp
+        self%BC_Wsx%bound_type(1,i) = 2
+        self%BC_Wsx%bound_value(1,i) = 0.0_sp
+
+        self%BC_Usy%bound_type(1,i) = 1
+        self%BC_Usy%bound_value(1,i) = 0.0_sp
+        self%BC_Vsy%bound_type(1,i) = 2
+        self%BC_Vsy%bound_value(1,i) = 0.0_sp
+        self%BC_Wsy%bound_type(1,i) = 2
+        self%BC_Wsy%bound_value(1,i) = 0.0_sp
+
+        self%BC_Usz%bound_type(1,i) = 1
+        self%BC_Usz%bound_value(1,i) = 0.0_sp
+        self%BC_Vsz%bound_type(1,i) = 2
+        self%BC_Vsz%bound_value(1,i) = 0.0_sp
+        self%BC_Wsz%bound_type(1,i) = 2
+        self%BC_Wsz%bound_value(1,i) = 0.0_sp
+      Case Default
+        if (myid .eq.0) then
+          print *, "======Fatal Error=============================="
+          print *, "Wrong bc value, please check the namelist file"
+          print *, "==============================================="
+        end if
+        Call MPI_Finalize(ierr)
+        stop
+      End Select
+    End Do
+
+    ! Front and back
+    bc_pair(1) = bc_back
+    bc_pair(2) = bc_front
+    Do i = 1, 2
+      Select case (bc_pair(i))
+      Case(1)
+        p_bc%bound_type(2,i)  = 2
+        p_bc%bound_value(2,i) = 0.0_sp
+        phi_bc%bound_type(2,i)  = 2
+        phi_bc%bound_value(2,i) = 0.0_sp
+
+        self%BC_Uv%bound_type(2,i) = 1
+        self%BC_Uv%bound_value(2,i) = 0.0_sp
+        self%BC_Vv%bound_type(2,i) = 1
+        self%BC_Vv%bound_value(2,i) = 0.0_sp
+        self%BC_Wv%bound_type(2,i) = 1
+        self%BC_Wv%bound_value(2,i) = 0.0_sp
+
+        self%BC_Usx%bound_type(2,i) = 1
+        self%BC_Usx%bound_value(2,i) = 0.0_sp
+        self%BC_Vsx%bound_type(2,i) = 1
+        self%BC_Vsx%bound_value(2,i) = 0.0_sp
+        self%BC_Wsx%bound_type(2,i) = 1
+        self%BC_Wsx%bound_value(2,i) = 0.0_sp
+
+        self%BC_Usy%bound_type(2,i) = 1
+        self%BC_Usy%bound_value(2,i) = 0.0_sp
+        self%BC_Vsy%bound_type(2,i) = 1
+        self%BC_Vsy%bound_value(2,i) = 0.0_sp
+        self%BC_Wsy%bound_type(2,i) = 1
+        self%BC_Wsy%bound_value(2,i) = 0.0_sp
+
+        self%BC_Usz%bound_type(2,i) = 1
+        self%BC_Usz%bound_value(2,i) = 0.0_sp
+        self%BC_Vsz%bound_type(2,i) = 1
+        self%BC_Vsz%bound_value(2,i) = 0.0_sp
+        self%BC_Wsz%bound_type(2,i) = 1
+        self%BC_Wsz%bound_value(2,i) = 0.0_sp
+      Case(2)
+        p_bc%bound_type(2,i)  = 2
+        p_bc%bound_value(2,i) = 0.0_sp
+        phi_bc%bound_type(2,i)  = 2
+        phi_bc%bound_value(2,i) = 0.0_sp
+
+        self%BC_Uv%bound_type(2,i) = 2
+        self%BC_Uv%bound_value(2,i) = 0.0_sp
+        self%BC_Vv%bound_type(2,i) = 1
+        self%BC_Vv%bound_value(2,i) = 0.0_sp
+        self%BC_Wv%bound_type(2,i) = 1
+        self%BC_Wv%bound_value(2,i) = 0.0_sp
+
+        self%BC_Usx%bound_type(2,i) = 2
+        self%BC_Usx%bound_value(2,i) = 0.0_sp
+        self%BC_Vsx%bound_type(2,i) = 1
+        self%BC_Vsx%bound_value(2,i) = 0.0_sp
+        self%BC_Wsx%bound_type(2,i) = 2
+        self%BC_Wsx%bound_value(2,i) = 0.0_sp
+
+        self%BC_Usy%bound_type(2,i) = 2
+        self%BC_Usy%bound_value(2,i) = 0.0_sp
+        self%BC_Vsy%bound_type(2,i) = 1
+        self%BC_Vsy%bound_value(2,i) = 0.0_sp
+        self%BC_Wsy%bound_type(2,i) = 2
+        self%BC_Wsy%bound_value(2,i) = 0.0_sp
+
+        self%BC_Usz%bound_type(2,i) = 2
+        self%BC_Usz%bound_value(2,i) = 0.0_sp
+        self%BC_Vsz%bound_type(2,i) = 1
+        self%BC_Vsz%bound_value(2,i) = 0.0_sp
+        self%BC_Wsz%bound_type(2,i) = 2
+        self%BC_Wsz%bound_value(2,i) = 0.0_sp
+      End Select
+    End Do
+
+    ! Top and bottom
+    bc_pair(1) = bc_bottom
+    bc_pair(2) = bc_top
+    Do i = 1, 2
+      Select case (bc_pair(i))
+      Case(1)
+        p_bc%bound_type(3,i)  = 2
+        p_bc%bound_value(3,i) = 0.0_sp
+        phi_bc%bound_type(3,i)  = 2
+        phi_bc%bound_value(3,i) = 0.0_sp
+
+        self%BC_Uv%bound_type(3,i) = 1
+        self%BC_Uv%bound_value(3,i) = 0.0_sp
+        self%BC_Vv%bound_type(3,i) = 1
+        self%BC_Vv%bound_value(3,i) = 0.0_sp
+        self%BC_Wv%bound_type(3,i) = 1
+        self%BC_Wv%bound_value(3,i) = 0.0_sp
+
+        self%BC_Usx%bound_type(3,i) = 1
+        self%BC_Usx%bound_value(3,i) = 0.0_sp
+        self%BC_Vsx%bound_type(3,i) = 1
+        self%BC_Vsx%bound_value(3,i) = 0.0_sp
+        self%BC_Wsx%bound_type(3,i) = 1
+        self%BC_Wsx%bound_value(3,i) = 0.0_sp
+
+        self%BC_Usy%bound_type(3,i) = 1
+        self%BC_Usy%bound_value(3,i) = 0.0_sp
+        self%BC_Vsy%bound_type(3,i) = 1
+        self%BC_Vsy%bound_value(3,i) = 0.0_sp
+        self%BC_Wsy%bound_type(3,i) = 1
+        self%BC_Wsy%bound_value(3,i) = 0.0_sp
+
+        self%BC_Usz%bound_type(3,i) = 1
+        self%BC_Usz%bound_value(3,i) = 0.0_sp
+        self%BC_Vsz%bound_type(3,i) = 1
+        self%BC_Vsz%bound_value(3,i) = 0.0_sp
+        self%BC_Wsz%bound_type(3,i) = 1
+        self%BC_Wsz%bound_value(3,i) = 0.0_sp
+      Case(2)
+        p_bc%bound_type(3,i)  = 2
+        p_bc%bound_value(3,i) = 0.0_sp
+        phi_bc%bound_type(3,i)  = 2
+        phi_bc%bound_value(3,i) = 0.0_sp
+
+        self%BC_Uv%bound_type(3,i) = 2
+        self%BC_Uv%bound_value(3,i) = 0.0_sp
+        self%BC_Vv%bound_type(3,i) = 2
+        self%BC_Vv%bound_value(3,i) = 0.0_sp
+        self%BC_Wv%bound_type(3,i) = 1
+        self%BC_Wv%bound_value(3,i) = 0.0_sp
+
+        self%BC_Usx%bound_type(3,i) = 2
+        self%BC_Usx%bound_value(3,i) = 0.0_sp
+        self%BC_Vsx%bound_type(3,i) = 2
+        self%BC_Vsx%bound_value(3,i) = 0.0_sp
+        self%BC_Wsx%bound_type(3,i) = 1
+        self%BC_Wsx%bound_value(3,i) = 0.0_sp
+
+        self%BC_Usy%bound_type(3,i) = 2
+        self%BC_Usy%bound_value(3,i) = 0.0_sp
+        self%BC_Vsy%bound_type(3,i) = 2
+        self%BC_Vsy%bound_value(3,i) = 0.0_sp
+        self%BC_Wsy%bound_type(3,i) = 1
+        self%BC_Wsy%bound_value(3,i) = 0.0_sp
+
+        self%BC_Usz%bound_type(3,i) = 2
+        self%BC_Usz%bound_value(3,i) = 0.0_sp
+        self%BC_Vsz%bound_type(3,i) = 2
+        self%BC_Vsz%bound_value(3,i) = 0.0_sp
+        self%BC_Wsz%bound_type(3,i) = 1
+        self%BC_Wsz%bound_value(3,i) = 0.0_sp
+      End Select
+    End Do
+
+    ! Assign RungeKutta
+    If (rk_order .eq. 1) Then
+      rkcoef(1,1) =  1.0_sp
+      rkcoef(2,1) =  0.0_sp
+    ElseIf (rk_order .eq. 2) Then
+      rkcoef(1,1) =  0.5_sp
+      rkcoef(2,1) =  0.0_sp
+      rkcoef(1,2) =  1.0_sp
+      rkcoef(2,2) =  -0.5_sp
+    ElseIf (rk_order .eq. 3) Then
+      rkcoef(1,1) =  32.0_sp / 60.0_sp
+      rkcoef(2,1) =  0.0_sp  / 60.0_sp
+      rkcoef(1,2) =  25.0_sp / 60.0_sp
+      rkcoef(2,2) = -17.0_sp / 60.0_sp
+      rkcoef(1,3) =  45.0_sp / 60.0_sp
+      rkcoef(2,3) = -25.0_sp / 60.0_sp
+    Else
+      If ( myid .eq. 0 ) then
+        print *, "======Fatal Error=============================="
+        print *, "Wong rk order, should be 1 or 2 or 3"
+        print *, "==============================================="
+      End If
+      Call MPI_Finalize(ierr)
+      stop
+    End If
 
     ! Initialize hypre
-    Call u_bc%SetBCS(u)
-    Call v_bc%SetBCS(v)
-    Call w_bc%SetBCS(w)
-    Call phi_bc%SetBCS(phi)
-    Call phi_bc%SetBCS(p)
-    jacobiflag = 0
+    Call Hypre_Initialize(iter_tolerance, iter_max, hypre_solver, Hypre_PreConditioner)
 
-  End Subroutine InitNavierStokes
+    ! Initialize the Rho and Mu field
+    ! Call self%UpdtRhoMu(Phi)
 
-  !==========================
-  !  (4-1) Adjust dt
-  !==========================
-  Subroutine Adjustdt(U, V, W, cfl)
-    Implicit None
-    Real(sp), Intent(In), Dimension(0:,0:,0:) :: U, V, W
-    Real(sp) :: uvw, uvw2, dlmin
-    Real(sp), Intent(In) :: cfl
-    Integer :: i, j, k
-    uvw = 0.0_sp
-    Do k = 1, nl(3)
-      Do j = 1, nl(2)
-        Do i = 1, nl(1)
-          uvw = max(uvw,abs(u(i,j,k))+abs(v(i,j,k))+abs(w(i,j,k)))
-        End Do
-      End Do
-    End Do
+    ! Initialize boundary condition
+    ! Call self%BC_UVW(U,V,W)
+    ! Call self%BC_P(P)
 
-    dlmin = min(min(nl(1),nl(2)),nl(3))
+  End Subroutine InitNavierStokes_VSIAM
 
-    Call MPI_Reduce(uvw, uvw2, 1, MPI_REAL_SP, MPI_MAX, MPI_COMM_WORLD, 0, ierr)
-
-    dt = cfl * sqrt(3.0_sp) * dlmin / uvw
-
-    dt = min(dt0, dt)
-    dt = max(dt, dt_min)
-
-    Call MPI_Barrier(MPI_COMM_WORLD, ierr)
-
-  End Subroutine Adjustdt
-
-  !==========================
-  !  (4-2) Jacobi iteration
-  !==========================
-  Subroutine Jacobi(P)
-    Implicit None
-    Real(sp), Intent(InOut) :: P(0:,0:,0:)
-    Real(sp) :: res(0:nl(1)+1,0:nl(2)+1,0:nl(3)+1)
-    Real(sp) :: res_max, res_max2
-    Integer :: i, j, k, ll
-
-    Do ll = 1, 10000
-      Do k = 1, nl(3)
-        Do j = 1, nl(2)
-          Do i = 1, nl(1)
-            res(i,j,k) = - ( DIV(i,j,k) / dt &
-                &  - rhox(i-1,j,k) * P(i-1,j,k) - rhox(i,j,k) * P(i+1,j,k)    &
-                &  - rhoy(i,j-1,k) * P(i,j-1,k) - rhoy(i,j,k) * P(i,j+1,k)  &
-                &  - rhoz(i,j,k-1) * P(i,j,k-1) - rhoz(i,j,k) * P(i,j,k+1) )  &
-                &  / ( rhox(i,j,k) + rhox(i-1,j,k) + rhoy(i,j,k) + rhoy(i,j-1,k) + rhoz(i,j,k) + rhoz(i,j,k-1) ) - P(i,j,k)
-          End Do
-        End Do
-      End Do
-
-      res_max = 0.0_sp
-      Do k = 1, nl(3)
-        Do j = 1, nl(2)
-          Do i = 1, nl(1)
-            if (abs(res(i,j,k)) > res_max ) then
-              res_max = res(i,j,k)
-            end if
-              P(i,j,k) = P(i,j,k) + res(i,j,k)
-          End Do
-        End Do
-      End Do
-      Call P_bc%SetBCS(P)
-      Call MPI_AllReduce(res_max, res_max2, 1, MPI_REAL_SP, MPI_MAX, MPI_COMM_WORLD, ierr)
-      if (res_max2 < iter_tolerance) exit
-    End Do
-
-    if (myid .eq.0 ) print *, myid,ll, res_max2
-
-  End Subroutine Jacobi
-
-  Subroutine Monitor(U,V,W)
+ Subroutine Monitor(U,V,W)
     Implicit None
     Real(sp), Intent(In), Dimension(0:,0:,0:) :: U, V, W
     Integer :: i, j, k
-    Call Divergence(U,V,W,Div)
+    External Divergence
+    Call Divergence(U,V,W,nl,dl,div)
     div_max = 0.0_sp
     Do k = 1, nl(3)
       Do j = 1, nl(2)
