@@ -1,0 +1,46 @@
+{
+    "inputfile_path":"../../inputs/",
+    "exec_path":"../../Benchmark/execs/",
+    "exec_list": [
+	"EI",
+	"LE",
+	"EILE2D",
+	"LEEI2D",
+	"WY"
+    ],
+    "BenchDir":"MOF_BENCH",
+    "CaseParams":{
+        "EI":{
+            "Advection":[
+                "call MOFAdv_EI(u, cx, cy, cz, phi, nl, dl, dt, 1)",
+                "call MOFAdv_EI(v, cx, cy, cz, phi, nl, dl, dt, 2)"
+            ]
+        },
+        "LE":{
+            "Advection":[
+                "call MOFAdv_LE(u, cx, cy, cz, phi, nl, dl, dt, 1)",
+                "call MOFAdv_LE(v, cx, cy, cz, phi, nl, dl, dt, 2)"
+            ]
+        },
+        "EILE2D":{
+            "Advection":[
+                "call MOFAdv_EI(u, cx, cy, cz, phi, nl, dl, dt, 1)",
+                "call MOFAdv_LE(v, cx, cy, cz, phi, nl, dl, dt, 2)"
+            ]
+        },
+        "LEEI2D":{
+            "Type":"MOF",
+            "Advection":[
+                "call MOFAdv_LE(u, cx, cy, cz, phi, nl, dl, dt, 1)",
+                "call MOFAdv_EI(v, cx, cy, cz, phi, nl, dl, dt, 2)"
+            ]
+        },
+        "WY":{
+            "Type":"MOF",
+            "Advection":[
+                "call MOFAdv_WY(u, phi0, cx, cy, cz, phi, nl, dl, dt, 1)",
+                "call MOFAdv_WY(v, phi0, cx, cy, cz, phi, nl, dl, dt, 2)"
+            ]
+        }
+    }
+}
