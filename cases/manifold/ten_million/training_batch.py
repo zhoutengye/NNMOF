@@ -1,4 +1,3 @@
-import joblib
 def sk2f(write_coef):
     if (write_coef.type == 'Neural_Network'):
         nn_sk2f(write_coef)
@@ -111,6 +110,7 @@ from sklearn.model_selection import GridSearchCV
 from keras import backend as K
 from keras.wrappers.scikit_learn import KerasRegressor
 import json
+import os
 
 data_dir = '.'
 
@@ -123,28 +123,8 @@ initial_angle = np.load(data_dir+'/initial_angle.npy')
 exact_centroid = exact_centroid - 0.5
 
 exact_f = exact_f.reshape([len(exact_f),1])
-# inputs = np.hstack((exact_centroid,exact_f))
 inputs = np.hstack((initial_angle,exact_f))
 outputs = delta_angle.copy()
-
-#rf = RandomForestRegressor(max_depth=10,n_estimators=10)
-#rf.fit(inputs, outputs)
-
-dt = DecisionTreeRegressor(max_depth=21)
-dt.fit(inputs, outputs)
-
-ml = dt
-
-print(ml.score(inputs[:1000,:],outputs[:1000,:]))
-print(ml.predict(inputs[:10,:]))
-print(outputs[:10,:])
-
-#rf.output_coef_path = ''
-#rf_sk2f(rf)
-
-dt.output_coef_path = ''
-dt_sk2f(dt)
-
 
 data_dir = 'one_million_data'
 i_exact_f = np.load(data_dir+'/exact_f.npy')
@@ -156,7 +136,37 @@ i_initial_angle = np.load(data_dir+'/initial_angle.npy')
 i_exact_f = i_exact_f.reshape([len(i_exact_f),1])
 i_inputs = np.hstack((i_initial_angle,i_exact_f))
 i_outputs = i_delta_angle.copy()
-print(ml.score(i_inputs,i_outputs))
 
-filename = 'dt21.joblib.pkl'
-_ = joblib.dump(ml, filename)
+
+for dep in range(30):
+    de = int(dep + 1)
+    print('Starting depth ', str(de))
+    dt = DecisionTreeRegressor(max_depth=de)
+    dt.fit(inputs, outputs)
+    rf = RandomForestRegressor(max_depth=de,n_estimators=10)
+    rf.fit(inputs, outputs)
+
+    sco = open('rf_score.dat','w')
+    sc1 = rf.score(inputs, outputs)
+    sc2 = rf.score(i_inputs, i_outputs)
+    sco.write(str(sc1))
+    sco.write(str(sc2))
+    sco.close()
+    rf.output_coef_path = 'batch/'
+    rf_sk2f(rf)
+
+    sco = open('dt_score.dat','w')
+    sc1 = dt.score(inputs, outputs)
+    sc2 = dt.score(i_inputs, i_outputs)
+    sco.write(str(sc1))
+    sco.write(str(sc2))
+    sco.close()
+    dt.output_coef_path = 'batch/'
+    dt_sk2f(dt)
+
+    os.system('mv ' + rf.output_coef_path + 'dt_coef.dat ' + rf.output_coef_path  + 'dt_' + str(de) + '.dat')
+    os.system('mv ' + rf.output_coef_path + 'rf_coef.dat ' + rf.output_coef_path  + 'rf_' + str(de) + '.dat')
+    os.system('mv ' + 'dt_score.dat ' + rf.output_coef_path + 'dt_' + str(de) + 'score' + '.dat')
+    os.system('mv ' + 'rf_score.dat ' + rf.output_coef_path + 'rf_' + str(de) + 'score' + '.dat')
+
+    print('Depth ' + str(de) + 'success. \n')

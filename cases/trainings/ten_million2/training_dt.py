@@ -120,17 +120,25 @@ exact_centroid = np.load(data_dir+'/exact_centroid.npy')
 delta_angle = np.load(data_dir+'/delta_angle.npy')
 initial_angle = np.load(data_dir+'/initial_angle.npy')
 
+# exact_f = np.loadtxt(data_dir+'/exact_f.dat')
+# exact_angle = np.loadtxt(data_dir+'/exact_angle.dat')
+# exact_centroid = np.loadtxt(data_dir+'/exact_centroid.dat')
+# delta_angle = np.loadtxt(data_dir+'/delta_angle.dat')
+# initial_angle = np.loadtxt(data_dir+'/initial_angle.dat')
+
 exact_centroid = exact_centroid - 0.5
 
 exact_f = exact_f.reshape([len(exact_f),1])
 # inputs = np.hstack((exact_centroid,exact_f))
+# initial_angle[:,0] = initial_angle[:,0] / np.pi / 2.0
+# initial_angle[:,1] = initial_angle[:,1] / np.pi
 inputs = np.hstack((initial_angle,exact_f))
 outputs = delta_angle.copy()
 
 #rf = RandomForestRegressor(max_depth=10,n_estimators=10)
 #rf.fit(inputs, outputs)
 
-dt = DecisionTreeRegressor(max_depth=21)
+dt = DecisionTreeRegressor(max_depth=25)
 dt.fit(inputs, outputs)
 
 ml = dt
@@ -153,10 +161,11 @@ i_exact_centroid = np.load(data_dir+'/exact_centroid.npy')
 i_delta_angle = np.load(data_dir+'/delta_angle.npy')
 i_initial_angle = np.load(data_dir+'/initial_angle.npy')
 
+# i_initial_angle[:,0] = i_initial_angle[:,0] / np.pi / 2.0
+# i_initial_angle[:,1] = i_initial_angle[:,1] / np.pi
+
 i_exact_f = i_exact_f.reshape([len(i_exact_f),1])
 i_inputs = np.hstack((i_initial_angle,i_exact_f))
 i_outputs = i_delta_angle.copy()
 print(ml.score(i_inputs,i_outputs))
 
-filename = 'dt21.joblib.pkl'
-_ = joblib.dump(ml, filename)

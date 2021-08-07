@@ -176,11 +176,10 @@ Contains
 
     ! Read at namelist processor by processor
     Do i = 1, nproc
-      If (myid .eq. 0) Then
+      If (myid .eq. i-1) Then
         INQUIRE(FILE=file_name, EXIST=file_exists)
         If ( file_exists ) Then
           Open(10, file=file_name)
-          write(6,*) file_exists
           Read(10, nml = mpivar)
           Read(10, nml = gridvar)
           Read(10, nml = compvar)
@@ -193,6 +192,7 @@ Contains
           Call MPI_Finalize(ierr)
           stop
         End If
+        close(10)
         Call MPI_barrier(MPI_COMM_WORLD, ierr)
       End If
     End Do
@@ -209,7 +209,6 @@ Contains
     periods(1) = periodx
     periods(2) = periody
     periods(3) = periodz
-    close(10)
     if (trim(output_format) .eq. 'paraview') then
       output_type = 1
     else if (trim(output_format) .eq. 'tecplot') then
@@ -702,7 +701,7 @@ Contains
       write(frame_name,'(I6)') run_step 
       If ( mod(run_step, output_step) == 0 ) Then
         frame_name = trim(adjustl(frame_name))
-        print *, frame_name
+        ! if (myid .eq. 0 ) print *, frame_name
         Call HDF5WriteFrame(frame_name)
         If (myid .eq. 0 ) Print *, "Write data step = ",run_step," to output.h5"
       End If

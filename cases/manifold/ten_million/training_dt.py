@@ -1,4 +1,3 @@
-import joblib
 def sk2f(write_coef):
     if (write_coef.type == 'Neural_Network'):
         nn_sk2f(write_coef)
@@ -130,7 +129,7 @@ outputs = delta_angle.copy()
 #rf = RandomForestRegressor(max_depth=10,n_estimators=10)
 #rf.fit(inputs, outputs)
 
-dt = DecisionTreeRegressor(max_depth=21)
+dt = DecisionTreeRegressor(max_depth=20)
 dt.fit(inputs, outputs)
 
 ml = dt
@@ -157,6 +156,3 @@ i_exact_f = i_exact_f.reshape([len(i_exact_f),1])
 i_inputs = np.hstack((i_initial_angle,i_exact_f))
 i_outputs = i_delta_angle.copy()
 print(ml.score(i_inputs,i_outputs))
-
-filename = 'dt21.joblib.pkl'
-_ = joblib.dump(ml, filename)

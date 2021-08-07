@@ -60,6 +60,9 @@
 !    FPMG seems not working properly with multi-phase flow
 !===============================================
 #include "param.h"
+#ifdef SINGLE_PRECISION
+#  define ModVOF ModVOFExt
+# endif
 Module ModNavierStokes
   Use mpi
   Use ModGlobal, only : sp

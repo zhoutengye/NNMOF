@@ -1,7 +1,7 @@
-MOF_DIR    = ../../../../
-EXTENDS    = true
+TEST_NUM = 2
+MOF_DIR    = ../..
 compiler   = intel
-EXEC       = Linear-MOF.exec
+EXEC       = TEST
 FC         = mpif90
 DEBUG      = false
 PRECISION  = DOUBLE_PRECISION
@@ -10,11 +10,18 @@ PRECISION  = DOUBLE_PRECISION
 HDF5_DIR   = $(HOME)/HPC/hdf5/$(compiler)
 HYPRE_DIR  = $(HOME)/HPC/hypre/$(compiler)
 
-CASE_SRCS =  main.f90
+CASE_SRCS = test.f90
 
 #-----------Include essential files---------------
 include $(MOF_DIR)/Make-Essential
 
+# Case specific makefile variables
+CPP := $(CPP) -DTEST$(TEST_NUM)
+EXEC       = TEST-$(TEST_NUM)
+
+# If external libraries needed, append after following lines
+LIBS := $(LIBS)
+INCS := $(INCS)
 
 #-----------Make the executable---------------
 $(EXEC): $(OBJS)
@@ -24,7 +31,6 @@ $(EXEC): $(OBJS)
 clean:
 	rm -f *.o
 	rm -f $(SRC_DIR)/*.o
-	rm -f $(SRC_DIR)/extends/*.o
 	rm -f *.mod
 	rm -f *mod.f90
 
@@ -43,4 +49,5 @@ print-%  : ; @echo $* = $($*)
 check-env:
 	mpif90 --version
 	mpirun --version
+
 

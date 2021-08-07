@@ -10,6 +10,7 @@ Subroutine LinearAdv
   Use ModGlobal
   Use ModTools
   Use ModVOF
+  Use ModVOFExt
   use mod_cg3_polyhedron
   use MODSussman
   use variables_mof
@@ -48,8 +49,8 @@ Subroutine LinearAdv
   f_exact = f_beg
 
   !>1 Replace MOF/VOF Reconstruction
-  Call Initialize_NN
-  MOFNorm => MOFNN
+  ! Call Initialize_NN
+  ! MOFNorm => MOFNN
   !<1 End Replace
 
   Call CPU_Time(tt1)
@@ -59,7 +60,8 @@ Subroutine LinearAdv
     if (myid .eq. 0) print *, 'step =', nn, 'mof_ier', mof_niter(1)
     rank = mod(nn+1,3)
   !>2 Replace MOF/VOF Advection
-    Call MOFCIAM(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz)
+    ! Call VOFTHINC_EI(Phi, u, v, w, nl, dl, dt, rank)
+    Call VOF_LE(Phi, u, v, w, nl, dl, dt, rank)
   !<2 End Replace 
     Call WriteFieldData
   End Do
