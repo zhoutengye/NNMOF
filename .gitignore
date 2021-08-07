@@ -44,3 +44,5 @@ vis*.py
 *.tar.gz
 *.pkl
 *.jar
+*.vts
+*.vtu
