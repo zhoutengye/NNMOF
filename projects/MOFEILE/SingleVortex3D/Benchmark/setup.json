@@ -1,0 +1,47 @@
+{
+    "inputfile_path":"../../inputs/",
+    "exec_path":"../../Benchmark/execs/",
+    "exec_list": [
+	"EI",
+	"LE",
+	"EILE3D",
+	"EILE3DS",
+	"EIEALE",
+	"WY"
+    ],
+    "BenchDir":"MOF_BENCH",
+    "CaseParams":{
+        "EI":{
+            "Advection":[
+                "Call MOF_EI(Phi, u, v, w, nl, dl, dt, rank, cx, cy, cz)"
+            ]
+        },
+        "LE":{
+            "Advection":[
+                "Call MOF_LE(Phi, u, v, w, nl, dl, dt, rank, cx, cy, cz)"
+            ]
+        },
+        "EILE3D":{
+            "Advection":[
+                "Call MOF_EILE3D(Phi, u, v, w, nl, dl, dt, rank, cx, cy, cz)"
+            ]
+        },
+        "EILE3DS":{
+            "Advection":[
+                "Call MOF_EILE3DS(Phi, u, v, w, nl, dl, dt, rank, cx, cy, cz)"
+            ]
+        },
+        "EIEALE":{
+            "Type":"MOF",
+            "Advection":[
+                "Call MOF_EIEALE(Phi, u, v, w, nl, dl, dt, rank, cx, cy, cz, phi0)"
+            ]
+        },
+        "WY":{
+            "Type":"MOF",
+            "Advection":[
+                "Call MOF_WY(Phi, u, v, w, nl, dl, dt,rank, cx, cy, cz, phi0)"
+            ]
+        }
+    }
+}
