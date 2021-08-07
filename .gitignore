@@ -43,3 +43,4 @@ gen_paraview.py
 vis*.py
 *.tar.gz
 *.pkl
+*.jar
