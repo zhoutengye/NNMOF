@@ -40,4 +40,6 @@ tecplot*
 paraview*
 gen_tecplot.py
 gen_paraview.py
-
+vis*.py
+*.tar.gz
+*.pkl
