@@ -14,7 +14,8 @@ endif
 ifeq ($(HDF5_DIR),)
 	HDF5_DIR = $(MOF_DIR)/src/extends/libs/hdf5-1.12.0/hdf5
 endif
-HDF5LIBS =  -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm
+# HDF5LIBS =  -L$(HDF5_DIR)/lib/libhdf5hl_fortran.a $(HDF5_DIR)/lib/libhdf5_hl.a $(HDF5_DIR)/lib/libhdf5_fortran.a $(HDF5_DIR)/lib/libhdf5.a  -lz -ldl -lm
+HDF5LIBS =  -L$(HDF5_DIR)/lib/ -lhdf5_hl  -lhdf5_fortran -lhdf5 -lz -ldl -lm
 HDF5INCS = -I$(HDF5_DIR)/include
 
 # HYPRE library
@@ -32,7 +33,7 @@ ifeq ($(DEBUG), true)
 ifeq ($(compiler), intel)
         FC_OPT = -O0 -g -warn -all -traceback -check all -debug all 
 else
-        FC_OPT = -O0 -g -Wall  -Wextra -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace -Wargument-mismatch
+        FC_OPT = -O0 -g -Wall  -Wextra -Wrealloc-lhs-all -fstack-check  -fbounds-check -fbacktrace
 endif
         EXEC:= DEBUG-$(EXEC)
 else
