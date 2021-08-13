@@ -1746,6 +1746,281 @@ Contains
 
   END subroutine GET_LS_3D_INIT
 
+  !===========================================
+  ! (5-3) Fast sweeping method (FSM) for ls function for far field
+  !===========================================
+  SUBROUTINE VoSET(f33,dx,dy,dz,nx,ny,nzls)
+    !============================================================
+    use ModTools, only : Heaviside, Dirac
+    Use ModGlobal, only : Phi_bc
+    Implicit None
+    Real(8), Intent(In) :: dx, dy, dz
+    integer , Intent(In)  ::  nx,ny,nz
+    REAL(8), intent(in) :: f(0:nx+1,0:ny+1,0:nz+1)
+    REAL(8), intent(out) :: ls(0:nx+1,0:ny+1,0:nz+1)
+    Integer :: s(nx,ny,nz)
+    REAL(8) :: ls_v1(0:nx+1,0:ny+1,0:nz+1)
+    INTEGER :: I,J,K,L
+    INTEGER   ::  Istart, Istep, Iend
+    integer   ::  Jstart, Jstep, Jend
+    integer   ::  Kstart, Kstep, Kend
+    real(8) :: hs, dr, h, a, b, c
+    real(8) :: dnew
+    !============================================================
+    !ÖÃÁã¡ª¡ª½çÃæÍø¸ñ×´Ì¬¡¢LSº¯ÊýºÍÐéÄâLSº¯Êý
+
+    Do 
+    s     = 0.d0
+    ls    = 0.d0
+    ls_v1 = 0.d0
+    !============================================================
+    !³õÊ¼»¯ÐéÄâLSº¯Êý
+    DO K=1,NZ
+      DO I=1,NX
+        DO J=1,NY
+          IF (f(I,J,K) .ge. 0.5d0) THEN
+            ls_v1(I,J,K) = (NX*dx+NY*dy+NZ*dZ)
+          ELSE
+            ls_v1(I,J,K) = -(NX*dx+NY*dy+NZ*NZ)
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+    !Boundary
+    Call Phi_bc%setbcs(ls_v1)
+    !============================================================
+    !¸ù¾ÝÐéÄâLSº¯ÊýÉèÖÃÍø¸ñ½çÃæ×´Ì¬
+    do k=1,nz
+      DO I=1,NX
+        DO J=1,NY
+          IF ( ls_v1(I,J,k)*ls_v1(I-1,J,k)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J,k)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J-1,k)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J+1,k)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J-1,k) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J+1,k) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J-1,k) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J+1,k) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J,k+1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J,k+1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J-1,k+1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J+1,k+1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J-1,k+1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J+1,k+1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J-1,k+1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J+1,k+1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J,k-1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J,k-1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J-1,k-1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J+1,k-1)   .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J-1,k-1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I-1,J+1,k-1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J-1,k-1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I+1,J+1,k-1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J,k+1) .le. 0.0d0 .OR. &
+              &         ls_v1(I,J,k)*ls_v1(I,J,k-1) .le. 0.0d0  ) THEN
+            s(I,J,k) = 1
+          ELSE
+            s(I,J,k) = 0
+          ENDIF
+        ENDDO
+      ENDDO
+    enddo
+    !============================================================
+    !¸üÐÂ½çÃæÍø¸ñ×´Ì¬Îª"1"(½çÃæÍø¸ñ)µÄÐéÄâLSº¯Êý
+    do k=1,nz
+      DO I=1,NX
+        DO J=1,NY
+
+          IF ( s(I,J,k) .eq. 1 ) THEN
+            ls_v1(I,J,k) = 0.0d0
+            hs = Heaviside(ls_v1(I,J,k),dsqrt(2.0d0)*dx)
+            DO WHILE (dabs(hs-f(I,J,k)) .gt. 1.0d-15)
+              hs = Heaviside(ls_v1(I,J,k),dsqrt(2.0d0)*dx)
+              dr = Dirac(ls_v1(I,J,k),dsqrt(2.0d0)*dx)
+              ls_v1(I,J,k) = ls_v1(I,J,k)-(hs-f(I,J,k))/(dr+1.0d-15)
+            ENDDO
+          ENDIF
+        ENDDO
+      ENDDO
+    enddo
+
+
+    Call Phi_bc%setbcs(ls_v1)
+    !============================================================
+    !¸üÐÂ½çÃæÍø¸ñ×´Ì¬Îª"0"(·Ç½çÃæÍø¸ñ)µÄÐéÄâLSº¯Êý
+    h = dx
+    !-------------------------------------
+    !X+,Y+·½ÏòÉ¨Ãè
+    DO l=1,8
+
+      if (l.eq.1) then
+        !X+,Y+,Z+·½ÏòÉ¨Ãè
+        Istart = 1
+        Istep  = 1
+        Iend   = nx
+
+        Jstart = 1
+        Jstep  = 1
+        Jend   = ny
+
+        Kstart = 1
+        Kstep  = 1
+        Kend   = nz
+      elseif (l.eq.2) then
+        !X-,Y+,Z+·½ÏòÉ¨Ãè
+        Istart = nx
+        Istep  = -1
+        Iend   = 1
+
+        Jstart = 1
+        Jstep  = 1
+        Jend   = ny
+
+        Kstart = 1
+        Kstep  = 1
+        Kend   = nz
+      elseif (l.eq.3) then
+        !X+,Y-,Z+·½ÏòÉ¨Ãè
+        Istart = 1
+        Istep  = 1
+        Iend   = nx
+
+        Jstart = ny
+        Jstep  = -1
+        Jend   = 1
+
+        Kstart = 1
+        Kstep  = 1
+        Kend   = nz
+      elseif  (l.eq.4) then
+        !X-,Y-,Z+·½ÏòÉ¨Ãè
+        Istart = nx
+        Istep  = -1
+        Iend   = 1
+
+        Jstart = ny
+        Jstep  = -1
+        Jend   = 1
+
+        Kstart = 1
+        Kstep  = 1
+        Kend   = nz
+      ELSEif (l.eq.5) then
+        !X+,Y+,Z-·½ÏòÉ¨Ãè
+        Istart = 1
+        Istep  = 1
+        Iend   = nx
+
+        Jstart = 1
+        Jstep  = 1
+        Jend   = ny
+
+        Kstart = nz
+        Kstep  = -1
+        Kend   = 1
+      elseif (l.eq.6) then
+        !X-,Y+,Z-·½ÏòÉ¨Ãè
+        Istart = nx
+        Istep  = -1
+        Iend   = 1
+
+        Jstart = 1
+        Jstep  = 1
+        Jend   = ny
+
+        Kstart = nz
+        Kstep  = -1
+        Kend   = 1
+      elseif (l.eq.7) then
+        !X+,Y-,Z-·½ÏòÉ¨Ãè
+        Istart = 1
+        Istep  = 1
+        Iend   = nx
+
+        Jstart = ny
+        Jstep  = -1
+        Jend   = 1
+
+        Kstart = nz
+        Kstep  = -1
+        Kend   = 1
+      else 
+        !X-,Y-,Z-·½ÏòÉ¨Ãè
+        Istart = nx
+        Istep  = -1
+        Iend   = 1
+
+        Jstart = ny
+        Jstep  = -1
+        Jend   = 1
+
+        Kstart = nz
+        Kstep  = -1
+        Kend   = 1
+      endif
+
+      DO K=KSTART,KEND,KSTEP
+        DO J=Jstart,Jend,Jstep
+          DO I=Istart,Iend,Istep
+
+            !ls>=0
+            IF ( ls_v1(I,J,K) .ge. 0.0d0 ) THEN
+              a = dmin1(ls_v1(I-1,J,K),ls_v1(I+1,J,K))
+              b = dmin1(ls_v1(I,J-1,K),ls_v1(I,J+1,K))
+              c = dmin1(ls_v1(I,J,K-1),LS_V1(I,J,K+1))
+              call rank3(a,b,c)
+
+              if ( (a+h).lt.b ) then
+                dnew = a + h 
+              else 
+                dnew = (a+b+dsqrt(2.0*h*h-(a-b)**2))/2.0d0
+                IF ( dnew .gt. c ) THEN
+                  dnew = (a+b+c+dsqrt(3.0*h*h-(a-b)**2-(a-c)**2-(b-c)**2))/3.0d0
+
+                endif
+              endif
+
+              IF ( s(I,J,k) .eq. 0 ) THEN
+                ls_v1(I,J,k) = dmin1(ls_v1(I,J,k),dnew)
+              ENDIF
+              !ls<0
+            ELSE
+              a = dmax1(ls_v1(I-1,J,k),ls_v1(I+1,J,k))
+              b = dmax1(ls_v1(I,J-1,k),ls_v1(I,J+1,k))
+              c = dmax1(ls_v1(I,J,k-1),ls_v1(I,J,k+1))
+              call rank3(a,b,c)
+
+              if( (c-h).gt.b ) then
+                dnew = c - h
+              else
+                dnew = (b+c-dsqrt(2.0*h*h-(b-c)**2))/2.0d0
+                IF ( dnew .lt. a ) THEN
+                  dnew = (a+b+c-dsqrt(3.0*h*h-(a-b)**2-(a-c)**2-(b-c)**2))/3.0d0
+                endif
+              endif
+
+              IF ( s(I,J,k) .eq. 0 ) THEN
+                ls_v1(I,J,k) = dmax1(ls_v1(I,J,k),dnew)
+              ENDIF
+            ENDIF
+          ENDDO
+        ENDDO
+      ENDDO
+      Call Phi_bc%setbcs(ls_v1)
+    ENDDO
+
+
+
+
+    !============================================================
+    !¸üÐÂLSº¯Êý
+    ls(1:NX,1:NY,1:nz)=LS_V1(1:NX,1:NY,1:nz)
+    !============================================================
+    RETURN
+
+  END subroutine GET_LS_3D_INIT
+
   !==========================
   ! (5-4) permulation function for FSM
   !==========================

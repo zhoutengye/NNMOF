@@ -1,8 +1,8 @@
 MOF_DIR    = ../..
-compiler   = intel
+compiler   = gnu
 EXEC       = dam_break.exec
 FC         = mpif90
-DEBUG      = false
+DEBUG      = true
 PRECISION  = DOUBLE_PRECISION
 
 # Uncomment to customize the path of HDF5 and hypre path

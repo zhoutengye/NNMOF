@@ -797,9 +797,9 @@ Contains
       Integer :: ii
       Do ii = 1, mof_niter(1)
         print *, '=====step',ii-1,'=========='
-        print *, cen_array(:,ii)
-        print *, angle_array(:,ii)
-        print *, err_array(ii)
+        ! print *, cen_array(:,ii)
+        ! print *, angle_array(:,ii)
+        ! print *, err_array(ii)
       End Do
     End Block
 #endif

@@ -516,7 +516,7 @@ Contains
     Call HYPRE_StructSMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
     Call HYPRE_StructSMGSetMemoryUse(hypre%precond, 0, Hypre%ier)
     Call HYPRE_StructSMGSetMaxIter(hypre%precond, 1, Hypre%ier)
-    Call HYPRE_StructSMGSetTol(hypre%precond, 0.0, Hypre%ier)
+    Call HYPRE_StructSMGSetTol(hypre%precond, 0.0_SP, Hypre%ier)
     Call HYPRE_StructSMGSetZeroGuess(hypre%precond, Hypre%ier)
     Call HYPRE_StructSMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
     Call HYPRE_StructSMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)
@@ -533,7 +533,7 @@ Contains
     External :: HYPRE_StructPFMGSetNumPreRelax, HYPRE_StructPFMGSetNumPostRelax
     Call HYPRE_StructPFMGCreate(MPI_COMM_WORLD, hypre%precond, Hypre%ier)
     Call HYPRE_StructPFMGSetMaxIter(hypre%precond, 1, Hypre%ier)
-    Call HYPRE_StructPFMGSetTol(hypre%precond, 0.0, Hypre%ier)
+    Call HYPRE_StructPFMGSetTol(hypre%precond, 0.0_SP, Hypre%ier)
     Call HYPRE_StructPFMGSetZeroGuess(hypre%precond, Hypre%ier)
     Call HYPRE_StructPFMGSetNumPreRelax(hypre%precond, 1, Hypre%ier)
     Call HYPRE_StructPFMGSetNumPostRelax(hypre%precond, 1, Hypre%ier)

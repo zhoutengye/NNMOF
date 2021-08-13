@@ -1064,15 +1064,6 @@ Contains
       call MPI_SENDRECV(f(n(1),0,0),1,xhalo,right,0, &
                         f(0   ,0,0),1,xhalo,left ,0, &
                         comm_cart,status,ierr)
-         !call MPI_IRECV(p(0     ,0,0),1,xhalo,left ,1, &
-         !               comm_cart,requests(2),error)
-         !call MPI_IRECV(p(n(1)+1,0,0),1,xhalo,right,0, &
-         !               comm_cart,requests(1),error)
-         !call MPI_ISSEND(p(n(1),0,0),1,xhalo,right,1, &
-         !               comm_cart,requests(4),error)
-         !call MPI_ISSEND(p(1   ,0,0),1,xhalo,left ,0, &
-         !               comm_cart,requests(3),error)
-         !call MPI_WAITALL(4, requests, statuses, error)
     case(2) ! y direction
       call MPI_SENDRECV(f(0,1     ,0),1,yhalo,front,0, &
                         f(0,n(2)+1,0),1,yhalo,back ,0, &
@@ -1080,15 +1071,6 @@ Contains
       call MPI_SENDRECV(f(0,n(2),0),1,yhalo,back ,0, &
                         f(0,0   ,0),1,yhalo,front,0, &
                         comm_cart,status,ierr)
-         !call MPI_IRECV(p(0,n(2)+1,0),1,yhalo,back ,0, &
-         !               comm_cart,requests(1),error)
-         !call MPI_IRECV(p(0,0     ,0),1,yhalo,front,1, &
-         !               comm_cart,requests(2),error)
-         !call MPI_ISSEND(p(0,1   ,0),1,yhalo,front,0, &
-         !               comm_cart,requests(3),error)
-         !call MPI_ISSEND(p(0,n(2),0),1,yhalo,back ,1, &
-         !               comm_cart,requests(4),error)
-         !call MPI_WAITALL(4, requests, statuses, error)
     case(3) ! z direction
       call MPI_SENDRECV(f(0,0,     1),1,zhalo,bottom,0, &
                         f(0,0,n(3)+1),1,zhalo,top ,0, &
@@ -1096,15 +1078,6 @@ Contains
       call MPI_SENDRECV(f(0,0,n(3)),1,zhalo,top ,0, &
                         f(0,0,   0),1,zhalo,bottom,0, &
                         comm_cart,status,ierr)
-      ! call MPI_IRECV(p(0,0,n(3)+1),1,zhalo,bottom ,0, &
-                    ! comm_cart,requests(1),ierr)
-      ! call MPI_IRECV(p(0,0     ,0),1,zhalo,top,1, &
-      !               ! comm_cart,requests(2),ierror)
-      ! call MPI_ISSEND(p(0,0   ,1),1,zhalo,top,0, &
-      !               comm_cart,requests(3),ierr)
-      ! call MPI_ISSEND(p(0,0,n(3)),1,zhalo,bottom ,1, &
-      !               comm_cart,requests(4),ierror)
-      ! call MPI_WAITALL(4, requests, statuses, ierr)
     end select
     return
   end subroutine updthalo

@@ -1,6 +1,6 @@
 TEST_NUM = 4
 MOF_DIR    = ../..
-compiler   = intel
+compiler   = gnu
 EXEC       = TEST
 FC         = mpif90
 DEBUG      = false
