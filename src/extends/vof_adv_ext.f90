@@ -1454,7 +1454,7 @@ Contains
     Real(SP),Intent(In) :: f
     Integer ,Intent(In) :: dir
     Real(SP),Intent(Out) :: beta
-    beta = dabs(norm(dir) / dsqrt(1.0 - norm(dir)**2)+1.0d-15) * 2.0d0 * (dexp(1.5*dabs(f-0.5d0)))
+    beta = dabs(norm(dir) / dsqrt(1.0 - norm(dir)**2)+1.0d-15) * 2.0d0 * (dexp(dabs(f-0.5d0)))
     beta = min(max(1.0d-2,beta),1.0d2)
   End Subroutine THINC_Beta_SL
 
